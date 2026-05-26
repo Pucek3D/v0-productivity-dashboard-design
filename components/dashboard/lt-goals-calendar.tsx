@@ -85,9 +85,8 @@ function GanttView() {
         </div>
       ))}
       {GANTT_DATA.map(row => (
-        <>
+        <div key={row.name} className="contents">
           <div 
-            key={`${row.name}-label`}
             className="text-[9.5px] font-bold text-right pr-1"
             style={{ color: row.color }}
           >
@@ -95,7 +94,7 @@ function GanttView() {
           </div>
           {row.active.map((a, i) => (
             <div
-              key={`${row.name}-${i}`}
+              key={i}
               className="h-3.5 rounded-[3px]"
               style={{
                 background: a ? pastel(row.color, 0.72) : '#f9fafb',
@@ -103,7 +102,7 @@ function GanttView() {
               }}
             />
           ))}
-        </>
+        </div>
       ))}
     </div>
   )

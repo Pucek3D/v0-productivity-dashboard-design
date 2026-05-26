@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { PROJECTS, LT_GOALS, type Project } from '@/lib/data'
+import { useState } from 'react'
+import { PROJECTS, LT_GOALS, pastel, Project } from '@/lib/data'
 
 interface ProgressOverviewProps {
   projectDone: Record<string, boolean>
@@ -10,29 +10,28 @@ interface ProgressOverviewProps {
 
 export function ProgressOverview({ projectDone, getProjectCompletion }: ProgressOverviewProps) {
   const [tab, setTab] = useState<'p' | 'g'>('p')
+  const data = tab === 'p' ? PROJECTS : LT_GOALS
 
-  const items = tab === 'p' ? PROJECTS : LT_GOALS
+  // Calculate summary stats
+  let totalTasks = 0
+  let doneTasks = 0
+  let totalPct = 0
 
-  const stats = useMemo(() => {
-    const completions = items.map(p => getProjectCompletion(p))
-    const avg = completions.length > 0 
-      ? Math.round(completions.reduce((a, b) => a + b, 0) / completions.length) 
-      : 0
-    
-    let tasksDone = 0
-    items.forEach(p => {
-      p.tasks.forEach((_, i) => {
-        if (projectDone[`${p.key}-task-${i}`]) tasksDone++
-      })
-      p.doneTasks.forEach((_, i) => {
-        if (projectDone[`${p.key}-done-${i}`] !== false) tasksDone++
-      })
+  data.forEach(project => {
+    const total = project.tasks.length + project.doneTasks.length
+    let done = 0
+    project.tasks.forEach((_, i) => {
+      if (projectDone[`${project.key}-task-${i}`]) done++
     })
+    project.doneTasks.forEach((_, i) => {
+      if (projectDone[`${project.key}-done-${i}`] !== false) done++
+    })
+    totalTasks += total
+    doneTasks += done
+    totalPct += total > 0 ? Math.round((done / total) * 100) : 0
+  })
 
-    const atRisk = items.filter(p => p.status === 'At risk' || p.status.includes('Today')).length
-
-    return { avg, tasksDone, atRisk }
-  }, [items, projectDone, getProjectCompletion])
+  const avgPct = data.length > 0 ? Math.round(totalPct / data.length) : 0
 
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
@@ -41,10 +40,10 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
           <span className="text-white font-bold text-[10.5px] tracking-[0.07em] uppercase">
             Progress overview
           </span>
-          <div className="flex bg-white/20 rounded-md overflow-hidden">
+          <div className="flex bg-white/[0.18] rounded-[5px] overflow-hidden">
             <button
               onClick={() => setTab('p')}
-              className={`px-1.5 py-0.5 border-none cursor-pointer text-[10px] font-bold transition-all ${
+              className={`px-[7px] py-[3px] border-none cursor-pointer text-[10px] font-bold ${
                 tab === 'p' ? 'bg-white/30 text-white' : 'bg-transparent text-white/60'
               }`}
             >
@@ -52,7 +51,7 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
             </button>
             <button
               onClick={() => setTab('g')}
-              className={`px-1.5 py-0.5 border-none cursor-pointer text-[10px] font-bold transition-all ${
+              className={`px-[7px] py-[3px] border-none cursor-pointer text-[10px] font-bold ${
                 tab === 'g' ? 'bg-white/30 text-white' : 'bg-transparent text-white/60'
               }`}
             >
@@ -63,57 +62,61 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
       </div>
       <div className="p-[11px_13px]">
         {/* Summary */}
-        <div className="bg-gray-50 rounded-lg p-1.5 mb-2 flex gap-2.5">
+        <div className="bg-[#fafafa] rounded-lg p-[6px_10px] mb-2 flex gap-[10px]">
           <div className="text-center flex-1">
-            <div className="text-[15px] font-extrabold text-gray-900 leading-none">{stats.avg}%</div>
-            <div className="text-[8.5px] text-gray-400 mt-0.5">Avg completion</div>
+            <div className="text-[15px] font-extrabold text-[#111827] leading-none">{avgPct}%</div>
+            <div className="text-[8.5px] text-[#9ca3af] mt-0.5">Avg completion</div>
           </div>
-          <div className="w-px bg-gray-200" />
+          <div className="w-px bg-[#f3f4f6]" />
           <div className="text-center flex-1">
-            <div className="text-[15px] font-extrabold text-gray-900 leading-none">{stats.tasksDone}</div>
-            <div className="text-[8.5px] text-gray-400 mt-0.5">Tasks done</div>
+            <div className="text-[15px] font-extrabold text-[#111827] leading-none">{doneTasks}/{totalTasks}</div>
+            <div className="text-[8.5px] text-[#9ca3af] mt-0.5">Tasks done</div>
           </div>
-          <div className="w-px bg-gray-200" />
+          <div className="w-px bg-[#f3f4f6]" />
           <div className="text-center flex-1">
-            <div className="text-[15px] font-extrabold text-orange-500 leading-none">{stats.atRisk}</div>
-            <div className="text-[8.5px] text-gray-400 mt-0.5">At risk</div>
+            <div className="text-[15px] font-extrabold text-[#f97316] leading-none">2</div>
+            <div className="text-[8.5px] text-[#9ca3af] mt-0.5">At risk</div>
           </div>
         </div>
 
         {/* Progress bars */}
-        <div className="space-y-1.5">
-          {items.map(item => {
-            const completion = getProjectCompletion(item)
-            const totalTasks = item.tasks.length + item.doneTasks.length
-            let doneTasks = 0
-            item.tasks.forEach((_, i) => {
-              if (projectDone[`${item.key}-task-${i}`]) doneTasks++
-            })
-            item.doneTasks.forEach((_, i) => {
-              if (projectDone[`${item.key}-done-${i}`] !== false) doneTasks++
-            })
+        {data.map(project => {
+          const pct = getProjectCompletion(project)
+          const total = project.tasks.length + project.doneTasks.length
+          let done = 0
+          project.tasks.forEach((_, i) => {
+            if (projectDone[`${project.key}-task-${i}`]) done++
+          })
+          project.doneTasks.forEach((_, i) => {
+            if (projectDone[`${project.key}-done-${i}`] !== false) done++
+          })
 
-            return (
-              <div key={item.key} className="flex items-center gap-1.5">
-                <span className="text-[9.5px] font-bold text-gray-700 w-16 flex-shrink-0 truncate">
-                  {item.name}
-                </span>
-                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-400"
-                    style={{ width: `${completion}%`, backgroundColor: item.color }}
-                  />
-                </div>
-                <span className="text-[9px] font-bold w-7 text-right flex-shrink-0" style={{ color: item.color }}>
-                  {completion}%
-                </span>
-                <span className="text-[8.5px] text-gray-400 w-6 text-right flex-shrink-0">
-                  {doneTasks}/{totalTasks}
-                </span>
+          return (
+            <div key={project.key} className="flex items-center gap-[5px] mb-1.5 last:mb-0">
+              <div 
+                className="text-[9.5px] font-bold text-[#374151] w-[65px] flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis"
+                title={project.name}
+              >
+                {project.name}
               </div>
-            )
-          })}
-        </div>
+              <div className="flex-1 h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-[width] duration-400"
+                  style={{ width: `${pct}%`, background: pastel(project.color, 0.42) }}
+                />
+              </div>
+              <span 
+                className="text-[9px] font-bold w-[26px] text-right flex-shrink-0"
+                style={{ color: project.color }}
+              >
+                {pct}%
+              </span>
+              <span className="text-[8.5px] text-[#9ca3af] w-[22px] text-right flex-shrink-0">
+                {done}/{total}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
