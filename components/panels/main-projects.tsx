@@ -278,7 +278,10 @@ function LongTermGoalsSection() {
 export function MainProjectsPanel() {
   return (
     <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-      <div className="px-3 py-2 border-b border-gray-100 flex-shrink-0">
+      <div
+        className="px-3 py-2.5 border-b border-gray-100 flex-shrink-0 bg-[#F9FAFB] rounded-t-lg"
+        style={{ borderLeft: "3px solid #7C3AED", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
+      >
         <h2 className="text-xs font-bold uppercase tracking-widest text-[#7C3AED]">Main Projects</h2>
       </div>
       <div className="flex-1 overflow-y-auto p-3">

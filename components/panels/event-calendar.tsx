@@ -152,36 +152,95 @@ function DayView({ events }: { events: CalEvent[] }) {
   )
 }
 
-/* ── Long-term goals mini timeline ───────────────────────── */
+/* ── Long-term goals Gantt chart ─────────────────────────── */
 function GoalsTimeline() {
+  const today = new Date()
+  const currentMonth = today.getMonth() + 1 // 1-based
+
   return (
-    <div className="border-t border-gray-100 pt-2 mt-2">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">Long term goals calendar</div>
-      <div className="overflow-x-auto">
-        <div className="min-w-[400px]">
-          {/* Month header */}
-          <div className="grid gap-px mb-1" style={{ gridTemplateColumns: `80px repeat(12, 1fr)` }}>
-            <div />
-            {TIMELINE_MONTHS.map((m) => (
-              <div key={m} className="text-[8px] text-gray-400 text-center font-medium">{m}</div>
+    <div className="mt-3 flex-shrink-0">
+      {/* Section header — elevated card style */}
+      <div
+        className="flex items-center gap-2 px-3 py-2 mb-2 rounded-t-xl bg-white"
+        style={{
+          borderLeft: "3px solid #7C3AED",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        <span className="text-[11px] font-bold uppercase tracking-widest text-[#7C3AED]">Long Term Goals Calendar</span>
+      </div>
+
+      {/* Gantt card */}
+      <div className="bg-white rounded-b-xl border border-gray-100 overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+        <div className="overflow-x-auto">
+          <div style={{ minWidth: 440 }}>
+            {/* Month column headers */}
+            <div
+              className="grid border-b border-gray-100"
+              style={{ gridTemplateColumns: "88px repeat(12, 1fr)" }}
+            >
+              <div className="px-2 py-1.5" />
+              {TIMELINE_MONTHS.map((m, i) => (
+                <div
+                  key={m}
+                  className={`text-center py-1.5 text-[9px] font-semibold uppercase tracking-wide ${
+                    i + 1 === currentMonth ? "text-[#7C3AED]" : "text-gray-400"
+                  }`}
+                >
+                  {m}
+                  {i + 1 === currentMonth && (
+                    <div className="mx-auto mt-0.5 w-1 h-1 rounded-full bg-[#7C3AED]" />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Project rows */}
+            {MILESTONES.map((ms, rowIdx) => (
+              <div
+                key={ms.project}
+                className={`grid items-center ${rowIdx < MILESTONES.length - 1 ? "border-b border-gray-50" : ""}`}
+                style={{ gridTemplateColumns: "88px repeat(12, 1fr)" }}
+              >
+                {/* Row label */}
+                <div className="px-2 py-2">
+                  <span
+                    className="text-[9px] font-bold uppercase tracking-wide truncate block"
+                    style={{ color: ms.color }}
+                  >
+                    {ms.project}
+                  </span>
+                </div>
+
+                {/* Month cells */}
+                {Array.from({ length: 12 }, (_, i) => {
+                  const monthNum = i + 1
+                  const inRange = monthNum >= ms.start && monthNum <= ms.end
+                  const isFirst = monthNum === ms.start
+                  const isLast = monthNum === ms.end
+                  return (
+                    <div key={i} className="py-2 px-0.5">
+                      {inRange ? (
+                        <div
+                          className="h-5 w-full"
+                          style={{
+                            backgroundColor: ms.color + "28",
+                            borderTop: `1.5px solid ${ms.color}55`,
+                            borderBottom: `1.5px solid ${ms.color}55`,
+                            borderLeft: isFirst ? `1.5px solid ${ms.color}55` : "none",
+                            borderRight: isLast ? `1.5px solid ${ms.color}55` : "none",
+                            borderRadius: isFirst && isLast ? 9999 : isFirst ? "9999px 0 0 9999px" : isLast ? "0 9999px 9999px 0" : 0,
+                          }}
+                        />
+                      ) : (
+                        <div className="h-5" />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             ))}
           </div>
-          {/* Milestone rows */}
-          {MILESTONES.map((ms) => (
-            <div key={ms.project} className="grid gap-px mb-0.5 items-center" style={{ gridTemplateColumns: `80px repeat(12, 1fr)` }}>
-              <div className="text-[9px] font-medium text-gray-700 truncate pr-1">{ms.project}</div>
-              {Array.from({ length: 12 }, (_, i) => {
-                const active = i + 1 >= ms.start && i + 1 <= ms.end
-                return (
-                  <div
-                    key={i}
-                    className="h-3 rounded-sm"
-                    style={{ backgroundColor: active ? ms.color + "33" : "transparent", border: active ? `1px solid ${ms.color}66` : "1px solid transparent" }}
-                  />
-                )
-              })}
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -208,7 +267,10 @@ export function EventCalendarPanel() {
   return (
     <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+      <div
+        className="px-3 py-2.5 border-b border-gray-100 flex items-center justify-between flex-shrink-0 bg-[#F9FAFB] rounded-t-lg"
+        style={{ borderLeft: "3px solid #7C3AED", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
+      >
         <h2 className="text-xs font-bold uppercase tracking-widest text-[#7C3AED]">Event Calendar</h2>
         <div className="flex items-center gap-1">
           {(["day", "week", "month"] as CalView[]).map((v) => (
