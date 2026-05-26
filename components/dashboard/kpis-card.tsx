@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { 
   IconMoon, IconRun, IconCheckbox, IconChartCandle, 
   IconPigMoney, IconMicrophone, IconMessage 
@@ -208,8 +208,8 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
         </thead>
         <tbody>
           {categories.map(cat => (
-            <>
-              <tr key={`${cat.id}-header`}>
+            <React.Fragment key={cat.id}>
+              <tr>
                 <td colSpan={9} className="py-[5px_0_2px]">
                   <span
                     className="text-[9px] font-extrabold tracking-[0.05em] uppercase px-[5px] py-[2px] rounded-[3px]"
@@ -249,7 +249,7 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
                   </tr>
                 )
               })}
-            </>
+            </React.Fragment>
           ))}
         </tbody>
       </table>
