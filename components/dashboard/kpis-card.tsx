@@ -129,7 +129,11 @@ function DayView({
               <div key={k.id} style={{ marginTop: ki > 0 ? '7px' : '0' }}>
                 <div className="flex justify-between items-center mb-[3px]">
                   <div className="flex items-center gap-1.5">
-                    {Icon && <Icon size={13} style={{ color: pastel(cat.color, 0.3) }} />}
+                    {Icon && (
+                      <span style={{ color: pastel(cat.color, 0.3) }}>
+                        <Icon size={13} />
+                      </span>
+                    )}
                     <span className="text-[11.5px] font-semibold text-[#374151]">{k.label}</span>
                   </div>
                   <div className="flex items-center gap-[5px]">
