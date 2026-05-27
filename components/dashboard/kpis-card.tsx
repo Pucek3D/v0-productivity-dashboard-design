@@ -118,7 +118,7 @@ function DayView({
         <div key={cat.id}>
           {ci > 0 && <div className="h-px bg-[#f9fafb] my-[9px] mb-[7px]" />}
           <div
-            className="text-[16px] font-extrabold tracking-[0.06em] uppercase px-[7px] py-[3px] rounded inline-block mb-1.5"
+            className="text-[12px] font-extrabold tracking-[0.06em] uppercase px-[7px] py-[3px] rounded inline-block mb-1.5"
             style={{ background: pastel(cat.color, 0.88), color: cat.color }}
           >
             {cat.label}
@@ -134,11 +134,11 @@ function DayView({
                         <Icon size={13} />
                       </span>
                     )}
-                    <span className="text-[18.5px] font-semibold text-[#374151]">{k.label}</span>
+                    <span className="text-[14.5px] font-semibold text-[#374151]">{k.label}</span>
                   </div>
                   <div className="flex items-center gap-[5px]">
                     {k.type === 'num' ? (
-                      <span className="text-[18px] font-bold" style={{ color: cat.color }}>
+                      <span className="text-[14px] font-bold" style={{ color: cat.color }}>
                         {k.val} / {k.target}
                       </span>
                     ) : (
@@ -156,7 +156,7 @@ function DayView({
                       </div>
                     )}
                     <span
-                      className="text-[16px] font-bold rounded-full px-[5px] py-[1px] whitespace-nowrap"
+                      className="text-[12px] font-bold rounded-full px-[5px] py-[1px] whitespace-nowrap"
                       style={{ background: pastel(cat.color, 0.88), color: cat.color }}
                     >
                       🔥 {k.streak}
@@ -216,7 +216,7 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
               <tr>
                 <td colSpan={9} className="py-[5px_0_2px]">
                   <span
-                    className="text-[15px] font-extrabold tracking-[0.05em] uppercase px-[5px] py-[2px] rounded-[3px]"
+                    className="text-[11px] font-extrabold tracking-[0.05em] uppercase px-[5px] py-[2px] rounded-[3px]"
                     style={{ background: pastel(cat.color, 0.88), color: cat.color }}
                   >
                     {cat.label}
@@ -230,7 +230,7 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
                 if (k.streak > bestStreak.streak) bestStreak = { label: k.label, streak: k.streak }
                 return (
                   <tr key={k.id}>
-                    <td className="text-[15.5px] font-semibold text-[#374151] p-[2px_0] overflow-hidden text-ellipsis whitespace-nowrap">
+                    <td className="text-[13.5px] font-semibold text-[#374151] p-[2px_0] overflow-hidden text-ellipsis whitespace-nowrap">
                       {k.label}
                     </td>
                     {k.days.map((d, i) => (
@@ -245,7 +245,7 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
                       </td>
                     ))}
                     <td
-                      className="text-right text-[15.5px] font-bold p-[2px_0]"
+                      className="text-right text-[13.5px] font-bold p-[2px_0]"
                       style={{ color: pctColor }}
                     >
                       {pct}%
@@ -258,9 +258,9 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
         </tbody>
       </table>
       <div className="mt-[9px] pt-[7px] border-t border-[#f9fafb] flex gap-[7px] items-center">
-        <span className="text-[15px] text-[#9ca3af]">Best streak:</span>
+        <span className="text-[13px] text-[#9ca3af]">Best streak:</span>
         <span
-          className="text-[15.5px] font-bold px-[7px] py-[1px] rounded-full"
+          className="text-[12px] font-bold px-[7px] py-[1px] rounded-full"
           style={{ color: '#d97706', background: pastel('#d97706', 0.88) }}
         >
           🔥 {bestStreak.label} — {bestStreak.streak} days
