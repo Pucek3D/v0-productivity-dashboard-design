@@ -65,75 +65,79 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
 
                 {/* Visible tasks */}
                 <div className="border-t border-[#f9fafb] pt-[3px] mt-0.5">
-                  {visibleTasks.map((task, i) => {
-                    const isDone = projectDone[`${project.key}-task-${i}`]
-                    return (
-                      <div
-                        key={i}
-                        className="flex items-start gap-[5px] py-0.5 cursor-pointer select-none"
-                        onClick={() => toggleProjectTask(project.key, 'task', i)}
-                      >
+                  <div className="grid grid-cols-3 gap-1">
+                    {visibleTasks.map((task, i) => {
+                      const isDone = projectDone[`${project.key}-task-${i}`]
+                      return (
                         <div
-                          className={`w-[11px] h-[11px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[1px] ${
-                            isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
-                          }`}
+                          key={i}
+                          className="flex items-start gap-[4px] py-0.5 cursor-pointer select-none"
+                          onClick={() => toggleProjectTask(project.key, 'task', i)}
                         >
-                          {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
+                          <div
+                            className={`w-[10px] h-[10px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[1px] ${
+                              isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
+                            }`}
+                          >
+                            {isDone && <span className="text-[#5b21b6] text-[6px] font-extrabold">✓</span>}
+                          </div>
+                          <span className={`text-[8px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                            {task}
+                          </span>
                         </div>
-                        <span className={`text-[9.5px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
-                          {task}
-                        </span>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
 
                 {/* Hidden tasks (expandable) */}
                 {isExpanded && (
                   <div className="pt-0.5">
-                    {hiddenTasks.map((task, i) => {
-                      const idx = i + 2
-                      const isDone = projectDone[`${project.key}-task-${idx}`]
-                      return (
-                        <div
-                          key={idx}
-                          className="flex items-start gap-[5px] py-0.5 cursor-pointer select-none"
-                          onClick={() => toggleProjectTask(project.key, 'task', idx)}
-                        >
+                    <div className="grid grid-cols-3 gap-1">
+                      {hiddenTasks.map((task, i) => {
+                        const idx = i + 2
+                        const isDone = projectDone[`${project.key}-task-${idx}`]
+                        return (
                           <div
-                            className={`w-[11px] h-[11px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[1px] ${
-                              isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
-                            }`}
+                            key={idx}
+                            className="flex items-start gap-[4px] py-0.5 cursor-pointer select-none"
+                            onClick={() => toggleProjectTask(project.key, 'task', idx)}
                           >
-                            {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
+                            <div
+                              className={`w-[10px] h-[10px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[1px] ${
+                                isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
+                              }`}
+                            >
+                              {isDone && <span className="text-[#5b21b6] text-[6px] font-extrabold">✓</span>}
+                            </div>
+                            <span className={`text-[8px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                              {task}
+                            </span>
                           </div>
-                          <span className={`text-[9.5px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
-                            {task}
-                          </span>
-                        </div>
-                      )
-                    })}
-                    {project.doneTasks.map((task, i) => {
-                      const isDone = projectDone[`${project.key}-done-${i}`] !== false
-                      return (
-                        <div
-                          key={`done-${i}`}
-                          className="flex items-start gap-[5px] py-0.5 cursor-pointer select-none"
-                          onClick={() => toggleProjectTask(project.key, 'done', i)}
-                        >
+                        )
+                      })}
+                      {project.doneTasks.map((task, i) => {
+                        const isDone = projectDone[`${project.key}-done-${i}`] !== false
+                        return (
                           <div
-                            className={`w-[11px] h-[11px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[1px] ${
-                              isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
-                            }`}
+                            key={`done-${i}`}
+                            className="flex items-start gap-[4px] py-0.5 cursor-pointer select-none"
+                            onClick={() => toggleProjectTask(project.key, 'done', i)}
                           >
-                            {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
+                            <div
+                              className={`w-[10px] h-[10px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[1px] ${
+                                isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
+                              }`}
+                            >
+                              {isDone && <span className="text-[#5b21b6] text-[6px] font-extrabold">✓</span>}
+                            </div>
+                            <span className={`text-[8px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                              {task}
+                            </span>
                           </div>
-                          <span className={`text-[9.5px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
-                            {task}
-                          </span>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
 
