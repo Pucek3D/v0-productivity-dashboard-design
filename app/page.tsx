@@ -61,7 +61,7 @@ export default function Dashboard() {
       </header>
 
       {/* 3-column grid */}
-      <div className="grid grid-cols-[196px_minmax(0,0.5fr)_minmax(0,1fr)] gap-[11px] items-start">
+      <div className="grid grid-cols-[196px_minmax(0,0.75fr)_minmax(0,1fr)] gap-[11px] items-start">
         {/* LEFT COLUMN */}
         <div className="flex flex-col gap-[11px]">
           <TopPrioCard />
