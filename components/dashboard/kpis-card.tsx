@@ -258,9 +258,9 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
         </tbody>
       </table>
       <div className="mt-[9px] pt-[7px] border-t border-[#f9fafb] flex gap-[7px] items-center">
-        <span className="text-[9px] text-[#9ca3af]">Best streak:</span>
+        <span className="text-[13px] text-[#9ca3af]">Best streak:</span>
         <span
-          className="text-[9.5px] font-bold px-[7px] py-[1px] rounded-full"
+          className="text-[13.5px] font-bold px-[7px] py-[1px] rounded-full"
           style={{ color: '#d97706', background: pastel('#d97706', 0.88) }}
         >
           🔥 {bestStreak.label} — {bestStreak.streak} days
