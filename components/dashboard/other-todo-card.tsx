@@ -21,7 +21,7 @@ export function OtherTodoCard() {
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
       <div className="bg-[#6d28d9] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
-        <span className="text-white font-bold text-[12.5px] tracking-[0.07em] uppercase">
+        <span className="text-white font-bold text-[16.5px] tracking-[0.07em] uppercase">
           Other to-do
         </span>
       </div>
@@ -29,7 +29,7 @@ export function OtherTodoCard() {
         {todos.map((group, groupIdx) => (
           <div key={group.group} className={groupIdx > 0 ? 'mt-1.5' : ''}>
             {groupIdx > 0 && <div className="h-px bg-[#f9fafb] mb-[5px]" />}
-            <div className="text-[14.5px] font-bold mb-[3px]" style={{ color: group.color }}>
+            <div className="text-[18.5px] font-bold mb-[3px]" style={{ color: group.color }}>
               {group.group}
             </div>
             {group.tasks.map((task, taskIdx) => (
@@ -45,7 +45,7 @@ export function OtherTodoCard() {
                 >
                   {task.done && <span className="text-[#5b21b6] text-[8px] font-extrabold">✓</span>}
                 </div>
-                <span className={`text-[13px] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                <span className={`text-[17px] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                   {task.text}
                 </span>
               </div>
