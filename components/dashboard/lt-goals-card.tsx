@@ -65,7 +65,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
 
                 {/* Visible tasks */}
                 <div className="border-t border-[#f9fafb] pt-[3px] mt-0.5">
-                  {visibleTasks.map((task, i) => {
+                    {visibleTasks.map((task, i) => {
                     const isDone = projectDone[`${goal.key}-task-${i}`]
                     return (
                       <div
@@ -80,7 +80,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                         >
                           {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
                         </div>
-                        <span className={`text-[11px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                        <span className={`text-[12px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                           {task}
                         </span>
                       </div>
@@ -107,7 +107,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                           >
                             {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
                           </div>
-                          <span className={`text-[11px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                          <span className={`text-[10px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                             {task}
                           </span>
                         </div>
@@ -128,7 +128,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                           >
                             {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
                           </div>
-                          <span className={`text-[11px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                          <span className={`text-[10px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                             {task}
                           </span>
                         </div>
