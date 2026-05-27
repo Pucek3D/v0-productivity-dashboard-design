@@ -26,7 +26,7 @@ export function EventCalendar() {
     <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
       <div className="bg-[#1d4ed8] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
         <div className="flex justify-between items-center">
-          <span className="text-white font-bold text-[16.5px] tracking-[0.07em] uppercase">
+          <span className="text-white font-bold text-[12.5px] tracking-[0.07em] uppercase">
             Event Calendar
           </span>
           <div className="flex bg-white/[0.18] rounded-[5px] overflow-hidden">
@@ -34,7 +34,7 @@ export function EventCalendar() {
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`px-[7px] py-[3px] border-none cursor-pointer text-[18px] font-bold ${
+                className={`px-[7px] py-[3px] border-none cursor-pointer text-[14px] font-bold ${
                   view === v ? 'bg-white/30 text-white' : 'bg-transparent text-white/60'
                 }`}
               >
@@ -83,7 +83,7 @@ function MonthView({ month, year }: { month: number; year: number }) {
     <>
       <div className="grid grid-cols-7 gap-0.5 mb-[3px]">
         {DAY_NAMES.map((d, i) => (
-          <div key={i} className="text-center text-[15px] font-bold text-[#9ca3af] py-0.5">
+          <div key={i} className="text-center text-[11px] font-bold text-[#9ca3af] py-0.5">
             {d}
           </div>
         ))}
@@ -105,7 +105,7 @@ function MonthView({ month, year }: { month: number; year: number }) {
                   : 'border-transparent hover:bg-[#f9fafb] hover:border-[#e5e7eb]'
               }`}
             >
-              <span className={`text-[16px] font-semibold leading-none mb-[1px] ${
+              <span className={`text-[12px] font-semibold leading-none mb-[1px] ${
                 isToday ? 'text-[#7c3aed] font-extrabold' : 'text-[#374151]'
               }`}>
                 {day}
@@ -113,14 +113,14 @@ function MonthView({ month, year }: { month: number; year: number }) {
               {dayEvents.slice(0, 2).map((ev, j) => (
                 <div
                   key={j}
-                  className="text-[14.5px] font-bold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]"
+                  className="text-[10.5px] font-bold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]"
                   style={{ background: pastel(ev.color, 0.78), color: ev.color }}
                 >
                   {ev.label}
                 </div>
               ))}
               {dayEvents.length > 2 && (
-                <div className="text-[14.5px] font-bold rounded-[3px] px-1 py-[1.5px] bg-[#f3f4f6] text-[#9ca3af]">
+                <div className="text-[10.5px] font-bold rounded-[3px] px-1 py-[1.5px] bg-[#f3f4f6] text-[#9ca3af]">
                   +{dayEvents.length - 2}
                 </div>
               )}
@@ -158,11 +158,11 @@ function WeekView() {
             }`}
           >
               <div className="text-center mb-[3px]">
-              <div className={`text-[15px] font-bold ${isToday ? 'text-[#7c3aed]' : 'text-[#9ca3af]'}`}>
+              <div className={`text-[11px] font-bold ${isToday ? 'text-[#7c3aed]' : 'text-[#9ca3af]'}`}>
                 {c.name}
               </div>
               <div 
-                className={`text-[19px] font-bold text-[#111827] w-[22px] h-[22px] rounded-full flex items-center justify-center mx-auto mt-[1px] mb-0.5 ${
+                className={`text-[15px] font-bold text-[#111827] w-[22px] h-[22px] rounded-full flex items-center justify-center mx-auto mt-[1px] mb-0.5 ${
                   isToday ? 'bg-[#ddd6fe] text-[#5b21b6]' : ''
                 }`}
               >
@@ -178,10 +178,10 @@ function WeekView() {
                   borderLeft: `3px solid ${pastel(ev.color, 0.5)}`
                 }}
               >
-                <div className="text-[14px] font-bold" style={{ color: ev.color }}>
+                <div className="text-[10px] font-bold" style={{ color: ev.color }}>
                   {ev.time}
                 </div>
-                <div className="text-[14.5px] font-semibold leading-[1.3] text-[#374151]">
+                <div className="text-[10.5px] font-semibold leading-[1.3] text-[#374151]">
                   {ev.label}
                 </div>
               </div>
@@ -200,8 +200,8 @@ function DayView() {
         className="mb-2 p-[6px_10px] rounded-lg flex justify-between"
         style={{ background: pastel('#7c3aed', 0.88) }}
       >
-        <span className="text-[17px] font-bold text-[#6d28d9]">Tue, 26 May 2026</span>
-        <span className="text-[16px] text-[#6d28d9] font-semibold">Today</span>
+        <span className="text-[13px] font-bold text-[#6d28d9]">Tue, 26 May 2026</span>
+        <span className="text-[12px] text-[#6d28d9] font-semibold">Today</span>
       </div>
       {Array.from({ length: 11 }).map((_, i) => {
         const hour = i + 8
@@ -214,7 +214,7 @@ function DayView() {
             style={{ minHeight: events.length ? '40px' : '20px' }}
           >
             <span 
-              className="text-[15px] font-semibold w-[30px] flex-shrink-0 pt-[3px] text-right"
+              className="text-[11px] font-semibold w-[30px] flex-shrink-0 pt-[3px] text-right"
               style={{ color: isNow ? '#7c3aed' : '#d1d5db' }}
             >
               {hour.toString().padStart(2, '0')}:00
@@ -238,10 +238,10 @@ function DayView() {
                     borderLeft: `3px solid ${pastel(ev.color, 0.5)}`,
                   }}
                 >
-                  <div className="text-[16.5px] font-bold" style={{ color: ev.color }}>
+                  <div className="text-[12.5px] font-bold" style={{ color: ev.color }}>
                     {ev.label}
                   </div>
-                  <div className="text-[15px] text-[#9ca3af]">
+                  <div className="text-[11px] text-[#9ca3af]">
                     {ev.hour.toString().padStart(2, '0')}:00 – {ev.end.toString().padStart(2, '0')}:00
                   </div>
                 </div>
