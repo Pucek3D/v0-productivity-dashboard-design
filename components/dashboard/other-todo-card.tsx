@@ -65,7 +65,7 @@ export function OtherTodoCard() {
                   className="w-[5px] h-[5px] rounded-full flex-shrink-0"
                   style={{ background: PRIORITY_COLORS[task.priority] || '#d1d5db' }}
                 />
-                <span className={`text-[13px] text-[#111827] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : ''}`}>
+                <span className={`text-[13px] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                   {task.text}
                 </span>
               </div>
