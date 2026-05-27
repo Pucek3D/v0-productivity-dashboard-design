@@ -105,7 +105,7 @@ function MonthView({ month, year }: { month: number; year: number }) {
                   : 'border-transparent hover:bg-[#f9fafb] hover:border-[#e5e7eb]'
               }`}
             >
-              <span className={`text-[10px] font-semibold leading-none mb-[1px] ${
+              <span className="text-[12px] font-semibold leading-none mb-[1px] ${
                 isToday ? 'text-[#7c3aed] font-extrabold' : 'text-[#374151]'
               }`}>
                 {day}
@@ -113,14 +113,14 @@ function MonthView({ month, year }: { month: number; year: number }) {
               {dayEvents.slice(0, 2).map((ev, j) => (
                 <div
                   key={j}
-                  className="text-[7.5px] font-bold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]"
+                  className="text-[8.5px] font-bold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]"
                   style={{ background: pastel(ev.color, 0.78), color: ev.color }}
                 >
                   {ev.label}
                 </div>
               ))}
               {dayEvents.length > 2 && (
-                <div className="text-[7.5px] font-bold rounded-[3px] px-1 py-[1.5px] bg-[#f3f4f6] text-[#9ca3af]">
+                <div className="text-[8.5px] font-bold rounded-[3px] px-1 py-[1.5px] bg-[#f3f4f6] text-[#9ca3af]">
                   +{dayEvents.length - 2}
                 </div>
               )}

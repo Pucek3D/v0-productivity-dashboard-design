@@ -39,12 +39,12 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                 className="border border-[#f3f4f6] rounded-lg p-[7px_7px_5px] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
                 style={{ borderLeftWidth: '3px', borderLeftColor: pastel(goal.color, 0.42) }}
               >
-                <span className="text-[10.5px] font-bold text-[#111827] whitespace-nowrap overflow-hidden text-ellipsis block mb-0.5">
+                <span className="text-[11.5px] font-bold text-[#111827] whitespace-nowrap overflow-hidden text-ellipsis block mb-0.5">
                   {goal.name}
                 </span>
                 <div className="flex items-center justify-between mb-1">
                   <span
-                    className="text-[8.5px] font-bold rounded-full px-[5px] py-px whitespace-nowrap"
+                    className="text-[9.5px] font-bold rounded-full px-[5px] py-px whitespace-nowrap"
                     style={{ background: style.bg, color: style.text }}
                   >
                     {goal.status}
@@ -57,9 +57,9 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                       style={{ width: `${pct}%`, background: pastel(goal.color, 0.42) }}
                     />
                   </div>
-                  <span className="text-[9px] font-bold text-[#9ca3af] flex-shrink-0">{pct}%</span>
+                  <span className="text-[10px] font-bold text-[#9ca3af] flex-shrink-0">{pct}%</span>
                 </div>
-                <div className="text-[8.5px] text-[#9ca3af] mb-[3px] whitespace-nowrap overflow-hidden text-ellipsis">
+                <div className="text-[9.5px] text-[#9ca3af] mb-[3px] whitespace-nowrap overflow-hidden text-ellipsis">
                   → {goal.next}
                 </div>
 
@@ -80,7 +80,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                         >
                           {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
                         </div>
-                        <span className={`text-[9.5px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                        <span className={`text-[11px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                           {task}
                         </span>
                       </div>
@@ -107,7 +107,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                           >
                             {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
                           </div>
-                          <span className={`text-[9.5px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                          <span className={`text-[11px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                             {task}
                           </span>
                         </div>
@@ -128,7 +128,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                           >
                             {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
                           </div>
-                          <span className={`text-[9.5px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                          <span className={`text-[11px] leading-[1.3] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                             {task}
                           </span>
                         </div>

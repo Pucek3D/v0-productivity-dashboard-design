@@ -118,7 +118,7 @@ function DayView({
         <div key={cat.id}>
           {ci > 0 && <div className="h-px bg-[#f9fafb] my-[9px] mb-[7px]" />}
           <div
-            className="text-[9px] font-extrabold tracking-[0.06em] uppercase px-[7px] py-[3px] rounded inline-block mb-1.5"
+            className="text-[10px] font-extrabold tracking-[0.06em] uppercase px-[7px] py-[3px] rounded inline-block mb-1.5"
             style={{ background: pastel(cat.color, 0.88), color: cat.color }}
           >
             {cat.label}
@@ -134,11 +134,11 @@ function DayView({
                         <Icon size={13} />
                       </span>
                     )}
-                    <span className="text-[11.5px] font-semibold text-[#374151]">{k.label}</span>
+                    <span className="text-[12.5px] font-semibold text-[#374151]">{k.label}</span>
                   </div>
                   <div className="flex items-center gap-[5px]">
                     {k.type === 'num' ? (
-                      <span className="text-[11px] font-bold" style={{ color: cat.color }}>
+                      <span className="text-[12px] font-bold" style={{ color: cat.color }}>
                         {k.val} / {k.target}
                       </span>
                     ) : (

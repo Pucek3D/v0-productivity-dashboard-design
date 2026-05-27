@@ -29,7 +29,7 @@ export function OtherTodoCard() {
         {todos.map((group, groupIdx) => (
           <div key={group.group} className={groupIdx > 0 ? 'mt-1.5' : ''}>
             {groupIdx > 0 && <div className="h-px bg-[#f9fafb] mb-[5px]" />}
-            <div className="text-[11px] font-bold mb-[3px]" style={{ color: group.color }}>
+            <div className="text-[12.5px] font-bold mb-[3px]" style={{ color: group.color }}>
               {group.group}
             </div>
             {group.tasks.map((task, taskIdx) => (
@@ -45,7 +45,7 @@ export function OtherTodoCard() {
                 >
                   {task.done && <span className="text-[#5b21b6] text-[8px] font-extrabold">✓</span>}
                 </div>
-                <span className={`text-xs leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                <span className={`text-[11px] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                   {task.text}
                 </span>
               </div>
