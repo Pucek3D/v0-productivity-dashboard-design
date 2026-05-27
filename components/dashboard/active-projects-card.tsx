@@ -75,13 +75,13 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                           onClick={() => toggleProjectTask(project.key, 'task', i)}
                         >
                           <div
-                            className={`w-[10px] h-[10px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[1px] ${
+                            className={`w-[12px] h-[12px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[2px] ${
                               isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
                             }`}
                           >
-                            {isDone && <span className="text-[#5b21b6] text-[6px] font-extrabold">✓</span>}
+                            {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
                           </div>
-                          <span className={`text-[8px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                          <span className={`text-[10px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                             {task}
                           </span>
                         </div>
@@ -104,13 +104,13 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                             onClick={() => toggleProjectTask(project.key, 'task', idx)}
                           >
                             <div
-                              className={`w-[10px] h-[10px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[1px] ${
+                              className={`w-[12px] h-[12px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[2px] ${
                                 isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
                               }`}
                             >
-                              {isDone && <span className="text-[#5b21b6] text-[6px] font-extrabold">✓</span>}
+                              {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
                             </div>
-                            <span className={`text-[8px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                            <span className={`text-[10px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                               {task}
                             </span>
                           </div>
@@ -125,13 +125,13 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                             onClick={() => toggleProjectTask(project.key, 'done', i)}
                           >
                             <div
-                              className={`w-[10px] h-[10px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[1px] ${
+                              className={`w-[12px] h-[12px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[2px] ${
                                 isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
                               }`}
                             >
-                              {isDone && <span className="text-[#5b21b6] text-[6px] font-extrabold">✓</span>}
+                              {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
                             </div>
-                            <span className={`text-[8px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                            <span className={`text-[10px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
                               {task}
                             </span>
                           </div>
