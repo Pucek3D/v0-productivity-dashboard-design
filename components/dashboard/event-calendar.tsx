@@ -105,7 +105,7 @@ function MonthView({ month, year }: { month: number; year: number }) {
                   : 'border-transparent hover:bg-[#f9fafb] hover:border-[#e5e7eb]'
               }`}
             >
-              <span className="text-[12px] font-semibold leading-none mb-[1px] ${
+              <span className={`text-[12px] font-semibold leading-none mb-[1px] ${
                 isToday ? 'text-[#7c3aed] font-extrabold' : 'text-[#374151]'
               }`}>
                 {day}
