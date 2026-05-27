@@ -44,7 +44,7 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                 </span>
                 <div className="flex items-center justify-between mb-1">
                   <span
-                    className="text-[15.5px] font-bold rounded-full px-[5px] py-px whitespace-nowrap"
+                    className="text-[9px] font-bold rounded-full px-[5px] py-px whitespace-nowrap"
                     style={{ background: style.bg, color: style.text }}
                   >
                     {project.status}
