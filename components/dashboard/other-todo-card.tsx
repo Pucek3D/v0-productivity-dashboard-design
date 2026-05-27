@@ -3,6 +3,12 @@
 import { useState } from 'react'
 import { OTHER_TODOS } from '@/lib/data'
 
+const PRIORITY_COLORS = {
+  red: '#fca5a5',
+  yellow: '#fde68a',
+  gray: '#e5e7eb',
+}
+
 export function OtherTodoCard() {
   const [todos, setTodos] = useState(OTHER_TODOS)
 
@@ -27,9 +33,15 @@ export function OtherTodoCard() {
       </div>
       <div className="p-[11px_13px]">
         {todos.map((group, groupIdx) => (
-          <div key={group.group} className={groupIdx > 0 ? 'mt-1.5' : ''}>
-            {groupIdx > 0 && <div className="h-px bg-[#f9fafb] mb-[5px]" />}
-            <div className="text-[14.5px] font-bold mb-[3px]" style={{ color: group.color }}>
+          <div key={group.group}>
+            <div 
+              className="text-[14.5px] font-bold text-[#111827] flex items-center gap-[5px]"
+              style={{ marginTop: groupIdx > 0 ? '10px' : '0', marginBottom: '4px' }}
+            >
+              <div 
+                className="w-2 h-2 rounded-sm flex-shrink-0" 
+                style={{ background: group.color }} 
+              />
               {group.group}
             </div>
             {group.tasks.map((task, taskIdx) => (
@@ -38,14 +50,22 @@ export function OtherTodoCard() {
                 className="flex items-center gap-[7px] py-[3px] cursor-pointer select-none"
                 onClick={() => toggleTask(groupIdx, taskIdx)}
               >
-                <div
+                <div 
                   className={`w-3.5 h-3.5 rounded-[3px] border-[1.5px] flex-shrink-0 flex items-center justify-center transition-all ${
-                    task.done ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#d1d5db]'
+                    task.done 
+                      ? 'bg-[#c4b5fd] border-[#c4b5fd]' 
+                      : 'border-[#d1d5db] bg-transparent'
                   }`}
                 >
-                  {task.done && <span className="text-[#5b21b6] text-[8px] font-extrabold">✓</span>}
+                  {task.done && (
+                    <span className="text-[#5b21b6] text-[8px] font-extrabold">✓</span>
+                  )}
                 </div>
-                <span className={`text-[13px] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                <div 
+                  className="w-[5px] h-[5px] rounded-full flex-shrink-0"
+                  style={{ background: PRIORITY_COLORS[task.priority] || '#d1d5db' }}
+                />
+                <span className={`text-[13px] text-[#111827] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : ''}`}>
                   {task.text}
                 </span>
               </div>
