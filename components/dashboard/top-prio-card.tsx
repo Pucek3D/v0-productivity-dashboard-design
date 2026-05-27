@@ -30,7 +30,7 @@ export function TopPrioCard() {
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
       <div className="bg-[#7c3aed] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
-        <span className="text-white font-bold text-[14.5px] tracking-[0.07em] uppercase">
+        <span className="text-white font-bold text-[12.5px] tracking-[0.07em] uppercase">
           Top prio today
         </span>
       </div>
@@ -38,7 +38,7 @@ export function TopPrioCard() {
         {tasks.map((section, sectionIdx) => (
           <div key={section.section}>
             <div 
-              className="text-[16.5px] font-bold text-[#111827] flex items-center gap-[5px]"
+              className="text-[14.5px] font-bold text-[#111827] flex items-center gap-[5px]"
               style={{ marginTop: sectionIdx > 0 ? '10px' : '0', marginBottom: '4px' }}
             >
               <div 
@@ -68,7 +68,7 @@ export function TopPrioCard() {
                   className="w-[5px] h-[5px] rounded-full flex-shrink-0"
                   style={{ background: PRIORITY_COLORS[task.priority] }}
                 />
-                <span className={`text-[15px] text-[#111827] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : ''}`}>
+                <span className={`text-[13px] text-[#111827] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : ''}`}>
                   {task.text}
                 </span>
               </div>
