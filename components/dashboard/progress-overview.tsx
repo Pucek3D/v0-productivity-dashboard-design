@@ -1,5 +1,4 @@
 'use client'
-
 import { useState } from 'react'
 import { PROJECTS, LT_GOALS, pastel, Project } from '@/lib/data'
 
@@ -12,7 +11,6 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
   const [tab, setTab] = useState<'p' | 'g'>('p')
   const data = tab === 'p' ? PROJECTS : LT_GOALS
 
-  // Calculate summary stats
   let totalTasks = 0
   let doneTasks = 0
   let totalPct = 0
@@ -34,25 +32,25 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
   const avgPct = data.length > 0 ? Math.round(totalPct / data.length) : 0
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
-      <div className="bg-[#1e40af] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
+    <div className="card-base">
+      <div className="section-header header-slate-blue px-4 py-2.5">
         <div className="flex justify-between items-center">
-          <span className="text-white font-bold text-[10.5px] tracking-[0.07em] uppercase">
+          <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
             Progress overview
           </span>
-          <div className="flex bg-white/[0.18] rounded-[5px] overflow-hidden">
+          <div className="seg-toggle flex">
             <button
               onClick={() => setTab('p')}
-              className={`px-[7px] py-[3px] border-none cursor-pointer text-[10px] font-bold ${
-                tab === 'p' ? 'bg-white/30 text-white' : 'bg-transparent text-white/60'
+              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                tab === 'p' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
               }`}
             >
               Projects
             </button>
             <button
               onClick={() => setTab('g')}
-              className={`px-[7px] py-[3px] border-none cursor-pointer text-[10px] font-bold ${
-                tab === 'g' ? 'bg-white/30 text-white' : 'bg-transparent text-white/60'
+              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                tab === 'g' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
               }`}
             >
               Goals
@@ -60,26 +58,28 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
           </div>
         </div>
       </div>
-      <div className="p-[11px_13px]">
-        {/* Summary */}
-        <div className="bg-[#fafafa] rounded-lg p-[6px_10px] mb-2 flex gap-[10px]">
+      <div className="px-3.5 py-3">
+        {/* Hero stats — Instrument Serif numbers with display shadow */}
+        <div className="bg-[#fafaf7] border border-[#f0efeb] rounded-lg px-3 py-2.5 mb-3 flex gap-3">
           <div className="text-center flex-1">
-            <div className="text-[15px] font-extrabold text-[#111827] leading-none">{avgPct}%</div>
-            <div className="text-[8.5px] text-[#9ca3af] mt-0.5">Avg completion</div>
+            <div className="font-display text-[30px] leading-none text-[#0a0a0a] tabular text-shadow-display">{avgPct}%</div>
+            <div className="text-[8.5px] text-[#a8a29e] mt-1 uppercase tracking-[0.14em] font-medium">Avg completion</div>
           </div>
-          <div className="w-px bg-[#f3f4f6]" />
+          <div className="w-px bg-[#e7e5e0]" />
           <div className="text-center flex-1">
-            <div className="text-[15px] font-extrabold text-[#111827] leading-none">{doneTasks}/{totalTasks}</div>
-            <div className="text-[8.5px] text-[#9ca3af] mt-0.5">Tasks done</div>
+            <div className="font-display text-[30px] leading-none text-[#0a0a0a] tabular text-shadow-display">
+              {doneTasks}<span className="text-[#a8a29e]">/{totalTasks}</span>
+            </div>
+            <div className="text-[8.5px] text-[#a8a29e] mt-1 uppercase tracking-[0.14em] font-medium">Tasks done</div>
           </div>
-          <div className="w-px bg-[#f3f4f6]" />
+          <div className="w-px bg-[#e7e5e0]" />
           <div className="text-center flex-1">
-            <div className="text-[15px] font-extrabold text-[#f97316] leading-none">2</div>
-            <div className="text-[8.5px] text-[#9ca3af] mt-0.5">At risk</div>
+            <div className="font-display text-[30px] leading-none text-[#b45309] tabular text-shadow-display">2</div>
+            <div className="text-[8.5px] text-[#a8a29e] mt-1 uppercase tracking-[0.14em] font-medium">At risk</div>
           </div>
         </div>
 
-        {/* Progress bars */}
+        {/* Progress bars — aligned with tabular nums */}
         {data.map(project => {
           const pct = getProjectCompletion(project)
           const total = project.tasks.length + project.doneTasks.length
@@ -92,26 +92,23 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
           })
 
           return (
-            <div key={project.key} className="flex items-center gap-[5px] mb-1.5 last:mb-0">
-              <div 
-                className="text-[9.5px] font-bold text-[#374151] w-[65px] flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis"
+            <div key={project.key} className="flex items-center gap-2 mb-1.5 last:mb-0">
+              <div
+                className="text-[9.5px] font-semibold text-[#292524] w-[68px] flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis"
                 title={project.name}
               >
                 {project.name}
               </div>
-              <div className="flex-1 h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-[#f5f5f1] rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-[width] duration-400"
-                  style={{ width: `${pct}%`, background: pastel(project.color, 0.42) }}
+                  className="h-full rounded-full transition-[width] duration-500"
+                  style={{ width: `${pct}%`, background: project.color }}
                 />
               </div>
-              <span 
-                className="text-[9px] font-bold w-[26px] text-right flex-shrink-0"
-                style={{ color: project.color }}
-              >
+              <span className="text-[9.5px] font-bold w-[28px] text-right flex-shrink-0 tabular" style={{ color: project.color }}>
                 {pct}%
               </span>
-              <span className="text-[8.5px] text-[#9ca3af] w-[22px] text-right flex-shrink-0">
+              <span className="text-[8.5px] text-[#a8a29e] w-[22px] text-right flex-shrink-0 tabular">
                 {done}/{total}
               </span>
             </div>
