@@ -1,9 +1,8 @@
 'use client'
-
 import { useState } from 'react'
-import { 
+import {
   GANTT_DATA, LT_MONTH_EVENTS, LT_LEGEND,
-  MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth, pastel 
+  MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth, pastel
 } from '@/lib/data'
 
 const TODAY = { d: 26, m: 4, y: 2026 }
@@ -23,49 +22,51 @@ export function LtGoalsCalendar() {
   }
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
-      <div className="bg-[#0f766e] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
-        <span className="text-white font-bold text-[10.5px] tracking-[0.07em] uppercase">
-          Long-term goals calendar
-        </span>
-      </div>
-      <div className="p-[11px_13px]">
-        <div className="flex justify-between items-center mb-2">
-          <div className="flex items-center gap-[5px]">
-            <button
-              onClick={() => changeMonth(-1)}
-              className="bg-transparent border border-[#e5e7eb] rounded-[5px] w-[22px] h-[22px] cursor-pointer text-[13px] flex items-center justify-center text-[#374151]"
-              style={{ visibility: view === 'month' ? 'visible' : 'hidden' }}
-            >
-              ‹
-            </button>
-            <span className="text-xs font-bold text-[#111827]">
-              {view === 'gantt' ? 'May 2026' : `${MONTH_NAMES[month]} ${year}`}
-            </span>
-            <button
-              onClick={() => changeMonth(1)}
-              className="bg-transparent border border-[#e5e7eb] rounded-[5px] w-[22px] h-[22px] cursor-pointer text-[13px] flex items-center justify-center text-[#374151]"
-              style={{ visibility: view === 'month' ? 'visible' : 'hidden' }}
-            >
-              ›
-            </button>
-          </div>
-          <div className="flex border border-[#e5e7eb] rounded-md overflow-hidden">
+    <div className="card-base">
+      <div className="section-header header-sage px-4 py-2.5">
+        <div className="flex justify-between items-center">
+          <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
+            Long-term goals calendar
+          </span>
+          <div className="seg-toggle flex">
             <button
               onClick={() => setView('gantt')}
-              className={`px-2 py-[3px] border-none cursor-pointer text-[11px] font-bold transition-all ${
-                view === 'gantt' ? 'bg-[#0f766e] text-white' : 'bg-white text-[#6b7280]'
+              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                view === 'gantt' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
               }`}
             >
               Gantt
             </button>
             <button
               onClick={() => setView('month')}
-              className={`px-2 py-[3px] border-none cursor-pointer text-[11px] font-bold transition-all ${
-                view === 'month' ? 'bg-[#0f766e] text-white' : 'bg-white text-[#6b7280]'
+              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                view === 'month' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
               }`}
             >
               Month
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="px-3.5 py-3">
+        <div className="flex justify-between items-center mb-2.5">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => changeMonth(-1)}
+              className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1] transition-colors"
+              style={{ visibility: view === 'month' ? 'visible' : 'hidden' }}
+            >
+              ‹
+            </button>
+            <span className="font-display text-[18px] tracking-tight text-[#0a0a0a] text-shadow-soft leading-none">
+              {view === 'gantt' ? <>May <span className="text-[#a8a29e] italic">2026</span></> : <>{MONTH_NAMES[month]} <span className="text-[#a8a29e] italic">{year}</span></>}
+            </span>
+            <button
+              onClick={() => changeMonth(1)}
+              className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1] transition-colors"
+              style={{ visibility: view === 'month' ? 'visible' : 'hidden' }}
+            >
+              ›
             </button>
           </div>
         </div>
@@ -77,17 +78,17 @@ export function LtGoalsCalendar() {
 
 function GanttView() {
   return (
-    <div className="grid gap-[3px]" style={{ gridTemplateColumns: '58px repeat(4, 1fr)' }}>
+    <div className="grid gap-1" style={{ gridTemplateColumns: '64px repeat(4, 1fr)' }}>
       <div />
       {['W1', 'W2', 'W3', 'W4'].map(w => (
-        <div key={w} className="text-[9px] font-bold text-[#9ca3af] text-center">
+        <div key={w} className="text-[9px] font-semibold text-[#a8a29e] text-center uppercase tracking-[0.12em]">
           {w}
         </div>
       ))}
       {GANTT_DATA.map(row => (
         <div key={row.name} className="contents">
-          <div 
-            className="text-[9.5px] font-bold text-right pr-1"
+          <div
+            className="text-[10px] font-semibold text-right pr-2 self-center uppercase tracking-[0.05em]"
             style={{ color: row.color }}
           >
             {row.name}
@@ -95,10 +96,10 @@ function GanttView() {
           {row.active.map((a, i) => (
             <div
               key={i}
-              className="h-3.5 rounded-[3px]"
+              className="h-4 rounded-[4px]"
               style={{
-                background: a ? pastel(row.color, 0.72) : '#f9fafb',
-                border: a ? `1px solid ${pastel(row.color, 0.55)}` : 'none',
+                background: a ? pastel(row.color, 0.78) : '#f5f5f1',
+                boxShadow: a ? `inset 0 0 0 1px ${pastel(row.color, 0.55)}` : 'none',
               }}
             />
           ))}
@@ -115,9 +116,9 @@ function LtMonthView({ month, year }: { month: number; year: number }) {
 
   return (
     <>
-      <div className="grid grid-cols-7 gap-0.5 mb-[3px]">
+      <div className="grid grid-cols-7 gap-0.5 mb-1">
         {DAY_NAMES.map((d, i) => (
-          <div key={i} className="text-center text-[9px] font-bold text-[#9ca3af] py-0.5">
+          <div key={i} className="text-center text-[9.5px] font-semibold text-[#a8a29e] uppercase tracking-[0.12em] py-1">
             {d}
           </div>
         ))}
@@ -133,22 +134,22 @@ function LtMonthView({ month, year }: { month: number; year: number }) {
           return (
             <div
               key={day}
-              className={`min-h-[46px] rounded-md p-[3px_3px_2px] flex flex-col gap-0.5 border ${
-                isToday 
-                  ? 'bg-[#f0fdf4] border-[#bbf7d0]' 
-                  : 'border-transparent hover:bg-[#f9fafb] hover:border-[#e5e7eb]'
+              className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors ${
+                isToday
+                  ? 'bg-[#d1fae5] border-[#a7f3d0] shadow-[inset_0_0_0_1px_rgba(4,120,87,0.08)]'
+                  : 'border-transparent hover:bg-[#f5f5f1] hover:border-[#e7e5e0]'
               }`}
             >
-              <span className={`text-[10px] font-semibold leading-none mb-[1px] ${
-                isToday ? 'text-[#059669] font-extrabold' : 'text-[#374151]'
+              <span className={`text-[11px] leading-none mb-[2px] tabular ${
+                isToday ? 'text-[#047857] font-bold' : 'text-[#57534e] font-semibold'
               }`}>
                 {day}
               </span>
               {dayEvents.slice(0, 2).map((ev, j) => (
                 <div
                   key={j}
-                  className="text-[7.5px] font-bold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]"
-                  style={{ background: pastel(ev.color, 0.78), color: ev.color }}
+                  className="text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
+                  style={{ background: pastel(ev.color, 0.84), color: ev.color }}
                 >
                   {ev.label}
                 </div>
@@ -157,13 +158,10 @@ function LtMonthView({ month, year }: { month: number; year: number }) {
           )
         })}
       </div>
-      <div className="flex flex-wrap gap-[5px] mt-2 pt-[7px] border-t border-[#f3f4f6]">
+      <div className="flex flex-wrap gap-2 mt-3 pt-2.5 border-t border-[#f0efeb]">
         {LT_LEGEND.map(leg => (
-          <div key={leg.label} className="flex items-center gap-[3px] text-[9px] text-[#6b7280]">
-            <div 
-              className="w-[7px] h-[7px] rounded-sm flex-shrink-0"
-              style={{ background: pastel(leg.color, 0.55) }}
-            />
+          <div key={leg.label} className="flex items-center gap-1.5 text-[9.5px] text-[#57534e] font-medium uppercase tracking-[0.08em]">
+            <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: leg.color }} />
             {leg.label}
           </div>
         ))}
