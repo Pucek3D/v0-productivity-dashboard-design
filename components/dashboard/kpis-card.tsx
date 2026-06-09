@@ -1,9 +1,8 @@
 'use client'
-
 import React, { useState } from 'react'
-import { 
-  IconMoon, IconRun, IconCheckbox, IconChartCandle, 
-  IconPigMoney, IconMicrophone, IconMessage 
+import {
+  IconMoon, IconRun, IconCheckbox, IconChartCandle,
+  IconPigMoney, IconMicrophone, IconMessage
 } from '@tabler/icons-react'
 import { KPI_CATEGORIES, KPI_DAYS, TODAY_IDX, pastel, KpiCategory, Kpi } from '@/lib/data'
 
@@ -38,25 +37,25 @@ export function KpisCard() {
   }
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
-      <div className="bg-[#6d28d9] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
+    <div className="card-base">
+      <div className="section-header header-plum px-4 py-2.5">
         <div className="flex justify-between items-center">
-          <span className="text-white font-bold text-[14.5px] tracking-[0.07em] uppercase">
+          <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
             KPIs to track
           </span>
-          <div className="flex bg-white/[0.18] rounded-[5px] overflow-hidden">
+          <div className="seg-toggle flex">
             <button
               onClick={() => setView('day')}
-              className={`px-2 py-[3px] border-none cursor-pointer text-[10px] font-bold ${
-                view === 'day' ? 'bg-white/30 text-white' : 'bg-transparent text-white/60'
+              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                view === 'day' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
               }`}
             >
               Day
             </button>
             <button
               onClick={() => setView('week')}
-              className={`px-2 py-[3px] border-none cursor-pointer text-[10px] font-bold ${
-                view === 'week' ? 'bg-white/30 text-white' : 'bg-transparent text-white/60'
+              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                view === 'week' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
               }`}
             >
               Week
@@ -64,7 +63,7 @@ export function KpisCard() {
           </div>
         </div>
       </div>
-      <div className="p-[11px_13px]">
+      <div className="px-3.5 py-3">
         {view === 'day' ? (
           <DayView categories={categories} toggleKpi={toggleKpi} />
         ) : (
@@ -78,23 +77,26 @@ export function KpisCard() {
 function DotRow({ kpi, cat }: { kpi: Kpi; cat: KpiCategory }) {
   return (
     <div style={{ marginBottom: kpi.type === 'num' ? '3px' : '0' }}>
-      <div className="flex gap-1 mb-0.5">
+      <div className="flex gap-[3px] mb-0.5">
         {kpi.days.map((d, i) => (
           <div
             key={i}
             className="w-[9px] h-[9px] rounded-full flex-shrink-0"
-            style={{ background: d ? pastel(cat.color, 0.42) : '#ececec' }}
+            style={{
+              background: d ? cat.color : '#f0efeb',
+              boxShadow: i === TODAY_IDX && d ? `0 0 0 1.5px ${pastel(cat.color, 0.6)}` : 'none',
+            }}
           />
         ))}
       </div>
-      <div className="flex gap-1">
+      <div className="flex gap-[3px]">
         {KPI_DAYS.map((d, i) => (
           <div
             key={i}
-            className="w-[9px] text-center text-[7px]"
-            style={{ 
-              fontWeight: i === TODAY_IDX ? 800 : 400,
-              color: i === TODAY_IDX ? cat.color : '#d1d5db'
+            className="w-[9px] text-center text-[8px] tabular"
+            style={{
+              fontWeight: i === TODAY_IDX ? 700 : 500,
+              color: i === TODAY_IDX ? cat.color : '#d6d3d1'
             }}
           >
             {d}
@@ -105,58 +107,59 @@ function DotRow({ kpi, cat }: { kpi: Kpi; cat: KpiCategory }) {
   )
 }
 
-function DayView({ 
-  categories, 
-  toggleKpi 
-}: { 
+function DayView({
+  categories,
+  toggleKpi
+}: {
   categories: KpiCategory[]
-  toggleKpi: (catId: string, kpiId: string) => void 
+  toggleKpi: (catId: string, kpiId: string) => void
 }) {
   return (
     <>
       {categories.map((cat, ci) => (
         <div key={cat.id}>
-          {ci > 0 && <div className="h-px bg-[#f9fafb] my-[9px] mb-[7px]" />}
+          {ci > 0 && <div className="h-px bg-[#f0efeb] my-2.5" />}
           <div
-            className="text-[14px] font-extrabold tracking-[0.06em] uppercase px-[7px] py-[3px] rounded inline-block mb-1.5"
-            style={{ background: pastel(cat.color, 0.88), color: cat.color }}
+            className="text-[9.5px] font-semibold tracking-[0.14em] uppercase mb-2 flex items-center gap-1.5"
+            style={{ color: cat.color }}
           >
+            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cat.color }} />
             {cat.label}
           </div>
           {cat.kpis.map((k, ki) => {
             const Icon = ICONS[k.icon]
             return (
-              <div key={k.id} style={{ marginTop: ki > 0 ? '7px' : '0' }}>
-                <div className="flex justify-between items-center mb-[3px]">
-                  <div className="flex items-center gap-1.5">
+              <div key={k.id} style={{ marginTop: ki > 0 ? '8px' : '0' }}>
+                <div className="flex justify-between items-center mb-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     {Icon && (
-                      <span style={{ color: pastel(cat.color, 0.3) }}>
-                        <Icon size={13} />
+                      <span style={{ color: cat.color, opacity: 0.7 }}>
+                        <Icon size={12} />
                       </span>
                     )}
-                    <span className="text-[16.5px] font-semibold text-[#374151]">{k.label}</span>
+                    <span className="text-[12px] font-medium text-[#292524] truncate">{k.label}</span>
                   </div>
-                  <div className="flex items-center gap-[5px]">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                     {k.type === 'num' ? (
-                      <span className="text-[16px] font-bold" style={{ color: cat.color }}>
-                        {k.val} / {k.target}
+                      <span className="font-display text-[14px] tabular text-shadow-soft leading-none" style={{ color: cat.color }}>
+                        {k.val}<span className="text-[#a8a29e]"> / {k.target}</span>
                       </span>
                     ) : (
                       <div
                         onClick={() => toggleKpi(cat.id, k.id)}
-                        className="w-3.5 h-3.5 rounded-[3px] border-[1.5px] flex items-center justify-center cursor-pointer flex-shrink-0"
+                        className="w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center cursor-pointer flex-shrink-0"
                         style={{
-                          background: k.checked ? pastel(cat.color, 0.45) : 'transparent',
-                          borderColor: k.checked ? pastel(cat.color, 0.45) : '#e5e7eb',
+                          background: k.checked ? pastel(cat.color, 0.65) : 'transparent',
+                          borderColor: k.checked ? pastel(cat.color, 0.45) : '#d6d3d1',
                         }}
                       >
                         {k.checked && (
-                          <span style={{ color: cat.color, fontSize: '9px', fontWeight: 800 }}>✓</span>
+                          <span style={{ color: cat.color, fontSize: '8px', fontWeight: 800 }}>✓</span>
                         )}
                       </div>
                     )}
                     <span
-                      className="text-[14px] font-bold rounded-full px-[5px] py-[1px] whitespace-nowrap"
+                      className="text-[9px] font-bold rounded-full px-1.5 py-[1px] whitespace-nowrap tabular uppercase tracking-wider"
                       style={{ background: pastel(cat.color, 0.88), color: cat.color }}
                     >
                       🔥 {k.streak}
@@ -165,10 +168,10 @@ function DayView({
                 </div>
                 <DotRow kpi={k} cat={cat} />
                 {k.type === 'num' && (
-                  <div className="h-[3px] bg-[#f3f4f6] rounded-full overflow-hidden">
+                  <div className="h-[3px] bg-[#f5f5f1] rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full"
-                      style={{ width: `${k.pct}%`, background: pastel(cat.color, 0.45) }}
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${k.pct}%`, background: cat.color }}
                     />
                   </div>
                 )}
@@ -188,37 +191,38 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
     <>
       <table className="w-full border-collapse table-fixed">
         <colgroup>
-          <col style={{ width: '72px' }} />
+          <col style={{ width: '76px' }} />
           {KPI_DAYS.map((_, i) => <col key={i} style={{ width: '18px' }} />)}
-          <col style={{ width: '26px' }} />
+          <col style={{ width: '30px' }} />
         </colgroup>
         <thead>
           <tr>
-            <th className="text-[13px] text-[#9ca3af] text-left p-[2px_0] font-bold" />
+            <th className="text-[9px] text-[#a8a29e] text-left p-1 font-semibold uppercase tracking-[0.12em]" />
             {KPI_DAYS.map((d, i) => (
               <th
                 key={i}
-                className="text-[13px] text-center p-[2px_0]"
+                className="text-[9px] text-center p-1 uppercase tabular"
                 style={{
                   fontWeight: i === TODAY_IDX ? 800 : 600,
-                  color: i === TODAY_IDX ? '#7c3aed' : '#9ca3af',
+                  color: i === TODAY_IDX ? '#4338ca' : '#a8a29e',
                 }}
               >
-                {i === TODAY_IDX ? <u>{d}</u> : d}
+                {d}
               </th>
             ))}
-            <th className="text-[13px] text-[#9ca3af] text-right p-[2px_0] font-bold">%</th>
+            <th className="text-[9px] text-[#a8a29e] text-right p-1 font-semibold uppercase tracking-[0.10em]">%</th>
           </tr>
         </thead>
         <tbody>
           {categories.map(cat => (
             <React.Fragment key={cat.id}>
               <tr>
-                <td colSpan={9} className="py-[5px_0_2px]">
+                <td colSpan={9} className="pt-2 pb-1">
                   <span
-                    className="text-[13px] font-extrabold tracking-[0.05em] uppercase px-[5px] py-[2px] rounded-[3px]"
-                    style={{ background: pastel(cat.color, 0.88), color: cat.color }}
+                    className="text-[9px] font-semibold tracking-[0.14em] uppercase flex items-center gap-1.5"
+                    style={{ color: cat.color }}
                   >
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cat.color }} />
                     {cat.label}
                   </span>
                 </td>
@@ -226,26 +230,26 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
               {cat.kpis.map(k => {
                 const done = k.days.filter(Boolean).length
                 const pct = Math.round((done / k.days.length) * 100)
-                const pctColor = pct >= 80 ? '#059669' : pct >= 50 ? '#d97706' : '#9ca3af'
+                const pctColor = pct >= 80 ? '#047857' : pct >= 50 ? '#b45309' : '#a8a29e'
                 if (k.streak > bestStreak.streak) bestStreak = { label: k.label, streak: k.streak }
                 return (
                   <tr key={k.id}>
-                    <td className="text-[13.5px] font-semibold text-[#374151] p-[2px_0] overflow-hidden text-ellipsis whitespace-nowrap">
+                    <td className="text-[11px] font-medium text-[#292524] p-1 overflow-hidden text-ellipsis whitespace-nowrap">
                       {k.label}
                     </td>
                     {k.days.map((d, i) => (
-                      <td key={i} className="text-center p-[2px_1px]">
+                      <td key={i} className="text-center p-1">
                         <div
                           className="w-[9px] h-[9px] rounded-full mx-auto"
                           style={{
-                            background: d ? pastel(cat.color, 0.42) : '#ececec',
-                            boxShadow: i === TODAY_IDX ? `0 0 0 2px ${pastel(cat.color, 0.65)}` : 'none',
+                            background: d ? cat.color : '#f0efeb',
+                            boxShadow: i === TODAY_IDX ? `0 0 0 1.5px ${pastel(cat.color, 0.65)}` : 'none',
                           }}
                         />
                       </td>
                     ))}
                     <td
-                      className="text-right text-[13.5px] font-bold p-[2px_0]"
+                      className="text-right text-[11px] font-bold p-1 tabular"
                       style={{ color: pctColor }}
                     >
                       {pct}%
@@ -257,13 +261,13 @@ function WeekView({ categories }: { categories: KpiCategory[] }) {
           ))}
         </tbody>
       </table>
-      <div className="mt-[9px] pt-[7px] border-t border-[#f9fafb] flex gap-[7px] items-center">
-        <span className="text-[9px] text-[#9ca3af]">Best streak:</span>
+      <div className="mt-3 pt-2 border-t border-[#f0efeb] flex gap-2 items-center">
+        <span className="text-[9px] text-[#a8a29e] uppercase tracking-[0.12em] font-semibold">Best streak</span>
         <span
-          className="text-[9.5px] font-bold px-[7px] py-[1px] rounded-full"
-          style={{ color: '#d97706', background: pastel('#d97706', 0.88) }}
+          className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
+          style={{ color: '#b45309', background: '#fef3c7' }}
         >
-          🔥 {bestStreak.label} — {bestStreak.streak} days
+          🔥 {bestStreak.label} — {bestStreak.streak}d
         </span>
       </div>
     </>
