@@ -139,54 +139,57 @@
   }
 }
 
-@layer utilities {
-  .font-display { font-family: var(--font-display); }
-  .tabular { font-variant-numeric: tabular-nums; }
-  .text-shadow-soft { text-shadow: var(--text-shadow-soft); }
-  .text-shadow-display { text-shadow: var(--text-shadow-display); }
-  .text-shadow-on-color { text-shadow: var(--text-shadow-on-color); }
+/* === Custom component classes — plain CSS so Tailwind v4 doesn't strip them === */
 
-  .card-base {
-    background: var(--surface);
-    border: 1px solid var(--border-hairline);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
-  }
-  .card-base-hover:hover { box-shadow: var(--shadow-card-hover); }
+.font-display { font-family: var(--font-display); }
+.tabular { font-variant-numeric: tabular-nums; }
+.text-shadow-soft { text-shadow: var(--text-shadow-soft); }
+.text-shadow-display { text-shadow: var(--text-shadow-display); }
+.text-shadow-on-color { text-shadow: var(--text-shadow-on-color); }
 
-  .section-header { position: relative; box-shadow: var(--shadow-header); }
-  .section-header::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(ellipse at top, rgba(255, 255, 255, 0.12), transparent 60%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.06) 100%);
-    pointer-events: none;
-  }
-  .section-header > * { position: relative; }
-
-  .header-indigo     { background: linear-gradient(180deg, #4f46e5 0%, #4338ca 100%); }
-  .header-slate-blue { background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%); }
-  .header-sage       { background: linear-gradient(180deg, #059669 0%, #047857 100%); }
-  .header-amber      { background: linear-gradient(180deg, #d97706 0%, #b45309 100%); }
-  .header-rose       { background: linear-gradient(180deg, #e11d48 0%, #be123c 100%); }
-  .header-plum       { background: linear-gradient(180deg, #9333ea 0%, #7e22ce 100%); }
-  .header-stone      { background: linear-gradient(180deg, #44403c 0%, #292524 100%); }
-
-  .seg-toggle {
-    background: rgba(255, 255, 255, 0.14);
-    border-radius: 6px;
-    overflow: hidden;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  }
-  .seg-toggle-btn { border: none; cursor: pointer; font-weight: 600; transition: all 150ms; }
-  .seg-toggle-btn-active {
-    background: rgba(255, 255, 255, 0.28);
-    color: #ffffff;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-  }
-  .seg-toggle-btn-inactive { background: transparent; color: rgba(255, 255, 255, 0.62); }
-  .seg-toggle-btn-inactive:hover { color: rgba(255, 255, 255, 0.85); }
+.card-base {
+  background: var(--surface);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
+.card-base-hover:hover { box-shadow: var(--shadow-card-hover); }
+
+.section-header {
+  position: relative;
+  box-shadow: var(--shadow-header);
+}
+.section-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at top, rgba(255, 255, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.06) 100%);
+  pointer-events: none;
+}
+.section-header > * { position: relative; }
+
+.header-indigo     { background: linear-gradient(180deg, #4f46e5 0%, #4338ca 100%); }
+.header-slate-blue { background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%); }
+.header-sage       { background: linear-gradient(180deg, #059669 0%, #047857 100%); }
+.header-amber      { background: linear-gradient(180deg, #d97706 0%, #b45309 100%); }
+.header-rose       { background: linear-gradient(180deg, #e11d48 0%, #be123c 100%); }
+.header-plum       { background: linear-gradient(180deg, #9333ea 0%, #7e22ce 100%); }
+.header-stone      { background: linear-gradient(180deg, #44403c 0%, #292524 100%); }
+
+.seg-toggle {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.seg-toggle-btn { border: none; cursor: pointer; font-weight: 600; transition: all 150ms; }
+.seg-toggle-btn-active {
+  background: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.seg-toggle-btn-inactive { background: transparent; color: rgba(255, 255, 255, 0.62); }
+.seg-toggle-btn-inactive:hover { color: rgba(255, 255, 255, 0.85); }
