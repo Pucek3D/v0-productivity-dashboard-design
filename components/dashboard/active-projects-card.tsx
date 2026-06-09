@@ -1,5 +1,4 @@
 'use client'
-
 import { useState } from 'react'
 import { PROJECTS, pastel, statusStyle, Project } from '@/lib/data'
 
@@ -12,19 +11,17 @@ interface ActiveProjectsCardProps {
 export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion }: ActiveProjectsCardProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
-  const toggleExpand = (key: string) => {
-    setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
-  }
+  const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
-      <div className="bg-[#7c3aed] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
-        <span className="text-white font-bold text-[14.5px] tracking-[0.07em] uppercase">
+    <div className="card-base">
+      <div className="section-header header-indigo px-4 py-2.5">
+        <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
           Active projects
         </span>
       </div>
-      <div className="p-2 px-2.5">
-        <div className="grid grid-cols-2 gap-1.5">
+      <div className="p-2.5">
+        <div className="grid grid-cols-2 gap-2">
           {PROJECTS.map(project => {
             const pct = getProjectCompletion(project)
             const style = statusStyle(project.status, project.color)
@@ -36,52 +33,49 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
             return (
               <div
                 key={project.key}
-                className="border border-[#f3f4f6] rounded-lg p-[7px_7px_5px] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
-                style={{ borderLeftWidth: '3px', borderLeftColor: pastel(project.color, 0.42) }}
+                className="bg-white border border-[#f0efeb] rounded-lg p-2 transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.04),0_8px_20px_rgba(0,0,0,0.04)]"
+                style={{ borderLeft: `3px solid ${project.color}` }}
               >
-                <span className="text-[15.5px] font-bold text-[#111827] whitespace-nowrap overflow-hidden text-ellipsis block mb-0.5">
+                <div className="font-display text-[16px] tracking-tight text-[#0a0a0a] whitespace-nowrap overflow-hidden text-ellipsis text-shadow-soft leading-tight">
                   {project.name}
-                </span>
-                <div className="flex items-center justify-between mb-1">
+                </div>
+                <div className="flex items-center justify-between mt-1 mb-1.5">
                   <span
-                    className="text-[13.5px] font-bold rounded-full px-[5px] py-px whitespace-nowrap"
+                    className="text-[8.5px] font-semibold rounded-full px-1.5 py-[1px] uppercase tracking-[0.08em] whitespace-nowrap"
                     style={{ background: style.bg, color: style.text }}
                   >
                     {project.status}
                   </span>
+                  <span className="font-display text-[14px] tabular text-shadow-soft leading-none" style={{ color: project.color }}>
+                    {pct}%
+                  </span>
                 </div>
-                <div className="flex items-center gap-1 mb-0.5">
-                  <div className="flex-1 h-[3px] bg-[#f3f4f6] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${pct}%`, background: pastel(project.color, 0.42) }}
-                    />
-                  </div>
-                  <span className="text-[14px] font-bold text-[#9ca3af] flex-shrink-0">{pct}%</span>
+                <div className="h-[3px] bg-[#f5f5f1] rounded-full overflow-hidden mb-1.5">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%`, background: project.color }}
+                  />
                 </div>
-                <div className="text-[13.5px] text-[#9ca3af] mb-[3px] whitespace-nowrap overflow-hidden text-ellipsis">
+                <div className="text-[10px] text-[#a8a29e] mb-1 whitespace-nowrap overflow-hidden text-ellipsis font-medium">
                   → {project.next}
                 </div>
 
-                {/* Visible tasks */}
-                <div className="border-t border-[#f9fafb] pt-[3px] mt-0.5">
+                <div className="border-t border-[#f5f5f1] pt-1 mt-1">
                   <div className="grid grid-cols-3 gap-1">
                     {visibleTasks.map((task, i) => {
                       const isDone = projectDone[`${project.key}-task-${i}`]
                       return (
                         <div
                           key={i}
-                          className="flex items-start gap-[4px] py-0.5 cursor-pointer select-none"
+                          className="flex items-start gap-1 py-0.5 cursor-pointer select-none"
                           onClick={() => toggleProjectTask(project.key, 'task', i)}
                         >
-                          <div
-                            className={`w-[12px] h-[12px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[2px] ${
-                              isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
-                            }`}
-                          >
-                            {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
+                          <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
+                            isDone ? 'bg-[#c7d2fe] border-[#c7d2fe]' : 'border-[#d6d3d1] bg-white'
+                          }`}>
+                            {isDone && <span className="text-[#3730a3] text-[6.5px] font-bold leading-none">✓</span>}
                           </div>
-                          <span className={`text-[10px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                          <span className={`text-[9px] leading-[1.2] ${isDone ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'}`}>
                             {task}
                           </span>
                         </div>
@@ -90,7 +84,6 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                   </div>
                 </div>
 
-                {/* Hidden tasks (expandable) */}
                 {isExpanded && (
                   <div className="pt-0.5">
                     <div className="grid grid-cols-3 gap-1">
@@ -100,17 +93,15 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                         return (
                           <div
                             key={idx}
-                            className="flex items-start gap-[4px] py-0.5 cursor-pointer select-none"
+                            className="flex items-start gap-1 py-0.5 cursor-pointer select-none"
                             onClick={() => toggleProjectTask(project.key, 'task', idx)}
                           >
-                            <div
-                              className={`w-[12px] h-[12px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[2px] ${
-                                isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
-                              }`}
-                            >
-                              {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
+                            <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
+                              isDone ? 'bg-[#c7d2fe] border-[#c7d2fe]' : 'border-[#d6d3d1] bg-white'
+                            }`}>
+                              {isDone && <span className="text-[#3730a3] text-[6.5px] font-bold leading-none">✓</span>}
                             </div>
-                            <span className={`text-[10px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                            <span className={`text-[9px] leading-[1.2] ${isDone ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'}`}>
                               {task}
                             </span>
                           </div>
@@ -121,17 +112,15 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                         return (
                           <div
                             key={`done-${i}`}
-                            className="flex items-start gap-[4px] py-0.5 cursor-pointer select-none"
+                            className="flex items-start gap-1 py-0.5 cursor-pointer select-none"
                             onClick={() => toggleProjectTask(project.key, 'done', i)}
                           >
-                            <div
-                              className={`w-[12px] h-[12px] rounded-sm border-[1.5px] flex-shrink-0 flex items-center justify-center mt-[2px] ${
-                                isDone ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#e5e7eb]'
-                              }`}
-                            >
-                              {isDone && <span className="text-[#5b21b6] text-[7px] font-extrabold">✓</span>}
+                            <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
+                              isDone ? 'bg-[#c7d2fe] border-[#c7d2fe]' : 'border-[#d6d3d1] bg-white'
+                            }`}>
+                              {isDone && <span className="text-[#3730a3] text-[6.5px] font-bold leading-none">✓</span>}
                             </div>
-                            <span className={`text-[10px] leading-[1.2] ${isDone ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                            <span className={`text-[9px] leading-[1.2] ${isDone ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'}`}>
                               {task}
                             </span>
                           </div>
@@ -141,18 +130,15 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                   </div>
                 )}
 
-                {/* Expand toggle */}
                 {hasMore && (
                   <div
-                    className="flex items-center gap-[3px] mt-[3px] cursor-pointer"
+                    className="flex items-center gap-1 mt-1 cursor-pointer text-[#a8a29e] hover:text-[#4338ca] transition-colors"
                     onClick={() => toggleExpand(project.key)}
                   >
-                    <span className="text-[12.5px] text-[#a78bfa] font-bold">
+                    <span className="text-[9px] font-semibold uppercase tracking-[0.10em]">
                       {isExpanded ? 'Show less' : `+${hiddenTasks.length + project.doneTasks.length} more`}
                     </span>
-                    <span className={`text-[12.5px] text-[#a78bfa] transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
-                      ▼
-                    </span>
+                    <span className={`text-[9px] transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                   </div>
                 )}
               </div>
