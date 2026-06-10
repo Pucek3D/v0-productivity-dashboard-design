@@ -39,11 +39,11 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
         </span>
       )}
       <button ref={calRef} onClick={() => setShowCal(true)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity bg-transparent border-none cursor-pointer p-0 leading-none">
+        className="opacity-100 bg-transparent border-none cursor-pointer p-0 leading-none">
         <IconCalendar size={sz} className="text-slate-500 hover:text-slate-300" />
       </button>
       <button ref={ownerRef} onClick={() => setShowOwner(true)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity bg-transparent border-none cursor-pointer p-0 leading-none">
+        className="opacity-100 bg-transparent border-none cursor-pointer p-0 leading-none">
         <IconUser size={sz} className="text-slate-500 hover:text-slate-300" />
       </button>
 
