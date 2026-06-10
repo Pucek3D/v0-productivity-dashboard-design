@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { TopPrioCard } from '@/components/dashboard/top-prio-card'
 import { MessagesCard } from '@/components/dashboard/messages-card'
 import { KpisCard } from '@/components/dashboard/kpis-card'
@@ -10,16 +10,12 @@ import { ActiveProjectsCard } from '@/components/dashboard/active-projects-card'
 import { OtherTodoCard } from '@/components/dashboard/other-todo-card'
 import { LtGoalsCard } from '@/components/dashboard/lt-goals-card'
 import { PROJECTS, LT_GOALS, Project } from '@/lib/data'
-import { useCallback, useMemo } from 'react'
 import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
 
 export default function Dashboard() {
-  // Dynamic header date — hydrates to real today after mount
+  /* ── Header date ── */
   const [headerDate, setHeaderDate] = useState({
-    weekday: 'Tuesday',
-    day: 26,
-    month: 'May',
-    year: 2026,
+    weekday: 'Tuesday', day: 26, month: 'May', year: 2026,
   })
   useEffect(() => {
     const now = new Date()
@@ -31,6 +27,7 @@ export default function Dashboard() {
     })
   }, [])
 
+  /* ── Project done state ── */
   const [projectDone, setProjectDone] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     ;[...PROJECTS, ...LT_GOALS].forEach(p => {
@@ -59,6 +56,20 @@ export default function Dashboard() {
     return Math.round((doneCount / totalTasks) * 100)
   }, [projectDone])
 
+  /* ── Task metadata (deadlines + owners) ── */
+  const [taskMeta, setTaskMeta] = useState<Record<string, TaskMeta>>({})
+
+  const updateTaskMeta = useCallback((key: string, updates: Partial<TaskMeta>) => {
+    setTaskMeta(prev => ({ ...prev, [key]: { ...prev[key], ...updates } }))
+  }, [])
+
+  const deadlineEvents: DeadlineEvent[] = useMemo(() => {
+    return Object.entries(taskMeta)
+      .filter(([, m]) => m.deadline)
+      .map(([, m]) => ({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8' }))
+  }, [taskMeta])
+
+  /* ── Render ── */
   return (
     <div className="min-h-screen bg-background p-5 font-sans">
       <header className="flex items-end justify-between mb-6 pb-5 border-b border-white/5">
@@ -71,16 +82,16 @@ export default function Dashboard() {
             {headerDate.weekday} <span className="mx-2 text-slate-600">·</span> {headerDate.day} {headerDate.month} {headerDate.year}
           </p>
         </div>
-           </header>
+      </header>
 
       <div className="grid grid-cols-[196px_minmax(0,0.75fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="flex flex-col gap-3">
-          <TopPrioCard />
+          <TopPrioCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
           <MessagesCard />
           <KpisCard />
         </div>
         <div className="flex flex-col gap-3">
-          <EventCalendar />
+          <EventCalendar deadlineEvents={deadlineEvents} />
           <LtGoalsCalendar />
           <ProgressOverview
             projectDone={projectDone}
@@ -92,12 +103,16 @@ export default function Dashboard() {
             projectDone={projectDone}
             toggleProjectTask={toggleProjectTask}
             getProjectCompletion={getProjectCompletion}
+            taskMeta={taskMeta}
+            updateTaskMeta={updateTaskMeta}
           />
-          <OtherTodoCard />
+          <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
           <LtGoalsCard
             projectDone={projectDone}
             toggleProjectTask={toggleProjectTask}
             getProjectCompletion={getProjectCompletion}
+            taskMeta={taskMeta}
+            updateTaskMeta={updateTaskMeta}
           />
         </div>
       </div>
