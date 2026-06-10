@@ -1,14 +1,18 @@
 'use client'
 import { useState } from 'react'
 import { LT_GOALS, statusStyle, Project } from '@/lib/data'
+import { TaskActions } from './task-actions'
+import type { TaskMeta } from '@/lib/task-meta'
 
 interface LtGoalsCardProps {
   projectDone: Record<string, boolean>
   toggleProjectTask: (projectKey: string, taskType: 'task' | 'done', index: number) => void
   getProjectCompletion: (project: Project) => number
+  taskMeta: Record<string, TaskMeta>
+  updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
 }
 
-export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion }: LtGoalsCardProps) {
+export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta }: LtGoalsCardProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
 
@@ -24,7 +28,8 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
           {LT_GOALS.map(goal => (
             <GoalTile key={goal.key} goal={goal} projectDone={projectDone}
               toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
-              isExpanded={!!expanded[goal.key]} toggleExpand={toggleExpand} />
+              isExpanded={!!expanded[goal.key]} toggleExpand={toggleExpand}
+              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
           ))}
         </div>
       </div>
@@ -34,6 +39,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
 
 function GoalTile({
   goal, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand,
+  taskMeta, updateTaskMeta,
 }: {
   goal: Project
   projectDone: Record<string, boolean>
@@ -41,6 +47,8 @@ function GoalTile({
   getProjectCompletion: (project: Project) => number
   isExpanded: boolean
   toggleExpand: (key: string) => void
+  taskMeta: Record<string, TaskMeta>
+  updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
 }) {
   const pct = getProjectCompletion(goal)
   const style = statusStyle(goal.status, goal.color)
@@ -98,7 +106,9 @@ function GoalTile({
         <div className="border-t border-white/5 pt-1 mt-1">
           {visibleTasks.map(t => (
             <TaskItem key={t.originalIdx} task={t.task} done={t.done}
-              onClick={() => toggleProjectTask(goal.key, 'task', t.originalIdx)} />
+              onClick={() => toggleProjectTask(goal.key, 'task', t.originalIdx)}
+              taskKey={`goal-${goal.key}-${t.originalIdx}`}
+              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
           ))}
         </div>
 
@@ -106,12 +116,16 @@ function GoalTile({
           <div className="pt-0.5">
             {hiddenTasks.map(t => (
               <TaskItem key={t.originalIdx} task={t.task} done={t.done}
-                onClick={() => toggleProjectTask(goal.key, 'task', t.originalIdx)} />
+                onClick={() => toggleProjectTask(goal.key, 'task', t.originalIdx)}
+                taskKey={`goal-${goal.key}-${t.originalIdx}`}
+                taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
             ))}
             {goal.doneTasks.map((task, i) => {
               const isDone = projectDone[`${goal.key}-done-${i}`] !== false
               return <TaskItem key={`done-${i}`} task={task} done={isDone}
-                onClick={() => toggleProjectTask(goal.key, 'done', i)} />
+                onClick={() => toggleProjectTask(goal.key, 'done', i)}
+                taskKey={`goal-${goal.key}-done-${i}`}
+                taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
             })}
           </div>
         )}
@@ -130,9 +144,13 @@ function GoalTile({
   )
 }
 
-function TaskItem({ task, done, onClick }: { task: string; done: boolean; onClick: () => void }) {
+function TaskItem({ task, done, onClick, taskKey, taskMeta, updateTaskMeta }: {
+  task: string; done: boolean; onClick: () => void
+  taskKey: string; taskMeta: Record<string, TaskMeta>
+  updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
+}) {
   return (
-    <div className="flex items-start gap-1.5 py-0.5 cursor-pointer select-none" onClick={onClick}>
+    <div className="flex items-start gap-1.5 py-0.5 cursor-pointer select-none group" onClick={onClick}>
       <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
         done ? 'bg-teal-500/30 border-teal-400' : 'border-slate-600 bg-white/5'
       }`}>
@@ -141,6 +159,8 @@ function TaskItem({ task, done, onClick }: { task: string; done: boolean; onClic
       <span className={`text-[10px] leading-[1.25] ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
         {task}
       </span>
+      <TaskActions taskKey={taskKey} taskLabel={task} taskMeta={taskMeta}
+        updateTaskMeta={updateTaskMeta} compact />
     </div>
   )
 }
