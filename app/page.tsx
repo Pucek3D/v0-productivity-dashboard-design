@@ -50,7 +50,7 @@ export default function Dashboard() {
             <span className="text-[#0a0a0a]">op system</span>
           </h1>
           <p className="text-[10.5px] uppercase tracking-[0.18em] text-[#a8a29e] font-medium mt-3">
-            Tuesday <span className="mx-2 text-[#d6d3d1]">·</span> 26 May 2026 <span className="mx-2 text-[#d6d3d1]">·</span> Post-Communion Week
+            Tuesday <span className="mx-2 text-[#d6d3d1]">·</span> 26 May 2026
           </p>
         </div>
         <button className="bg-[#4338ca] text-white rounded-lg px-4 py-2 text-[11px] font-semibold tracking-wider uppercase cursor-pointer hover:bg-[#3730a3] transition-colors shadow-[0_1px_2px_rgba(67,56,202,0.22),0_4px_12px_rgba(67,56,202,0.18)] text-shadow-on-color">
