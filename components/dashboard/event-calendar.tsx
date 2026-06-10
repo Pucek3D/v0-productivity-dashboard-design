@@ -269,10 +269,20 @@ function DayView({ today }: { today: { d: number; m: number; y: number } }) {
 
   return (
     <>
-      <div className="mb-3 px-3 py-2 rounded-lg flex justify-between items-center" style={{ background: '#fce7f3' }}>
-        <span style={{ ...DISPLAY_FONT, fontSize: '20px', color: '#9d174d' }}>{dateStr}</span>
-        <span className="text-[9px] uppercase tracking-[0.16em] text-[#9d174d] font-semibold">Today</span>
-      </div>
+      <div className="mb-3 flex items-center justify-between">
+  <span style={{ ...DISPLAY_FONT, fontSize: '20px', color: '#0a0a0a', textShadow: '0 1px 1px rgba(0,0,0,0.05)' }}>
+    {dateStr}
+  </span>
+  <span style={{
+    fontSize: '9px',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.16em',
+    color: '#db2777',
+  }}>
+    Today
+  </span>
+</div>
       {Array.from({ length: 11 }).map((_, i) => {
         const hour = i + 8
         const events = DAY_EVENTS.filter(e => e.hour === hour)
