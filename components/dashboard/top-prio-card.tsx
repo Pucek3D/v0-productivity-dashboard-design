@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { TOP_PRIO_TASKS } from '@/lib/data'
+import { TaskActions } from './task-actions'
+import type { TaskMeta } from '@/lib/task-meta'
 
 const PRIORITY_COLORS = {
   red: '#be123c',
