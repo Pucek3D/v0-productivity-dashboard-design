@@ -111,7 +111,7 @@ const isUrgent = autoStatus.includes('Today') || autoStatus.includes('🔥')
             <span className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${isUrgent ? 'pulse-soft' : ''}`}
               style={{ background: style.text, boxShadow: `0 0 6px ${style.text}` }} />
             <span className="text-[9px] font-semibold uppercase tracking-[0.10em] truncate" style={{ color: style.text }}>
-              {project.status}
+              {autoStatus}
             </span>
           </span>
           <span className="font-display text-[22px] tabular leading-none flex-shrink-0" style={{
