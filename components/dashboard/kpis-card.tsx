@@ -62,21 +62,21 @@ export function KpisCard() {
           </span>
           <div className="seg-toggle flex">
             <button
-  onClick={() => setView('day')}
-  className={`seg-toggle-btn px-1.5 py-0.5 text-[9.5px] uppercase ${
-    view === 'day' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
-  }`}
->
-  Day
-</button>
-<button
-  onClick={() => setView('week')}
-  className={`seg-toggle-btn px-1.5 py-0.5 text-[9.5px] uppercase ${
-    view === 'week' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
-  }`}
->
-  Wk
-</button>
+              onClick={() => setView('day')}
+              className={`seg-toggle-btn px-1.5 py-0.5 text-[9.5px] uppercase ${
+                view === 'day' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
+              }`}
+            >
+              Day
+            </button>
+            <button
+              onClick={() => setView('week')}
+              className={`seg-toggle-btn px-1.5 py-0.5 text-[9.5px] uppercase ${
+                view === 'week' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
+              }`}
+            >
+              Wk
+            </button>
           </div>
         </div>
       </div>
@@ -212,17 +212,17 @@ function WeekView({
     <>
       <table className="w-full border-collapse table-fixed">
         <colgroup>
-          <col style={{ width: '76px' }} />
-          {KPI_DAYS.map((_, i) => <col key={i} style={{ width: '18px' }} />)}
-          <col style={{ width: '30px' }} />
+          <col style={{ width: '50px' }} />
+          {KPI_DAYS.map((_, i) => <col key={i} style={{ width: '14px' }} />)}
+          <col style={{ width: '20px' }} />
         </colgroup>
         <thead>
           <tr>
-            <th className="text-[9px] text-[#a8a29e] text-left p-1 font-semibold uppercase tracking-[0.12em]" />
+            <th />
             {KPI_DAYS.map((d, i) => (
               <th
                 key={i}
-                className="text-[9px] text-center p-1 uppercase tabular"
+                className="text-[8.5px] text-center pb-1 uppercase tabular"
                 style={{
                   fontWeight: i === todayIdx ? 800 : 600,
                   color: i === todayIdx ? '#4338ca' : '#a8a29e',
@@ -231,7 +231,7 @@ function WeekView({
                 {d}
               </th>
             ))}
-            <th className="text-[9px] text-[#a8a29e] text-right p-1 font-semibold uppercase tracking-[0.10em]">%</th>
+            <th className="text-[8.5px] text-[#a8a29e] text-right pb-1 font-semibold uppercase">%</th>
           </tr>
         </thead>
         <tbody>
@@ -255,14 +255,14 @@ function WeekView({
                 if (k.streak > bestStreak.streak) bestStreak = { label: k.label, streak: k.streak }
                 return (
                   <tr key={k.id}>
-                    <td className="text-[11px] font-medium text-[#292524] p-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                    <td className="text-[10.5px] font-medium text-[#292524] py-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
                       {k.label}
                     </td>
                     {k.days.map((d, i) => (
-                      <td key={i} className="text-center p-1">
+                      <td key={i} className="text-center py-0.5 px-0">
                         <button
                           onClick={() => toggleDay(cat.id, k.id, i)}
-                          className="w-[11px] h-[11px] rounded-full mx-auto cursor-pointer hover:scale-125 transition-transform block"
+                          className="w-[9px] h-[9px] rounded-full mx-auto cursor-pointer hover:scale-125 transition-transform block"
                           style={{
                             background: d ? cat.color : '#f0efeb',
                             boxShadow: i === todayIdx ? `0 0 0 1.5px ${pastel(cat.color, 0.65)}` : 'none',
@@ -271,7 +271,7 @@ function WeekView({
                       </td>
                     ))}
                     <td
-                      className="text-right text-[11px] font-bold p-1 tabular"
+                      className="text-right text-[10px] font-bold py-0.5 tabular"
                       style={{ color: pctColor }}
                     >
                       {pct}%
@@ -284,7 +284,7 @@ function WeekView({
         </tbody>
       </table>
       {bestStreak.streak > 0 && (
-        <div className="mt-3 pt-2 border-t border-[#f0efeb] flex gap-2 items-center">
+        <div className="mt-3 pt-2 border-t border-[#f0efeb] flex gap-2 items-center flex-wrap">
           <span className="text-[9px] text-[#a8a29e] uppercase tracking-[0.12em] font-semibold">Most done</span>
           <span
             className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
