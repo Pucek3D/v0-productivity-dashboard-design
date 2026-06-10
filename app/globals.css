@@ -266,3 +266,11 @@
 }
 .seg-toggle-btn-inactive { background: transparent; color: rgba(255, 255, 255, 0.64); }
 .seg-toggle-btn-inactive:hover { color: rgba(255, 255, 255, 0.88); }
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
+.pulse-soft {
+  animation: pulse-soft 2.4s ease-in-out infinite;
+}
