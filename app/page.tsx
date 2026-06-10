@@ -59,14 +59,14 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background p-5 font-sans">
-      <header className="flex items-end justify-between mb-6 pb-5 border-b border-[#e7e5e0]">
+      <header className="flex items-end justify-between mb-6 pb-5 border-b border-white/5">
         <div>
           <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.025em] text-shadow-display">
-            <span className="text-[#4338ca]">Kornelia&rsquo;s</span>{' '}
-            <span className="text-[#0a0a0a]">op system</span>
+            <span className="text-[#818cf8] glow-text-indigo">Kornelia&rsquo;s</span>{' '}
+            <span className="text-white">op system</span>
           </h1>
-          <p className="text-[10.5px] uppercase tracking-[0.18em] text-[#a8a29e] font-medium mt-3">
-            {headerDate.weekday} <span className="mx-2 text-[#d6d3d1]">·</span> {headerDate.day} {headerDate.month} {headerDate.year}
+          <p className="text-[10.5px] uppercase tracking-[0.18em] text-slate-500 font-medium mt-3">
+            {headerDate.weekday} <span className="mx-2 text-slate-600">·</span> {headerDate.day} {headerDate.month} {headerDate.year}
           </p>
         </div>
            </header>
