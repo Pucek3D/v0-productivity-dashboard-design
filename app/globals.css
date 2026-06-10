@@ -180,3 +180,11 @@
 .glow-text-indigo { text-shadow: 0 0 16px rgba(129, 140, 248, 0.6); }
 .glow-text-teal { text-shadow: 0 0 16px rgba(45, 212, 191, 0.6); }
 .glow-text-rose { text-shadow: 0 0 16px rgba(251, 113, 133, 0.6); }
+
+.icon-on-hover {
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.group:hover .icon-on-hover {
+  opacity: 1;
+}
