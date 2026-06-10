@@ -10,14 +10,14 @@ export function pastel(hex: string, amount: number): string {
 }
 
 export function statusStyle(status: string, color: string): { bg: string; text: string } {
-  if (status === 'On track') return { bg: pastel('#059669', 0.85), text: '#065f46' }
-  if (status === 'At risk') return { bg: pastel('#d97706', 0.82), text: '#78350f' }
-  if (status.includes('Today') || status.includes('🔥')) return { bg: pastel('#dc2626', 0.82), text: '#7f1d1d' }
-  if (status === 'Waiting') return { bg: pastel('#9ca3af', 0.88), text: '#6b7280' }
-  if (status === 'Planning') return { bg: pastel('#9ca3af', 0.85), text: '#374151' }
-  if (status === 'This week') return { bg: pastel('#1d4ed8', 0.85), text: '#1e3a8a' }
-  if (status === 'Active' || status === 'Ongoing') return { bg: pastel(color, 0.85), text: color }
-  return { bg: pastel(color, 0.85), text: color }
+  if (status === 'On track') return { bg: '#d1fae5', text: '#047857' }
+  if (status === 'At risk') return { bg: '#fef3c7', text: '#b45309' }
+  if (status.includes('Today') || status.includes('🔥')) return { bg: '#ffe4e6', text: '#be123c' }
+  if (status === 'Waiting') return { bg: '#f5f5f4', text: '#57534e' }
+  if (status === 'Planning') return { bg: '#f5f5f4', text: '#292524' }
+  if (status === 'This week') return { bg: '#dbeafe', text: '#1e3a8a' }
+  if (status === 'Active' || status === 'Ongoing') return { bg: pastel(color, 0.86), text: color }
+  return { bg: pastel(color, 0.86), text: color }
 }
 
 export interface Project {
@@ -171,7 +171,6 @@ export const KPI_CATEGORIES: KpiCategory[] = [
   ]},
   { id: 'work', label: 'Work', color: '#7c3aed', kpis: [
     { id: 'tasks', label: 'Tasks done', icon: 'checkbox', type: 'num', val: '0', target: '10', pct: 0, streak: 5, days: [0,0,0,0,0,0,0] },
-  ]},
   { id: 'finance', label: 'Finance', color: '#d97706', kpis: [
     { id: 'trading', label: 'Trading session', icon: 'chart-candle', type: 'check', checked: false, streak: 1, days: [0,0,0,0,0,0,0] },
     { id: 'savings', label: 'Savings check', icon: 'piggy-bank', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
