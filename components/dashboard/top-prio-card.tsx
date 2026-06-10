@@ -5,12 +5,17 @@ import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
 
 const PRIORITY_COLORS = {
-  red: '#be123c',
-  yellow: '#b45309',
-  gray: '#a8a29e',
+  red: '#fb7185',
+  yellow: '#fbbf24',
+  gray: '#64748b',
 }
 
-export function TopPrioCard() {
+interface TopPrioCardProps {
+  taskMeta: Record<string, TaskMeta>
+  updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
+}
+
+export function TopPrioCard({ taskMeta, updateTaskMeta }: TopPrioCardProps) {
   const [tasks, setTasks] = useState(TOP_PRIO_TASKS)
 
   const toggleTask = (sectionIdx: number, taskIdx: number) => {
@@ -27,9 +32,9 @@ export function TopPrioCard() {
   }
 
   return (
-   <div className="card-base halo-black">
-  <div className="section-header header-black px-4 py-2.5">
-        <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
+    <div className="card-base halo-black">
+      <div className="section-header header-black px-4 py-3">
+        <span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">
           Top prio today
         </span>
       </div>
@@ -40,7 +45,10 @@ export function TopPrioCard() {
               className="text-[12px] font-semibold text-white flex items-center gap-2 uppercase tracking-[0.08em]"
               style={{ marginTop: sectionIdx > 0 ? '14px' : '0', marginBottom: '6px' }}
             >
-              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: section.color }} />
+              <div
+                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{ background: section.color, boxShadow: `0 0 6px ${section.color}` }}
+              />
               {section.section}
             </div>
             {section.tasks.map((task, taskIdx) => (
@@ -53,7 +61,7 @@ export function TopPrioCard() {
                   className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
                     task.done
                       ? 'bg-indigo-500/30 border-indigo-400'
-                      : 'border-slate-600 bg-[#0f1623] group-hover:border-slate-400'
+                      : 'border-slate-600 bg-white/5 group-hover:border-slate-400'
                   }`}
                 >
                   {task.done && (
@@ -69,6 +77,12 @@ export function TopPrioCard() {
                 }`}>
                   {task.text}
                 </span>
+                <TaskActions
+                  taskKey={`prio-${task.id}`}
+                  taskLabel={task.text}
+                  taskMeta={taskMeta}
+                  updateTaskMeta={updateTaskMeta}
+                />
               </div>
             ))}
           </div>
