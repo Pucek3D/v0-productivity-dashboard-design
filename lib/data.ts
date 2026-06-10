@@ -162,22 +162,23 @@ export interface Kpi {
 }
 
 export const KPI_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-export const TODAY_IDX = 1 // Tuesday
+export const TODAY_IDX = 1 // Tuesday (fallback — actual today computed at runtime in KpisCard)
 
 export const KPI_CATEGORIES: KpiCategory[] = [
   { id: 'health', label: 'Health', color: '#059669', kpis: [
-    { id: 'sleep', label: 'Sleep 7h', icon: 'moon', type: 'num', val: '--', target: '7h', pct: 0, streak: 4, days: [0,0,0,0,0,0,0] },
-    { id: 'workout', label: 'Workout', icon: 'run', type: 'check', checked: false, streak: 2, days: [0,0,0,0,0,0,0] },
+    { id: 'sleep', label: 'Sleep 7h', icon: 'moon', type: 'num', val: '--', target: '7h', pct: 0, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'workout', label: 'Workout', icon: 'run', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
   ]},
   { id: 'work', label: 'Work', color: '#7c3aed', kpis: [
-    { id: 'tasks', label: 'Tasks done', icon: 'checkbox', type: 'num', val: '0', target: '10', pct: 0, streak: 5, days: [0,0,0,0,0,0,0] },
+    { id: 'tasks', label: 'Tasks done', icon: 'checkbox', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
+  ]},
   { id: 'finance', label: 'Finance', color: '#d97706', kpis: [
-    { id: 'trading', label: 'Trading session', icon: 'chart-candle', type: 'check', checked: false, streak: 1, days: [0,0,0,0,0,0,0] },
+    { id: 'trading', label: 'Trading session', icon: 'chart-candle', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
     { id: 'savings', label: 'Savings check', icon: 'piggy-bank', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
   ]},
   { id: 'personal', label: 'Personal', color: '#2563eb', kpis: [
-    { id: 'podcast', label: 'Podcast / learning', icon: 'microphone', type: 'check', checked: false, streak: 3, days: [0,0,0,0,0,0,0] },
-    { id: 'message', label: '1 personal message', icon: 'message', type: 'check', checked: false, streak: 2, days: [0,0,0,0,0,0,0] },
+    { id: 'podcast', label: 'Podcast / learning', icon: 'microphone', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'message', label: '1 personal message', icon: 'message', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
   ]},
 ]
 
