@@ -62,21 +62,21 @@ export function KpisCard() {
           </span>
           <div className="seg-toggle flex">
             <button
-              onClick={() => setView('day')}
-              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
-                view === 'day' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
-              }`}
-            >
-              Day
-            </button>
-            <button
-              onClick={() => setView('week')}
-              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
-                view === 'week' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
-              }`}
-            >
-              Week
-            </button>
+  onClick={() => setView('day')}
+  className={`seg-toggle-btn px-1.5 py-0.5 text-[9.5px] uppercase ${
+    view === 'day' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
+  }`}
+>
+  Day
+</button>
+<button
+  onClick={() => setView('week')}
+  className={`seg-toggle-btn px-1.5 py-0.5 text-[9.5px] uppercase ${
+    view === 'week' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
+  }`}
+>
+  Wk
+</button>
           </div>
         </div>
       </div>
