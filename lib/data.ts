@@ -170,7 +170,7 @@ export const KPI_CATEGORIES: KpiCategory[] = [
     { id: 'workout', label: 'Workout', icon: 'run', type: 'check', checked: false, streak: 2, days: [0,0,0,0,0,0,0] },
   ]},
   { id: 'work', label: 'Work', color: '#7c3aed', kpis: [
-    { id: 'tasks', label: 'Tasks done', icon: 'checkbox', type: 'num', val: '0', target: '10', pct: 0, streak: 5, days: [0,0,0,0,0,0,0] },
+    { id: 'tasks', label: 'Tasks done', icon: 'checkbox', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
   ]},
   { id: 'finance', label: 'Finance', color: '#d97706', kpis: [
     { id: 'trading', label: 'Trading session', icon: 'chart-candle', type: 'check', checked: false, streak: 1, days: [0,0,0,0,0,0,0] },
