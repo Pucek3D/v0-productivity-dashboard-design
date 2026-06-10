@@ -50,12 +50,12 @@ export function TopPrioCard() {
                 <div
                   className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
                     task.done
-                      ? 'bg-[#c7d2fe] border-[#c7d2fe]'
-                      : 'border-[#d6d3d1] bg-white group-hover:border-[#a8a29e]'
+                      ? 'bg-indigo-500/30 border-indigo-400'
+                      : 'border-slate-600 bg-[#0f1623] group-hover:border-[#a8a29e]'
                   }`}
                 >
                   {task.done && (
-                    <span className="text-[#3730a3] text-[8px] font-bold leading-none">✓</span>
+                    <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>
                   )}
                 </div>
                 <div
@@ -63,7 +63,7 @@ export function TopPrioCard() {
                   style={{ background: PRIORITY_COLORS[task.priority] }}
                 />
                 <span className={`text-[12.5px] leading-[1.35] ${
-                  task.done ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'
+                  task.done ? 'text-slate-500 line-through' : 'text-[#0a0a0a]'
                 }`}>
                   {task.text}
                 </span>
