@@ -10,7 +10,7 @@ const CARD: React.CSSProperties = {
   border: '1px solid rgba(10, 10, 10, 0.06)',
   borderRadius: '0.875rem',
   boxShadow:
-    '0 1px 2px rgba(219, 39, 119, 0.08), 0 4px 16px rgba(219, 39, 119, 0.10), 0 16px 40px rgba(219, 39, 119, 0.08)',
+    '0 1px 2px rgba(236, 72, 153, 0.08), 0 4px 16px rgba(236, 72, 153, 0.10), 0 16px 40px rgba(236, 72, 153, 0.08)',
   overflow: 'hidden',
 }
 
