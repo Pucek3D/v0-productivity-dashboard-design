@@ -317,7 +317,7 @@ function DayView({ today, deadlineEvents }: { today: { d: number; m: number; y: 
             style={{ background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`, boxShadow: `0 0 12px ${ev.color}33` }}>
             <div className="text-[12px] font-bold" style={{ color: ev.color }}>{ev.label}</div>
             <div className="text-[10px] text-slate-500 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {ev.hour.toString().padStart(2, '0')}:00 — {ev.end.toString().padStart(2, '0')}:00
+              {(ev as any).timeLabel ?? `${ev.hour.toString().padStart(2, '0')}:00`} — {ev.end.toString().padStart(2, '0')}:00
             </div>
           </div>
         ))}
