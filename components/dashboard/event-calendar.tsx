@@ -1,9 +1,8 @@
 'use client'
-
 import { useState } from 'react'
-import { 
+import {
   MONTH_EVENTS, WEEK_EVENTS, DAY_EVENTS,
-  MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth, pastel 
+  MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth, pastel
 } from '@/lib/data'
 
 const TODAY = { d: 26, m: 4, y: 2026 }
@@ -23,19 +22,19 @@ export function EventCalendar() {
   }
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
-      <div className="bg-[#1d4ed8] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
+    <div className="card-base halo-slate-blue">
+      <div className="section-header header-slate-blue px-4 py-2.5">
         <div className="flex justify-between items-center">
-          <span className="text-white font-bold text-[14.5px] tracking-[0.07em] uppercase">
+          <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
             Event Calendar
           </span>
-          <div className="flex bg-white/[0.18] rounded-[5px] overflow-hidden">
+          <div className="seg-toggle flex">
             {(['d', 'm', 'w'] as const).map(v => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`px-[7px] py-[3px] border-none cursor-pointer text-[14px] font-bold ${
-                  view === v ? 'bg-white/30 text-white' : 'bg-transparent text-white/60'
+                className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                  view === v ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
                 }`}
               >
                 {v === 'd' ? 'Day' : v === 'm' ? 'Month' : 'Week'}
@@ -44,22 +43,22 @@ export function EventCalendar() {
           </div>
         </div>
       </div>
-      <div className="p-[11px_13px]">
+      <div className="px-3.5 py-3">
         {view !== 'd' && (
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex items-center gap-[5px]">
+          <div className="flex justify-between items-center mb-2.5">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => changeMonth(-1)}
-                className="bg-transparent border border-[#e5e7eb] rounded-[5px] w-[22px] h-[22px] cursor-pointer text-[13px] flex items-center justify-center text-[#374151]"
+                className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1] transition-colors"
               >
                 ‹
               </button>
-              <span className="text-xs font-bold text-[#111827]">
-                {MONTH_NAMES[month]} {year}
+              <span className="font-display text-[20px] tracking-tight text-[#0a0a0a] text-shadow-soft leading-none">
+                {MONTH_NAMES[month]} <span className="text-[#a8a29e]">{year}</span>
               </span>
               <button
                 onClick={() => changeMonth(1)}
-                className="bg-transparent border border-[#e5e7eb] rounded-[5px] w-[22px] h-[22px] cursor-pointer text-[13px] flex items-center justify-center text-[#374151]"
+                className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1] transition-colors"
               >
                 ›
               </button>
@@ -81,9 +80,9 @@ function MonthView({ month, year }: { month: number; year: number }) {
 
   return (
     <>
-      <div className="grid grid-cols-7 gap-0.5 mb-[3px]">
+      <div className="grid grid-cols-7 gap-0.5 mb-1">
         {DAY_NAMES.map((d, i) => (
-          <div key={i} className="text-center text-[13px] font-bold text-[#9ca3af] py-0.5">
+          <div key={i} className="text-center text-[9.5px] font-semibold text-[#a8a29e] uppercase tracking-[0.12em] py-1">
             {d}
           </div>
         ))}
@@ -99,28 +98,28 @@ function MonthView({ month, year }: { month: number; year: number }) {
           return (
             <div
               key={day}
-              className={`min-h-[46px] rounded-md p-[3px_3px_2px] flex flex-col gap-0.5 border ${
-                isToday 
-                  ? 'bg-[#f5f3ff] border-[#ddd6fe]' 
-                  : 'border-transparent hover:bg-[#f9fafb] hover:border-[#e5e7eb]'
+              className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors ${
+                isToday
+                  ? 'bg-[#e0e7ff] border-[#c7d2fe] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.08)]'
+                  : 'border-transparent hover:bg-[#f5f5f1] hover:border-[#e7e5e0]'
               }`}
             >
-              <span className={`text-[12px] font-semibold leading-none mb-[1px] ${
-                isToday ? 'text-[#7c3aed] font-extrabold' : 'text-[#374151]'
+              <span className={`text-[11px] leading-none mb-[2px] tabular ${
+                isToday ? 'text-[#3730a3] font-bold' : 'text-[#57534e] font-semibold'
               }`}>
                 {day}
               </span>
               {dayEvents.slice(0, 2).map((ev, j) => (
                 <div
                   key={j}
-                  className="text-[12.5px] font-bold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]"
-                  style={{ background: pastel(ev.color, 0.78), color: ev.color }}
+                  className="text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
+                  style={{ background: pastel(ev.color, 0.84), color: ev.color }}
                 >
                   {ev.label}
                 </div>
               ))}
               {dayEvents.length > 2 && (
-                <div className="text-[12.5px] font-bold rounded-[3px] px-1 py-[1.5px] bg-[#f3f4f6] text-[#9ca3af]">
+                <div className="text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] bg-[#f5f5f1] text-[#a8a29e]">
                   +{dayEvents.length - 2}
                 </div>
               )}
@@ -134,36 +133,31 @@ function MonthView({ month, year }: { month: number; year: number }) {
 
 function WeekView() {
   const cols = [
-    { name: 'Mon', day: 25 },
-    { name: 'Tue', day: 26 },
-    { name: 'Wed', day: 27 },
-    { name: 'Thu', day: 28 },
-    { name: 'Fri', day: 29 },
-    { name: 'Sat', day: 30 },
-    { name: 'Sun', day: 31 },
+    { name: 'Mon', day: 25 }, { name: 'Tue', day: 26 }, { name: 'Wed', day: 27 },
+    { name: 'Thu', day: 28 }, { name: 'Fri', day: 29 }, { name: 'Sat', day: 30 }, { name: 'Sun', day: 31 },
   ]
 
   return (
-    <div className="grid grid-cols-7 gap-[3px]">
+    <div className="grid grid-cols-7 gap-1">
       {cols.map(c => {
         const isToday = c.day === TODAY.d
         const events = WEEK_EVENTS[c.day] || []
         return (
           <div
             key={c.day}
-            className={`rounded-lg p-[5px_4px] min-h-[90px] flex flex-col gap-[3px] ${
-              isToday 
-                ? 'bg-[#f5f3ff] border-[1.5px] border-[#ddd6fe]' 
-                : 'bg-[#fafafa] border border-[#f3f4f6]'
+            className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 transition-colors ${
+              isToday
+                ? 'bg-[#e0e7ff] border border-[#c7d2fe] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.06)]'
+                : 'bg-[#fafaf7] border border-[#f0efeb]'
             }`}
           >
-              <div className="text-center mb-[3px]">
-              <div className={`text-[13px] font-bold ${isToday ? 'text-[#7c3aed]' : 'text-[#9ca3af]'}`}>
+            <div className="text-center mb-1">
+              <div className={`text-[9px] font-semibold uppercase tracking-[0.12em] ${isToday ? 'text-[#3730a3]' : 'text-[#a8a29e]'}`}>
                 {c.name}
               </div>
-              <div 
-                className={`text-[17px] font-bold text-[#111827] w-[22px] h-[22px] rounded-full flex items-center justify-center mx-auto mt-[1px] mb-0.5 ${
-                  isToday ? 'bg-[#ddd6fe] text-[#5b21b6]' : ''
+              <div
+                className={`font-display text-[18px] tabular w-7 h-7 rounded-full flex items-center justify-center mx-auto mt-0.5 text-shadow-soft leading-none ${
+                  isToday ? 'bg-[#c7d2fe] text-[#3730a3]' : 'text-[#0a0a0a]'
                 }`}
               >
                 {c.day}
@@ -172,16 +166,13 @@ function WeekView() {
             {events.map((ev, i) => (
               <div
                 key={i}
-                className="rounded p-[3px_4px]"
-                style={{ 
-                  background: pastel(ev.color, 0.82),
-                  borderLeft: `3px solid ${pastel(ev.color, 0.5)}`
-                }}
+                className="rounded-[5px] px-1.5 py-1"
+                style={{ background: pastel(ev.color, 0.88), borderLeft: `2px solid ${ev.color}` }}
               >
-                <div className="text-[12px] font-bold" style={{ color: ev.color }}>
+                <div className="text-[9.5px] font-bold tabular" style={{ color: ev.color }}>
                   {ev.time}
                 </div>
-                <div className="text-[12.5px] font-semibold leading-[1.3] text-[#374151]">
+                <div className="text-[10px] font-semibold leading-[1.25] text-[#292524] mt-px">
                   {ev.label}
                 </div>
               </div>
@@ -196,53 +187,44 @@ function WeekView() {
 function DayView() {
   return (
     <>
-      <div 
-        className="mb-2 p-[6px_10px] rounded-lg flex justify-between"
-        style={{ background: pastel('#7c3aed', 0.88) }}
+      <div
+        className="mb-3 px-3 py-2 rounded-lg flex justify-between items-center"
+        style={{ background: '#e0e7ff' }}
       >
-        <span className="text-[15px] font-bold text-[#6d28d9]">Tue, 26 May 2026</span>
-        <span className="text-[14px] text-[#6d28d9] font-semibold">Today</span>
+        <span className="font-display text-[20px] text-[#3730a3] text-shadow-soft leading-none">Tue, 26 May 2026</span>
+        <span className="text-[9px] uppercase tracking-[0.16em] text-[#3730a3] font-semibold">Today</span>
       </div>
       {Array.from({ length: 11 }).map((_, i) => {
         const hour = i + 8
         const events = DAY_EVENTS.filter(e => e.hour === hour)
         const isNow = hour === 14
         return (
-          <div 
-            key={hour} 
-            className="flex items-start gap-1.5"
+          <div
+            key={hour}
+            className="flex items-start gap-2"
             style={{ minHeight: events.length ? '40px' : '20px' }}
           >
-            <span 
-              className="text-[13px] font-semibold w-[30px] flex-shrink-0 pt-[3px] text-right"
-              style={{ color: isNow ? '#7c3aed' : '#d1d5db' }}
+            <span
+              className={`text-[10.5px] font-semibold w-[34px] flex-shrink-0 pt-[3px] text-right tabular ${
+                isNow ? 'text-[#4338ca]' : 'text-[#d6d3d1]'
+              }`}
             >
               {hour.toString().padStart(2, '0')}:00
             </span>
-            <div 
+            <div
               className="flex-1 pt-[3px]"
-              style={{ borderTop: `1px solid ${isNow ? pastel('#7c3aed', 0.6) : '#f9fafb'}` }}
+              style={{ borderTop: `1px solid ${isNow ? '#c7d2fe' : '#f5f5f1'}` }}
             >
-              {isNow && (
-                <div 
-                  className="h-0.5 rounded-sm mb-[3px]"
-                  style={{ background: pastel('#7c3aed', 0.5) }}
-                />
-              )}
+              {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#4338ca' }} />}
               {events.map((ev, j) => (
                 <div
                   key={j}
-                  className="rounded-r-[5px] p-[4px_7px] mb-[3px]"
-                  style={{
-                    background: pastel(ev.color, 0.82),
-                    borderLeft: `3px solid ${pastel(ev.color, 0.5)}`,
-                  }}
+                  className="rounded-r-md px-2 py-1 mb-1"
+                  style={{ background: pastel(ev.color, 0.86), borderLeft: `2.5px solid ${ev.color}` }}
                 >
-                  <div className="text-[14.5px] font-bold" style={{ color: ev.color }}>
-                    {ev.label}
-                  </div>
-                  <div className="text-[13px] text-[#9ca3af]">
-                    {ev.hour.toString().padStart(2, '0')}:00 – {ev.end.toString().padStart(2, '0')}:00
+                  <div className="text-[12px] font-bold" style={{ color: ev.color }}>{ev.label}</div>
+                  <div className="text-[10px] text-[#a8a29e] tabular mt-0.5">
+                    {ev.hour.toString().padStart(2, '0')}:00 — {ev.end.toString().padStart(2, '0')}:00
                   </div>
                 </div>
               ))}
