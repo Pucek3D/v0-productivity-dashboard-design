@@ -1,7 +1,5 @@
 export interface TaskMeta {
   deadline?: string
-  hour?: number
-  minute?: number
   owner?: string
   label?: string
 }
@@ -10,8 +8,6 @@ export interface DeadlineEvent {
   date: string
   label: string
   color: string
-  hour?: number
-  minute?: number
 }
 
 export function getDateLabel(dateStr: string): { text: string; className: string } {
@@ -29,4 +25,47 @@ export function getDateLabel(dateStr: string): { text: string; className: string
   }
   const short = date.toLocaleDateString('en', { month: 'short', day: 'numeric' })
   return { text: short, className: 'text-slate-400 bg-white/5' }
+}
+
+export function computeStatus(
+  project: { key: string; tasks: string[]; doneTasks: string[] },
+  projectDone: Record<string, boolean>,
+  taskMeta: Record<string, TaskMeta>,
+  keyPrefix: 'proj' | 'goal'
+): string {
+  const totalTasks = project.tasks.length + project.doneTasks.length
+  if (totalTasks === 0) return 'Planning'
+
+  let doneCount = 0
+  project.tasks.forEach((_, i) => {
+    if (projectDone[`${project.key}-task-${i}`]) doneCount++
+  })
+  project.doneTasks.forEach((_, i) => {
+    if (projectDone[`${project.key}-done-${i}`] !== false) doneCount++
+  })
+
+  if (doneCount === totalTasks) return 'Complete'
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  let hasDeadlines = false
+  let hasOverdue = false
+  let hasToday = false
+
+  project.tasks.forEach((_, i) => {
+    const meta = taskMeta[`${keyPrefix}-${project.key}-${i}`]
+    if (meta?.deadline && !projectDone[`${project.key}-task-${i}`]) {
+      hasDeadlines = true
+      const diff = Math.round((new Date(meta.deadline + 'T00:00:00').getTime() - today.getTime()) / 86400000)
+      if (diff < 0) hasOverdue = true
+      if (diff === 0) hasToday = true
+    }
+  })
+
+  if (hasToday) return 'Today! 🔥'
+  if (hasOverdue) return 'At risk'
+  if (hasDeadlines && doneCount > 0) return 'On track'
+  if (hasDeadlines) return 'On track'
+  if (doneCount > 0) return 'Active'
+  return 'Planning'
 }
