@@ -81,8 +81,9 @@ function ProjectTile({
   updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
 }) {
   const pct = getProjectCompletion(project)
-  const style = statusStyle(project.status, project.color)
-  const isUrgent = project.status.includes('Today') || project.status.includes('🔥')
+ const autoStatus = computeStatus(project, projectDone, taskMeta, 'proj')
+const style = statusStyle(autoStatus, project.color)
+const isUrgent = autoStatus.includes('Today') || autoStatus.includes('🔥')
 
   const indexedTasks = project.tasks.map((task, originalIdx) => ({
     task, originalIdx, done: !!projectDone[`${project.key}-task-${originalIdx}`],
