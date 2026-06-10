@@ -290,7 +290,13 @@ function DayView({ today, deadlineEvents }: { today: { d: number; m: number; y: 
   const hour = i + 8
   const staticEvents = DAY_EVENTS.filter(e => e.hour === hour)
   const timedDeadlines = deadlineEvents.filter(e => e.date === todayStr && e.hour === hour)
-    .map(e => ({ label: `→ ${e.label}`, color: e.color, hour, end: hour + 1 }))
+  .map(e => ({
+    label: `→ ${e.label}`,
+    color: e.color,
+    hour,
+    end: hour + 1,
+    timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}`,
+  }))
   const events = [...staticEvents, ...timedDeadlines]
   const isNow = hour === new Date().getHours()
   const hasContent = events.length > 0 || isNow
