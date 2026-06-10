@@ -1,7 +1,8 @@
 export interface TaskMeta {
-  deadline?: string   // YYYY-MM-DD
+  deadline?: string
+  hour?: number
   owner?: string
-  label?: string      // task text, stored for calendar display
+  label?: string
 }
 
 export interface DeadlineEvent {
