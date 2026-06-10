@@ -240,6 +240,7 @@
 .header-rose       { background: linear-gradient(180deg, #e11d48 0%, #be123c 100%); }
 .header-plum       { background: linear-gradient(180deg, #9333ea 0%, #7e22ce 100%); }
 .header-stone      { background: linear-gradient(180deg, #44403c 0%, #292524 100%); }
+.header-black     { background: linear-gradient(180deg, #1f2937 0%, #0a0a0a 100%); }
 
 .seg-toggle {
   background: rgba(255, 255, 255, 0.14);
