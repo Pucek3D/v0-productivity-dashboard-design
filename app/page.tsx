@@ -10,6 +10,8 @@ import { ActiveProjectsCard } from '@/components/dashboard/active-projects-card'
 import { OtherTodoCard } from '@/components/dashboard/other-todo-card'
 import { LtGoalsCard } from '@/components/dashboard/lt-goals-card'
 import { PROJECTS, LT_GOALS, Project } from '@/lib/data'
+import { useCallback, useMemo } from 'react'
+import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
 
 export default function Dashboard() {
   // Dynamic header date — hydrates to real today after mount
