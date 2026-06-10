@@ -7,8 +7,6 @@ import {
 
 export function EventCalendar() {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
-
-  // Hydrate to real today on mount; default to data fallback (May 2026) for SSR
   const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
   const [month, setMonth] = useState(4)
   const [year, setYear] = useState(2026)
@@ -52,6 +50,7 @@ export function EventCalendar() {
           </div>
         </div>
       </div>
+
       <div className="px-3.5 py-3">
         {view !== 'd' && (
           <div className="flex justify-between items-center mb-2.5">
@@ -148,11 +147,10 @@ function MonthView({ month, year, today }: { month: number; year: number; today:
 }
 
 function WeekView({ today }: { today: { d: number; m: number; y: number } }) {
-  // Builds a week of 7 days centered on today
   const cols = (() => {
     const result: { name: string; day: number }[] = []
     const base = new Date(today.y, today.m, today.d)
-    const dayOfWeek = base.getDay() // 0=Sun..6=Sat
+    const dayOfWeek = base.getDay()
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
     for (let i = 0; i < 7; i++) {
       const d = new Date(base)
