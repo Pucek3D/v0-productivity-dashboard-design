@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { TopPrioCard } from '@/components/dashboard/top-prio-card'
 import { MessagesCard } from '@/components/dashboard/messages-card'
 import { KpisCard } from '@/components/dashboard/kpis-card'
@@ -12,6 +12,23 @@ import { LtGoalsCard } from '@/components/dashboard/lt-goals-card'
 import { PROJECTS, LT_GOALS, Project } from '@/lib/data'
 
 export default function Dashboard() {
+  // Dynamic header date — hydrates to real today after mount
+  const [headerDate, setHeaderDate] = useState({
+    weekday: 'Tuesday',
+    day: 26,
+    month: 'May',
+    year: 2026,
+  })
+  useEffect(() => {
+    const now = new Date()
+    setHeaderDate({
+      weekday: now.toLocaleDateString('en-US', { weekday: 'long' }),
+      day: now.getDate(),
+      month: now.toLocaleDateString('en-US', { month: 'long' }),
+      year: now.getFullYear(),
+    })
+  }, [])
+
   const [projectDone, setProjectDone] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     ;[...PROJECTS, ...LT_GOALS].forEach(p => {
@@ -49,7 +66,7 @@ export default function Dashboard() {
             <span className="text-[#0a0a0a]">op system</span>
           </h1>
           <p className="text-[10.5px] uppercase tracking-[0.18em] text-[#a8a29e] font-medium mt-3">
-            Tuesday <span className="mx-2 text-[#d6d3d1]">·</span> 26 May 2026
+            {headerDate.weekday} <span className="mx-2 text-[#d6d3d1]">·</span> {headerDate.day} {headerDate.month} {headerDate.year}
           </p>
         </div>
         <button className="bg-[#4338ca] text-white rounded-lg px-4 py-2 text-[11px] font-semibold tracking-wider uppercase cursor-pointer hover:bg-[#3730a3] transition-colors shadow-[0_1px_2px_rgba(67,56,202,0.22),0_4px_12px_rgba(67,56,202,0.18)] text-shadow-on-color">
