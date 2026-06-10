@@ -257,7 +257,7 @@ function DayView({ today, deadlineEvents }: { today: { d: number; m: number; y: 
   })
 
   const todayStr = `${today.y}-${String(today.m + 1).padStart(2, '0')}-${String(today.d).padStart(2, '0')}`
-  const allDayEvents = deadlineEvents.filter(e => e.date === todayStr)
+ const allDayEvents = deadlineEvents.filter(e => e.date === todayStr && e.hour === undefined)
 
   return (
     <>
