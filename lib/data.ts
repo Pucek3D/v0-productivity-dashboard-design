@@ -28,6 +28,7 @@ export interface Project {
   next: string
   tasks: string[]
   doneTasks: string[]
+  category?: 'work' | 'home'
 }
 
 export const PROJECTS: Project[] = [
