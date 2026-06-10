@@ -283,13 +283,17 @@ function DayView({ today }: { today: { d: number; m: number; y: number } }) {
     Today
   </span>
 </div>
-      {Array.from({ length: 11 }).map((_, i) => {
-        const hour = i + 8
-        const events = DAY_EVENTS.filter(e => e.hour === hour)
-        const isNow = hour === new Date().getHours()
-        return (
-          <div key={hour} className="flex items-start gap-2" style={{ minHeight: events.length ? '40px' : '20px' }}>
-            <span
+    {Array.from({ length: 11 }).map((_, i) => {
+  const hour = i + 8
+  const events = DAY_EVENTS.filter(e => e.hour === hour)
+  const isNow = hour === new Date().getHours()
+  const hasContent = events.length > 0 || isNow
+  return (
+    <div key={hour} className="flex items-start gap-2 transition-all" style={{ 
+      minHeight: hasContent ? '40px' : '10px',
+      opacity: hasContent ? 1 : 0.4,
+    }}>
+           <span
               className={`text-[10.5px] font-semibold w-[34px] flex-shrink-0 pt-[3px] text-right ${
                 isNow ? 'text-[#db2777]' : 'text-[#d6d3d1]'
               }`}
