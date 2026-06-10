@@ -225,7 +225,7 @@ function WeekView({ today }: { today: { d: number; m: number; y: number } }) {
           <div
             key={c.day}
             className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 ${
-              isToday ? 'bg-[#fbcfe8] border border-[#f9a8d4]' : 'bg-[#fafaf7] border border-[#f0efeb]'
+              isToday ? 'bg-[#fbcfe8] border border-[#f472b6]' : 'bg-[#fafaf7] border border-[#f0efeb]'
             }`}
           >
             <div className="text-center mb-1">
@@ -287,7 +287,7 @@ function DayView({ today }: { today: { d: number; m: number; y: number } }) {
             >
               {hour.toString().padStart(2, '0')}:00
             </span>
-            <div className="flex-1 pt-[3px]" style={{ borderTop: `1px solid ${isNow ? '#f9a8d4' : '#f5f5f1'}` }}>
+            <div className="flex-1 pt-[3px]" style={{ borderTop: `1px solid ${isNow ? '#f472b6' : '#f5f5f1'}` }}>
               {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#db2777' }} />}
               {events.map((ev, j) => (
                 <div
