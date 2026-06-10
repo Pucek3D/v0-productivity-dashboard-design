@@ -15,7 +15,7 @@ const CARD: React.CSSProperties = {
 }
 
 const HEADER_BAR: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #ec4899 0%, #db2777 100%)',
+  linear-gradient(180deg, #f472b6 0%, #ec4899 100%)
   position: 'relative',
   boxShadow:
     'inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.04)',
