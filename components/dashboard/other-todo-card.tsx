@@ -1,5 +1,4 @@
 'use client'
-
 import { useState } from 'react'
 import { OTHER_TODOS } from '@/lib/data'
 
@@ -19,33 +18,41 @@ export function OtherTodoCard() {
   }
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
-      <div className="bg-[#6d28d9] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
-        <span className="text-white font-bold text-[14.5px] tracking-[0.07em] uppercase">
+    <div className="card-base halo-plum">
+      <div className="section-header header-plum px-4 py-2.5">
+        <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
           Other to-do
         </span>
       </div>
-      <div className="p-[11px_13px]">
+      <div className="px-3.5 py-3">
         {todos.map((group, groupIdx) => (
-          <div key={group.group} className={groupIdx > 0 ? 'mt-1.5' : ''}>
-            {groupIdx > 0 && <div className="h-px bg-[#f9fafb] mb-[5px]" />}
-            <div className="text-[16.5px] font-bold mb-[3px]" style={{ color: group.color }}>
+          <div key={group.group} className={groupIdx > 0 ? 'mt-3' : ''}>
+            {groupIdx > 0 && <div className="h-px bg-[#f0efeb] mb-2" />}
+            <div
+              className="text-[10px] font-semibold mb-1.5 uppercase tracking-[0.14em] flex items-center gap-1.5"
+              style={{ color: group.color }}
+            >
+              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: group.color }} />
               {group.group}
             </div>
             {group.tasks.map((task, taskIdx) => (
               <div
                 key={task.id}
-                className="flex items-center gap-[7px] py-[3px] cursor-pointer select-none"
+                className="flex items-start gap-2 py-[3px] cursor-pointer select-none group"
                 onClick={() => toggleTask(groupIdx, taskIdx)}
               >
                 <div
-                  className={`w-3.5 h-3.5 rounded-[3px] border-[1.5px] flex-shrink-0 flex items-center justify-center transition-all ${
-                    task.done ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#d1d5db]'
+                  className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
+                    task.done
+                      ? 'bg-[#c7d2fe] border-[#c7d2fe]'
+                      : 'border-[#d6d3d1] bg-white group-hover:border-[#a8a29e]'
                   }`}
                 >
-                  {task.done && <span className="text-[#5b21b6] text-[8px] font-extrabold">✓</span>}
+                  {task.done && <span className="text-[#3730a3] text-[8px] font-bold leading-none">✓</span>}
                 </div>
-                <span className={`text-[15px] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
+                <span className={`text-[12.5px] leading-[1.35] ${
+                  task.done ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'
+                }`}>
                   {task.text}
                 </span>
               </div>
