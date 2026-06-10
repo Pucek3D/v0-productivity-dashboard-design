@@ -51,8 +51,7 @@ export default function Dashboard() {
             <span className="text-[#7c3aed]">{"Kornelia's"}</span>{' '}
             <span className="text-[#111827]">op system</span>
           </h1>
-          <p className="text-[11px] text-[#6b7280] mt-0.5">
-            Tuesday, 26 May 2026 — post-Communion week
+        Tuesday <span className="mx-2 text-[#d6d3d1]">·</span> 26 May 2026
           </p>
         </div>
         <button className="bg-[#7c3aed] text-white border-none rounded-lg px-3.5 py-[7px] text-xs font-bold cursor-pointer hover:bg-[#6d28d9] transition-colors">
