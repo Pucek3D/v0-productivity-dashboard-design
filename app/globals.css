@@ -26,27 +26,30 @@
   --teal: #0f766e;          --teal-soft: #ccfbf1;
   --stone: #57534e;         --stone-soft: #f5f5f4;
 
-  /* === SHADOWS === */
+  /* === SHADOWS (richer, more depth) === */
   --shadow-card:
-    0 1px 2px rgba(10, 10, 10, 0.04),
-    0 2px 8px rgba(10, 10, 10, 0.04),
-    0 10px 28px rgba(10, 10, 10, 0.04);
+    0 1px 2px rgba(28, 25, 23, 0.04),
+    0 3px 12px rgba(28, 25, 23, 0.05),
+    0 12px 32px rgba(28, 25, 23, 0.06);
   --shadow-card-hover:
-    0 1px 2px rgba(10, 10, 10, 0.05),
-    0 4px 14px rgba(10, 10, 10, 0.06),
-    0 18px 44px rgba(10, 10, 10, 0.05);
+    0 1px 2px rgba(28, 25, 23, 0.05),
+    0 6px 20px rgba(28, 25, 23, 0.07),
+    0 20px 48px rgba(28, 25, 23, 0.06);
   --shadow-header:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
-    0 1px 2px rgba(0, 0, 0, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.14),
+    0 2px 4px rgba(0, 0, 0, 0.04);
 
-  /* === TEXT SHADOWS === */
-  --text-shadow-soft: 0 1px 1px rgba(0, 0, 0, 0.04);
+  /* === TEXT SHADOWS (tuned for sans-serif) === */
+  --text-shadow-soft: 0 1px 1px rgba(0, 0, 0, 0.05);
   --text-shadow-display:
-    0 1px 0 rgba(255, 255, 255, 0.9),
-    0 2px 4px rgba(10, 10, 10, 0.06),
-    0 4px 12px rgba(10, 10, 10, 0.04);
-  --text-shadow-on-color: 0 1px 2px rgba(0, 0, 0, 0.20);
+    0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 2px rgba(10, 10, 10, 0.06),
+    0 3px 8px rgba(10, 10, 10, 0.04);
+  --text-shadow-glow:
+    0 0 1px rgba(255, 255, 255, 0.6),
+    0 2px 6px rgba(10, 10, 10, 0.08);
+  --text-shadow-on-color: 0 1px 2px rgba(0, 0, 0, 0.22);
 
   /* === SHADCN COMPAT === */
   --muted: var(--surface-subtle);
@@ -86,7 +89,6 @@
 
 @theme inline {
   --font-sans: 'Inter', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
-  --font-display: 'Instrument Serif', ui-serif, Georgia, serif;
   --font-mono: ui-monospace, monospace;
 
   --color-background: var(--background);
@@ -135,16 +137,30 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: 'cv11', 'ss01';
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
   }
 }
 
 /* === Custom component classes — plain CSS so Tailwind v4 doesn't strip them === */
 
-.font-display { font-family: var(--font-display); }
+/* Display font is NOW bold sans-serif (Inter 800, tight tracking) — no more serif */
+.font-display {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-style: normal;
+}
+.font-display-xl {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  font-style: normal;
+}
+
 .tabular { font-variant-numeric: tabular-nums; }
 .text-shadow-soft { text-shadow: var(--text-shadow-soft); }
 .text-shadow-display { text-shadow: var(--text-shadow-display); }
+.text-shadow-glow { text-shadow: var(--text-shadow-glow); }
 .text-shadow-on-color { text-shadow: var(--text-shadow-on-color); }
 
 .card-base {
@@ -153,9 +169,55 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
   overflow: hidden;
+  transition: box-shadow 200ms ease;
 }
 .card-base-hover:hover { box-shadow: var(--shadow-card-hover); }
 
+/* === HALOS — colored shadows per section. Add to any card for an accent glow === */
+.halo-indigo {
+  box-shadow:
+    0 1px 2px rgba(67, 56, 202, 0.08),
+    0 4px 16px rgba(67, 56, 202, 0.10),
+    0 16px 40px rgba(67, 56, 202, 0.08);
+}
+.halo-slate-blue {
+  box-shadow:
+    0 1px 2px rgba(30, 58, 138, 0.08),
+    0 4px 16px rgba(30, 58, 138, 0.10),
+    0 16px 40px rgba(30, 58, 138, 0.08);
+}
+.halo-sage {
+  box-shadow:
+    0 1px 2px rgba(4, 120, 87, 0.08),
+    0 4px 16px rgba(4, 120, 87, 0.10),
+    0 16px 40px rgba(4, 120, 87, 0.08);
+}
+.halo-plum {
+  box-shadow:
+    0 1px 2px rgba(126, 34, 206, 0.08),
+    0 4px 16px rgba(126, 34, 206, 0.10),
+    0 16px 40px rgba(126, 34, 206, 0.08);
+}
+.halo-stone {
+  box-shadow:
+    0 1px 2px rgba(87, 83, 78, 0.10),
+    0 4px 16px rgba(87, 83, 78, 0.10),
+    0 16px 40px rgba(87, 83, 78, 0.06);
+}
+.halo-amber {
+  box-shadow:
+    0 1px 2px rgba(180, 83, 9, 0.10),
+    0 4px 16px rgba(180, 83, 9, 0.12),
+    0 16px 40px rgba(180, 83, 9, 0.08);
+}
+.halo-rose {
+  box-shadow:
+    0 1px 2px rgba(190, 18, 60, 0.10),
+    0 4px 16px rgba(190, 18, 60, 0.12),
+    0 16px 40px rgba(190, 18, 60, 0.08);
+}
+
+/* === SECTION HEADERS === */
 .section-header {
   position: relative;
   box-shadow: var(--shadow-header);
@@ -165,8 +227,18 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at top, rgba(255, 255, 255, 0.12), transparent 60%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.06) 100%);
+    radial-gradient(ellipse at top, rgba(255, 255, 255, 0.14), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.08) 100%);
+  pointer-events: none;
+}
+.section-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.30), transparent);
   pointer-events: none;
 }
 .section-header > * { position: relative; }
@@ -179,17 +251,18 @@
 .header-plum       { background: linear-gradient(180deg, #9333ea 0%, #7e22ce 100%); }
 .header-stone      { background: linear-gradient(180deg, #44403c 0%, #292524 100%); }
 
+/* === SEGMENTED TOGGLE === */
 .seg-toggle {
   background: rgba(255, 255, 255, 0.14);
   border-radius: 6px;
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
 }
 .seg-toggle-btn { border: none; cursor: pointer; font-weight: 600; transition: all 150ms; }
 .seg-toggle-btn-active {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.30);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
-.seg-toggle-btn-inactive { background: transparent; color: rgba(255, 255, 255, 0.62); }
-.seg-toggle-btn-inactive:hover { color: rgba(255, 255, 255, 0.85); }
+.seg-toggle-btn-inactive { background: transparent; color: rgba(255, 255, 255, 0.64); }
+.seg-toggle-btn-inactive:hover { color: rgba(255, 255, 255, 0.88); }
