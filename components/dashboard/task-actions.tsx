@@ -7,6 +7,7 @@ import { getDaysInMonth, getFirstDayOfMonth } from '@/lib/data'
 
 const MINI_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const MINI_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 
 interface Props {
   taskKey: string
@@ -24,35 +25,46 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
   const ownerRef = useRef<HTMLButtonElement>(null)
 
   const dateInfo = meta?.deadline ? getDateLabel(meta.deadline) : null
-  const sz = compact ? 10 : 12
+  const timeStr = meta?.hour !== undefined ? `${meta.hour.toString().padStart(2, '0')}:00` : null
+  const sz = compact ? 9 : 11
 
   return (
-    <span className="inline-flex items-center gap-0.5 ml-auto flex-shrink-0" onClick={e => e.stopPropagation()}>
-      {dateInfo && (
-        <span className={`text-[8px] font-bold uppercase tracking-wider px-1 py-[1px] rounded ${dateInfo.className}`}>
-          {dateInfo.text}
-        </span>
-      )}
-      {meta?.owner && (
-        <span className="text-[8px] font-medium text-teal-300 bg-teal-500/15 px-1 py-[1px] rounded tracking-wider">
-          {meta.owner}
-        </span>
-      )}
-      <button ref={calRef} onClick={() => setShowCal(true)}
-        className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none">
-        <IconCalendar size={sz} className="text-slate-500 hover:text-slate-300" />
-      </button>
-      <button ref={ownerRef} onClick={() => setShowOwner(true)}
-        className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none">
-        <IconUser size={sz} className="text-slate-500 hover:text-slate-300" />
-      </button>
+    <span className="flex flex-col items-end gap-0 ml-auto flex-shrink-0" onClick={e => e.stopPropagation()}>
+      <span className="flex items-center gap-0.5">
+        {dateInfo ? (
+          <button ref={calRef} onClick={() => setShowCal(true)}
+            className={`text-[7px] font-bold uppercase tracking-wider px-1 py-[1px] rounded cursor-pointer border-none ${dateInfo.className}`}>
+            {dateInfo.text}{timeStr ? ` ${timeStr}` : ''}
+          </button>
+        ) : (
+          <button ref={calRef} onClick={() => setShowCal(true)}
+            className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none">
+            <IconCalendar size={sz} className="text-slate-500 hover:text-slate-300" />
+          </button>
+        )}
+      </span>
+
+      <span className="flex items-center gap-0.5">
+        {meta?.owner ? (
+          <button ref={ownerRef} onClick={() => setShowOwner(true)}
+            className="text-[7px] font-medium text-teal-300 bg-teal-500/15 px-1 py-[1px] rounded tracking-wider cursor-pointer border-none">
+            {meta.owner}
+          </button>
+        ) : (
+          <button ref={ownerRef} onClick={() => setShowOwner(true)}
+            className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none">
+            <IconUser size={sz} className="text-slate-500 hover:text-slate-300" />
+          </button>
+        )}
+      </span>
 
       {showCal && calRef.current && createPortal(
         <MiniCalendar
           anchor={calRef.current.getBoundingClientRect()}
           value={meta?.deadline}
-          onSelect={d => { updateTaskMeta(taskKey, { deadline: d, label: taskLabel }); setShowCal(false) }}
-          onClear={() => { updateTaskMeta(taskKey, { deadline: undefined }); setShowCal(false) }}
+          selectedHour={meta?.hour}
+          onSelect={(d, h) => { updateTaskMeta(taskKey, { deadline: d, hour: h, label: taskLabel }); setShowCal(false) }}
+          onClear={() => { updateTaskMeta(taskKey, { deadline: undefined, hour: undefined }); setShowCal(false) }}
           onClose={() => setShowCal(false)}
         />, document.body
       )}
@@ -69,13 +81,15 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
   )
 }
 
-function MiniCalendar({ anchor, value, onSelect, onClear, onClose }: {
-  anchor: DOMRect; value?: string
-  onSelect: (d: string) => void; onClear: () => void; onClose: () => void
+function MiniCalendar({ anchor, value, selectedHour, onSelect, onClear, onClose }: {
+  anchor: DOMRect; value?: string; selectedHour?: number
+  onSelect: (d: string, h?: number) => void; onClear: () => void; onClose: () => void
 }) {
   const now = new Date()
   const [m, setM] = useState(value ? new Date(value + 'T00:00').getMonth() : now.getMonth())
   const [y, setY] = useState(value ? new Date(value + 'T00:00').getFullYear() : now.getFullYear())
+  const [pickedDate, setPickedDate] = useState<string | null>(value || null)
+  const [step, setStep] = useState<'date' | 'time'>(value ? 'time' : 'date')
 
   const days = getDaysInMonth(m, y)
   const start = getFirstDayOfMonth(m, y)
@@ -88,11 +102,17 @@ function MiniCalendar({ anchor, value, onSelect, onClear, onClose }: {
     setM(nm); setY(ny)
   }
 
-  const pick = (day: number) => {
-    onSelect(`${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`)
+  const pickDay = (day: number) => {
+    const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    setPickedDate(ds)
+    setStep('time')
   }
 
-  const top = Math.min(anchor.bottom + 6, window.innerHeight - 280)
+  const pickTime = (hour?: number) => {
+    if (pickedDate) onSelect(pickedDate, hour)
+  }
+
+  const top = Math.min(anchor.bottom + 6, window.innerHeight - 340)
   const left = Math.max(8, Math.min(anchor.left - 90, window.innerWidth - 220))
 
   return (
@@ -104,48 +124,130 @@ function MiniCalendar({ anchor, value, onSelect, onClear, onClose }: {
         borderRadius: 12, padding: 10,
         boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <button onClick={() => nav(-1)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}>‹</button>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#fff' }}>{MINI_MONTHS[m]} {y}</span>
-          <button onClick={() => nav(1)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}>›</button>
+        {/* Step indicator */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+          <button onClick={() => setStep('date')} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em',
+            color: step === 'date' ? '#fff' : '#475569',
+            borderBottom: step === 'date' ? '1px solid #6366f1' : '1px solid transparent',
+            paddingBottom: 2,
+          }}>Date</button>
+          <button onClick={() => pickedDate && setStep('time')} style={{
+            background: 'none', border: 'none', cursor: pickedDate ? 'pointer' : 'default',
+            fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em',
+            color: step === 'time' ? '#fff' : '#475569',
+            borderBottom: step === 'time' ? '1px solid #6366f1' : '1px solid transparent',
+            paddingBottom: 2,
+            opacity: pickedDate ? 1 : 0.4,
+          }}>Time</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0 }}>
-          {MINI_DAYS.map((d, i) => (
-            <div key={i} style={{ textAlign: 'center', fontSize: 8, fontWeight: 600, color: '#64748b', padding: '2px 0' }}>{d}</div>
-          ))}
-          {Array.from({ length: start }).map((_, i) => <div key={`e${i}`} style={{ height: 26 }} />)}
-          {Array.from({ length: days }).map((_, i) => {
-            const day = i + 1
-            const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-            const isSel = ds === value
-            const isToday = ds === todayStr
-            return (
-              <button key={day} onClick={() => pick(day)} style={{
-                height: 26, width: '100%', border: 'none', borderRadius: 4, cursor: 'pointer',
-                fontSize: 10, fontWeight: 500, transition: 'all 0.1s',
-                background: isSel ? '#6366f1' : 'transparent',
-                color: isSel ? '#fff' : isToday ? '#2dd4bf' : '#cbd5e1',
-                boxShadow: isSel ? '0 0 8px rgba(99,102,241,0.5)' : isToday ? 'inset 0 0 0 1px rgba(45,212,191,0.4)' : 'none',
-              }}
-                onMouseEnter={e => { if (!isSel) (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
-                onMouseLeave={e => { if (!isSel) (e.target as HTMLElement).style.background = 'transparent' }}>
-                {day}
+        {step === 'date' && (
+          <>
+            {/* Month nav */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <button onClick={() => nav(-1)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}>‹</button>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#fff' }}>{MINI_MONTHS[m]} {y}</span>
+              <button onClick={() => nav(1)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}>›</button>
+            </div>
+
+            {/* Day grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0 }}>
+              {MINI_DAYS.map((d, i) => (
+                <div key={i} style={{ textAlign: 'center', fontSize: 8, fontWeight: 600, color: '#64748b', padding: '2px 0' }}>{d}</div>
+              ))}
+              {Array.from({ length: start }).map((_, i) => <div key={`e${i}`} style={{ height: 26 }} />)}
+              {Array.from({ length: days }).map((_, i) => {
+                const day = i + 1
+                const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                const isSel = ds === pickedDate
+                const isToday = ds === todayStr
+                return (
+                  <button key={day} onClick={() => pickDay(day)} style={{
+                    height: 26, width: '100%', border: 'none', borderRadius: 4, cursor: 'pointer',
+                    fontSize: 10, fontWeight: 500, transition: 'all 0.1s',
+                    background: isSel ? '#6366f1' : 'transparent',
+                    color: isSel ? '#fff' : isToday ? '#2dd4bf' : '#cbd5e1',
+                    boxShadow: isSel ? '0 0 8px rgba(99,102,241,0.5)' : isToday ? 'inset 0 0 0 1px rgba(45,212,191,0.4)' : 'none',
+                  }}
+                    onMouseEnter={e => { if (!isSel) (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
+                    onMouseLeave={e => { if (!isSel) (e.target as HTMLElement).style.background = 'transparent' }}>
+                    {day}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Quick actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <button onClick={() => { setPickedDate(todayStr); setStep('time') }} style={{ background: 'none', border: 'none', color: '#2dd4bf', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Today
               </button>
-            )
-          })}
-        </div>
+              {value && (
+                <button onClick={onClear} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Clear
+                </button>
+              )}
+            </div>
+          </>
+        )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <button onClick={() => onSelect(todayStr)} style={{ background: 'none', border: 'none', color: '#2dd4bf', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Today
-          </button>
-          {value && (
-            <button onClick={onClear} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Clear
+        {step === 'time' && (
+          <>
+            {/* Selected date display */}
+            <div style={{ textAlign: 'center', marginBottom: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#818cf8' }}>
+                {pickedDate ? new Date(pickedDate + 'T00:00').toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }) : ''}
+              </span>
+            </div>
+
+            {/* All day button */}
+            <button onClick={() => pickTime(undefined)} style={{
+              width: '100%', padding: '5px 0', border: 'none', borderRadius: 6, cursor: 'pointer',
+              fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em',
+              marginBottom: 6,
+              background: selectedHour === undefined && value ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
+              color: selectedHour === undefined && value ? '#818cf8' : '#94a3b8',
+              border: selectedHour === undefined && value ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(255,255,255,0.06)',
+            }}>
+              All day
             </button>
-          )}
-        </div>
+
+            {/* Hour grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3 }}>
+              {HOURS.map(h => {
+                const isSel = h === selectedHour
+                return (
+                  <button key={h} onClick={() => pickTime(h)} style={{
+                    padding: '4px 0', border: 'none', borderRadius: 4, cursor: 'pointer',
+                    fontSize: 10, fontWeight: 500, fontVariantNumeric: 'tabular-nums',
+                    transition: 'all 0.1s',
+                    background: isSel ? '#6366f1' : 'rgba(255,255,255,0.04)',
+                    color: isSel ? '#fff' : '#cbd5e1',
+                    boxShadow: isSel ? '0 0 8px rgba(99,102,241,0.4)' : 'none',
+                  }}
+                    onMouseEnter={e => { if (!isSel) (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.08)' }}
+                    onMouseLeave={e => { if (!isSel) (e.target as HTMLElement).style.background = isSel ? '#6366f1' : 'rgba(255,255,255,0.04)' }}>
+                    {h.toString().padStart(2, '0')}:00
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <button onClick={() => setStep('date')} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                ← Back
+              </button>
+              {value && (
+                <button onClick={onClear} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Clear
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </>
   )
