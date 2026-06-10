@@ -1,16 +1,25 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   MONTH_EVENTS, WEEK_EVENTS, DAY_EVENTS,
   MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth, pastel
 } from '@/lib/data'
 
-const TODAY = { d: 26, m: 4, y: 2026 }
-
 export function EventCalendar() {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
+
+  // Hydrate to real today on mount; default to data fallback (May 2026) for SSR
+  const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
   const [month, setMonth] = useState(4)
   const [year, setYear] = useState(2026)
+
+  useEffect(() => {
+    const now = new Date()
+    const t = { d: now.getDate(), m: now.getMonth(), y: now.getFullYear() }
+    setToday(t)
+    setMonth(t.m)
+    setYear(t.y)
+  }, [])
 
   const changeMonth = (delta: number) => {
     let newMonth = month + delta
@@ -62,18 +71,25 @@ export function EventCalendar() {
               >
                 ›
               </button>
+              <button
+                onClick={() => { setMonth(today.m); setYear(today.y) }}
+                className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-[#4338ca] hover:text-[#3730a3] transition-colors"
+                title="Jump to today"
+              >
+                Today
+              </button>
             </div>
           </div>
         )}
-        {view === 'm' && <MonthView month={month} year={year} />}
-        {view === 'w' && <WeekView />}
-        {view === 'd' && <DayView />}
+        {view === 'm' && <MonthView month={month} year={year} today={today} />}
+        {view === 'w' && <WeekView today={today} />}
+        {view === 'd' && <DayView today={today} />}
       </div>
     </div>
   )
 }
 
-function MonthView({ month, year }: { month: number; year: number }) {
+function MonthView({ month, year, today }: { month: number; year: number; today: { d: number; m: number; y: number } }) {
   const startDay = getFirstDayOfMonth(month, year)
   const daysInMonth = getDaysInMonth(month, year)
   const events = MONTH_EVENTS[`${year}-${month}`] || {}
@@ -93,7 +109,7 @@ function MonthView({ month, year }: { month: number; year: number }) {
         ))}
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1
-          const isToday = day === TODAY.d && month === TODAY.m && year === TODAY.y
+          const isToday = day === today.d && month === today.m && year === today.y
           const dayEvents = events[day] || []
           return (
             <div
@@ -131,16 +147,26 @@ function MonthView({ month, year }: { month: number; year: number }) {
   )
 }
 
-function WeekView() {
-  const cols = [
-    { name: 'Mon', day: 25 }, { name: 'Tue', day: 26 }, { name: 'Wed', day: 27 },
-    { name: 'Thu', day: 28 }, { name: 'Fri', day: 29 }, { name: 'Sat', day: 30 }, { name: 'Sun', day: 31 },
-  ]
+function WeekView({ today }: { today: { d: number; m: number; y: number } }) {
+  // Builds a week of 7 days centered on today
+  const cols = (() => {
+    const result: { name: string; day: number }[] = []
+    const base = new Date(today.y, today.m, today.d)
+    const dayOfWeek = base.getDay() // 0=Sun..6=Sat
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(base)
+      d.setDate(base.getDate() + mondayOffset + i)
+      const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      result.push({ name: names[i], day: d.getDate() })
+    }
+    return result
+  })()
 
   return (
     <div className="grid grid-cols-7 gap-1">
       {cols.map(c => {
-        const isToday = c.day === TODAY.d
+        const isToday = c.day === today.d
         const events = WEEK_EVENTS[c.day] || []
         return (
           <div
@@ -184,20 +210,24 @@ function WeekView() {
   )
 }
 
-function DayView() {
+function DayView({ today }: { today: { d: number; m: number; y: number } }) {
+  const dateStr = new Date(today.y, today.m, today.d).toLocaleDateString('en-US', {
+    weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
+  })
+
   return (
     <>
       <div
         className="mb-3 px-3 py-2 rounded-lg flex justify-between items-center"
         style={{ background: '#e0e7ff' }}
       >
-        <span className="font-display text-[20px] text-[#3730a3] text-shadow-soft leading-none">Tue, 26 May 2026</span>
+        <span className="font-display text-[20px] text-[#3730a3] text-shadow-soft leading-none">{dateStr}</span>
         <span className="text-[9px] uppercase tracking-[0.16em] text-[#3730a3] font-semibold">Today</span>
       </div>
       {Array.from({ length: 11 }).map((_, i) => {
         const hour = i + 8
         const events = DAY_EVENTS.filter(e => e.hour === hour)
-        const isNow = hour === 14
+        const isNow = hour === new Date().getHours()
         return (
           <div
             key={hour}
