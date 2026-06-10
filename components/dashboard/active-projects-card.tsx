@@ -189,7 +189,7 @@ function TaskItem({ task, done, onClick, taskKey, taskMeta, updateTaskMeta }: {
       }`}>
         {done && <span className="text-indigo-300 text-[6.5px] font-bold leading-none">✓</span>}
       </div>
-      <span className={`text-[9px] leading-[1.2] ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+      <span className={`text-[11px] leading-[1.3] ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
         {task}
       </span>
       <TaskActions taskKey={taskKey} taskLabel={task} taskMeta={taskMeta}
