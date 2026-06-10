@@ -170,7 +170,7 @@ function MonthView({ month, year, today }: { month: number; year: number; today:
               key={day}
               className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors ${
                 isToday
-                  ? 'bg-[#fce7f3] border-[#f9a8d4]'
+                  ? 'bg-[#fbcfe8] border-[#f9a8d4]'
                   : 'border-transparent hover:bg-[#f5f5f1] hover:border-[#e7e5e0]'
               }`}
             >
@@ -225,7 +225,7 @@ function WeekView({ today }: { today: { d: number; m: number; y: number } }) {
           <div
             key={c.day}
             className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 ${
-              isToday ? 'bg-[#fce7f3] border border-[#f9a8d4]' : 'bg-[#fafaf7] border border-[#f0efeb]'
+              isToday ? 'bg-[#fbcfe8] border border-[#f9a8d4]' : 'bg-[#fafaf7] border border-[#f0efeb]'
             }`}
           >
             <div className="text-center mb-1">
