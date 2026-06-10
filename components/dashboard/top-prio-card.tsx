@@ -25,8 +25,8 @@ export function TopPrioCard() {
   }
 
   return (
-   <div className="card-base halo-amber">
-  <div className="section-header header-amber px-4 py-2.5">
+   <div className="card-base halo-black">
+  <div className="section-header header-black px-4 py-2.5">
         <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
           Top prio today
         </span>
