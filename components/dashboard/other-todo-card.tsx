@@ -1,8 +1,15 @@
 'use client'
 import { useState } from 'react'
 import { OTHER_TODOS } from '@/lib/data'
+import { TaskActions } from './task-actions'
+import type { TaskMeta } from '@/lib/task-meta'
 
-export function OtherTodoCard() {
+interface OtherTodoCardProps {
+  taskMeta: Record<string, TaskMeta>
+  updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
+}
+
+export function OtherTodoCard({ taskMeta, updateTaskMeta }: OtherTodoCardProps) {
   const [todos, setTodos] = useState(OTHER_TODOS)
 
   const toggleTask = (groupIdx: number, taskIdx: number) => {
@@ -19,8 +26,8 @@ export function OtherTodoCard() {
 
   return (
     <div className="card-base halo-indigo">
-      <div className="section-header header-indigo px-4 py-2.5">
-        <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
+      <div className="section-header px-4 py-3">
+        <span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">
           Other to-do
         </span>
       </div>
@@ -32,7 +39,7 @@ export function OtherTodoCard() {
               className="text-[10px] font-semibold mb-1.5 uppercase tracking-[0.14em] flex items-center gap-1.5"
               style={{ color: group.color }}
             >
-              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: group.color }} />
+              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: group.color, boxShadow: `0 0 6px ${group.color}` }} />
               {group.group}
             </div>
             {group.tasks.map((task, taskIdx) => (
@@ -55,6 +62,12 @@ export function OtherTodoCard() {
                 }`}>
                   {task.text}
                 </span>
+                <TaskActions
+                  taskKey={`todo-${task.id}`}
+                  taskLabel={task.text}
+                  taskMeta={taskMeta}
+                  updateTaskMeta={updateTaskMeta}
+                />
               </div>
             ))}
           </div>
