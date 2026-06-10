@@ -69,7 +69,6 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
   )
 }
 
-/* ── Mini Calendar Popover ── */
 function MiniCalendar({ anchor, value, onSelect, onClear, onClose }: {
   anchor: DOMRect; value?: string
   onSelect: (d: string) => void; onClear: () => void; onClose: () => void
@@ -152,7 +151,6 @@ function MiniCalendar({ anchor, value, onSelect, onClear, onClose }: {
   )
 }
 
-/* ── Owner Input Popover ── */
 function OwnerInput({ anchor, value, onSave, onClose }: {
   anchor: DOMRect; value: string
   onSave: (name: string) => void; onClose: () => void
