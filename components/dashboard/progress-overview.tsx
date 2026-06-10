@@ -59,22 +59,22 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
         </div>
       </div>
       <div className="px-3.5 py-3">
-        <div className="bg-[#fafaf7] border border-[#f0efeb] rounded-lg px-3 py-2.5 mb-3 flex gap-3">
+        <div className="bg-white/[0.03] border border-white/5 rounded-lg px-3 py-2.5 mb-3 flex gap-3">
           <div className="text-center flex-1">
-            <div className="font-display text-[30px] leading-none text-[#0a0a0a] tabular text-shadow-display">{avgPct}%</div>
-            <div className="text-[8.5px] text-[#a8a29e] mt-1 uppercase tracking-[0.14em] font-medium">Avg completion</div>
+            <div className="font-display text-[30px] leading-none text-white tabular text-shadow-display">{avgPct}%</div>
+            <div className="text-[8.5px] text-slate-500 mt-1 uppercase tracking-[0.14em] font-medium">Avg completion</div>
           </div>
-          <div className="w-px bg-[#e7e5e0]" />
+          <div className="w-px bg-white/10" />
           <div className="text-center flex-1">
-            <div className="font-display text-[30px] leading-none text-[#0a0a0a] tabular text-shadow-display">
-              {doneTasks}<span className="text-[#a8a29e]">/{totalTasks}</span>
+            <div className="font-display text-[30px] leading-none text-white tabular text-shadow-display">
+              {doneTasks}<span className="text-slate-500">/{totalTasks}</span>
             </div>
-            <div className="text-[8.5px] text-[#a8a29e] mt-1 uppercase tracking-[0.14em] font-medium">Tasks done</div>
+            <div className="text-[8.5px] text-slate-500 mt-1 uppercase tracking-[0.14em] font-medium">Tasks done</div>
           </div>
-          <div className="w-px bg-[#e7e5e0]" />
+          <div className="w-px bg-white/10" />
           <div className="text-center flex-1">
-            <div className="font-display text-[30px] leading-none text-[#b45309] tabular text-shadow-display">2</div>
-            <div className="text-[8.5px] text-[#a8a29e] mt-1 uppercase tracking-[0.14em] font-medium">At risk</div>
+            <div className="font-display text-[30px] leading-none text-[#fbbf24] tabular text-shadow-display">2</div>
+            <div className="text-[8.5px] text-slate-500 mt-1 uppercase tracking-[0.14em] font-medium">At risk</div>
           </div>
         </div>
 
@@ -92,12 +92,12 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
           return (
             <div key={project.key} className="flex items-center gap-2 mb-1.5 last:mb-0">
               <div
-                className="text-[9.5px] font-semibold text-[#292524] w-[68px] flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis"
+                className="text-[9.5px] font-semibold text-slate-200 w-[68px] flex-shrink-0 whitespace-nowrap overflow-hidden text-ellipsis"
                 title={project.name}
               >
                 {project.name}
               </div>
-              <div className="flex-1 h-1.5 bg-[#f5f5f1] rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-white/5rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-[width] duration-500"
                   style={{ width: `${pct}%`, background: project.color }}
@@ -106,7 +106,7 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
               <span className="text-[9.5px] font-bold w-[28px] text-right flex-shrink-0 tabular" style={{ color: project.color }}>
                 {pct}%
               </span>
-              <span className="text-[8.5px] text-[#a8a29e] w-[22px] text-right flex-shrink-0 tabular">
+              <span className="text-[8.5px] text-slate-500 w-[22px] text-right flex-shrink-0 tabular">
                 {done}/{total}
               </span>
             </div>
