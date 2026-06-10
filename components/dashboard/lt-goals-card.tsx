@@ -51,8 +51,9 @@ function GoalTile({
   updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
 }) {
   const pct = getProjectCompletion(goal)
-  const style = statusStyle(goal.status, goal.color)
-  const isUrgent = goal.status.includes('Today') || goal.status.includes('🔥')
+  const autoStatus = computeStatus(goal, projectDone, taskMeta, 'goal')
+  const style = statusStyle(autoStatus, goal.color)
+  const isUrgent = autoStatus.includes('Today') || autoStatus.includes('🔥')
 
   const indexedTasks = goal.tasks.map((task, originalIdx) => ({
     task, originalIdx, done: !!projectDone[`${goal.key}-task-${originalIdx}`],
@@ -80,7 +81,7 @@ function GoalTile({
             <span className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${isUrgent ? 'pulse-soft' : ''}`}
               style={{ background: style.text, boxShadow: `0 0 6px ${style.text}` }} />
             <span className="text-[9px] font-semibold uppercase tracking-[0.10em] truncate" style={{ color: style.text }}>
-              {goal.status}
+              {autoStatus}
             </span>
           </span>
           <span className="font-display text-[22px] tabular leading-none flex-shrink-0" style={{
@@ -151,9 +152,8 @@ function TaskItem({ task, done, onClick, taskKey, taskMeta, updateTaskMeta }: {
 }) {
   return (
     <div className="flex items-start gap-1.5 py-0.5 cursor-pointer select-none group" onClick={onClick}>
-      <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
-        done ? 'bg-teal-500/30 border-teal-400' : 'border-slate-600 bg-white/5'
-      }`}>
+      <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${done ? 'bg-teal-500/30 border-teal-400' : 'border-slate-600 bg-white/5'
+        }`}>
         {done && <span className="text-teal-300 text-[6.5px] font-bold leading-none">✓</span>}
       </div>
       <span className={`text-[11px] leading-[1.3] ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
