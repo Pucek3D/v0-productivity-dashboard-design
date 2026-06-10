@@ -54,8 +54,8 @@ export function KpisCard() {
   }
 
   return (
-    <div className="card-base halo-plum">
-      <div className="section-header header-plum px-4 py-2.5">
+    <div className="card-base 'halo-teal">
+      <div className="section-header header-teal px-4 py-2.5">
         <div className="flex justify-between items-center">
           <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
             KPIs to track
@@ -108,7 +108,7 @@ function DotRow({
             onClick={() => toggleDay(cat.id, kpi.id, i)}
             className="w-[12px] h-[12px] rounded-full flex-shrink-0 cursor-pointer hover:scale-125 transition-transform"
             style={{
-              background: d ? cat.color : '#f0efeb',
+              background: d ? cat.color : 'rgba(255,255,255,0.08)',
               boxShadow: i === todayIdx ? `0 0 0 1.5px ${pastel(cat.color, 0.55)}` : 'none',
             }}
             title={`${KPI_DAYS[i]}: ${d ? 'done — click to undo' : 'not done — click to mark'}`}
@@ -122,7 +122,7 @@ function DotRow({
             className="w-[12px] text-center text-[8px] tabular"
             style={{
               fontWeight: i === todayIdx ? 700 : 500,
-              color: i === todayIdx ? cat.color : '#d6d3d1',
+              color: i === todayIdx ? cat.color : '#475569',
             }}
           >
             {d}
@@ -144,7 +144,7 @@ function DayView({
     <>
       {categories.map((cat, ci) => (
         <div key={cat.id}>
-          {ci > 0 && <div className="h-px bg-[#f0efeb] my-2.5" />}
+          {ci > 0 && <div className="h-px bg-white/5 my-2.5" />}
           <div
             className="text-[9.5px] font-semibold tracking-[0.14em] uppercase mb-2 flex items-center gap-1.5"
             style={{ color: cat.color }}
@@ -163,18 +163,18 @@ function DayView({
                         <Icon size={12} />
                       </span>
                     )}
-                    <span className="text-[12px] font-medium text-[#292524] truncate">{k.label}</span>
+                    <span className="text-[12px] font-medium text-slate-200 truncate">{k.label}</span>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {k.type === 'num' && k.val && k.target && (
                       <span className="font-display text-[13px] tabular leading-none" style={{ color: cat.color }}>
-                        {k.val}<span className="text-[#a8a29e]"> / {k.target}</span>
+                        {k.val}<span className="text-slate-500"> / {k.target}</span>
                       </span>
                     )}
                     {k.streak > 0 && (
                       <span
                         className="text-[9px] font-bold rounded-full px-1.5 py-[1px] whitespace-nowrap tabular uppercase tracking-wider"
-                        style={{ background: pastel(cat.color, 0.88), color: cat.color }}
+                        style={{ background: `${cat.color}22`, color: cat.color }}
                       >
                         🔥 {k.streak}
                       </span>
@@ -183,7 +183,7 @@ function DayView({
                 </div>
                 <DotRow kpi={k} cat={cat} toggleDay={toggleDay} todayIdx={todayIdx} />
                 {k.type === 'num' && k.val && k.target && (
-                  <div className="h-[3px] bg-[#f5f5f1] rounded-full overflow-hidden">
+                  <div className="h-[3px] bg-white/5 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{ width: `${k.pct}%`, background: cat.color }}
@@ -225,13 +225,13 @@ function WeekView({
                 className="text-[8.5px] text-center pb-1 uppercase tabular"
                 style={{
                   fontWeight: i === todayIdx ? 800 : 600,
-                  color: i === todayIdx ? '#4338ca' : '#a8a29e',
+                  color: i === todayIdx ? '#818cf8' : '#64748b',
                 }}
               >
                 {d}
               </th>
             ))}
-            <th className="text-[8.5px] text-[#a8a29e] text-right pb-1 font-semibold uppercase">%</th>
+            <th className="text-[8.5px] text-slate-500 text-right pb-1 font-semibold uppercase">%</th>
           </tr>
         </thead>
         <tbody>
@@ -251,11 +251,11 @@ function WeekView({
               {cat.kpis.map(k => {
                 const done = k.days.filter(Boolean).length
                 const pct = Math.round((done / k.days.length) * 100)
-                const pctColor = pct >= 80 ? '#047857' : pct >= 50 ? '#b45309' : '#a8a29e'
+                const pctColor = pct >= 80 ? '#2dd4bf' : pct >= 50 ? '#fbbf24' : '#64748b'
                 if (k.streak > bestStreak.streak) bestStreak = { label: k.label, streak: k.streak }
                 return (
                   <tr key={k.id}>
-                    <td className="text-[10.5px] font-medium text-[#292524] py-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
+                    <td className="text-[10.5px] font-medium text-slate-200 py-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
                       {k.label}
                     </td>
                     {k.days.map((d, i) => (
@@ -264,7 +264,7 @@ function WeekView({
                           onClick={() => toggleDay(cat.id, k.id, i)}
                           className="w-[9px] h-[9px] rounded-full mx-auto cursor-pointer hover:scale-125 transition-transform block"
                           style={{
-                            background: d ? cat.color : '#f0efeb',
+                            background: d ? cat.color : 'rgba(255,255,255,0.08)',
                             boxShadow: i === todayIdx ? `0 0 0 1.5px ${pastel(cat.color, 0.65)}` : 'none',
                           }}
                         />
@@ -284,11 +284,11 @@ function WeekView({
         </tbody>
       </table>
       {bestStreak.streak > 0 && (
-        <div className="mt-3 pt-2 border-t border-[#f0efeb] flex gap-2 items-center flex-wrap">
-          <span className="text-[9px] text-[#a8a29e] uppercase tracking-[0.12em] font-semibold">Most done</span>
+        <div className="mt-3 pt-2 border-t border-white/5 flex gap-2 items-center flex-wrap">
+          <span className="text-[9px] text-slate-500 uppercase tracking-[0.12em] font-semibold">Most done</span>
           <span
             className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
-            style={{ color: '#b45309', background: '#fef3c7' }}
+            style={{ color: '#fbbf24', background: 'rgba(245,158,11,0.15)' }}
           >
             🔥 {bestStreak.label} — {bestStreak.streak}d
           </span>
