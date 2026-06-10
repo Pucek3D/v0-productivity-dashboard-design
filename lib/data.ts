@@ -10,14 +10,16 @@ export function pastel(hex: string, amount: number): string {
 }
 
 export function statusStyle(status: string, color: string): { bg: string; text: string } {
-  if (status === 'On track') return { bg: '#d1fae5', text: '#047857' }
-  if (status === 'At risk') return { bg: '#fef3c7', text: '#b45309' }
-  if (status.includes('Today') || status.includes('🔥')) return { bg: '#ffe4e6', text: '#be123c' }
-  if (status === 'Waiting') return { bg: '#f5f5f4', text: '#57534e' }
-  if (status === 'Planning') return { bg: '#f5f5f4', text: '#292524' }
-  if (status === 'This week') return { bg: '#dbeafe', text: '#1e3a8a' }
-  if (status === 'Active' || status === 'Ongoing') return { bg: pastel(color, 0.86), text: color }
-  return { bg: pastel(color, 0.86), text: color }
+  const s = status.toLowerCase()
+  if (s.includes('on track'))    return { bg: 'rgba(20,184,166,0.15)',  text: '#2dd4bf' }
+  if (s.includes('at risk'))     return { bg: 'rgba(251,191,36,0.15)', text: '#fbbf24' }
+  if (s.includes('today') || s.includes('🔥')) return { bg: 'rgba(244,63,94,0.15)', text: '#fb7185' }
+  if (s.includes('waiting'))     return { bg: 'rgba(148,163,184,0.10)', text: '#94a3b8' }
+  if (s.includes('planning'))    return { bg: 'rgba(129,140,248,0.15)', text: '#818cf8' }
+  if (s.includes('this week'))   return { bg: 'rgba(99,102,241,0.15)',  text: '#a5b4fc' }
+  if (s.includes('active') || s.includes('ongoing'))
+    return { bg: `${color}22`, text: color }
+  return { bg: 'rgba(148,163,184,0.10)', text: '#94a3b8' }
 }
 
 export interface Project {
