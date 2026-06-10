@@ -10,12 +10,12 @@ const CARD: React.CSSProperties = {
   border: '1px solid rgba(10, 10, 10, 0.06)',
   borderRadius: '0.875rem',
   boxShadow:
-    '0 1px 2px rgba(30, 58, 138, 0.08), 0 4px 16px rgba(30, 58, 138, 0.10), 0 16px 40px rgba(30, 58, 138, 0.08)',
+    '0 1px 2px rgba(219, 39, 119, 0.08), 0 4px 16px rgba(219, 39, 119, 0.10), 0 16px 40px rgba(219, 39, 119, 0.08)',
   overflow: 'hidden',
 }
 
 const HEADER_BAR: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%)',
+  background: 'linear-gradient(180deg, #ec4899 0%, #db2777 100%)',
   position: 'relative',
   boxShadow:
     'inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.04)',
@@ -124,7 +124,7 @@ export function EventCalendar() {
                   fontWeight: 600,
                   textTransform: 'uppercase',
                   letterSpacing: '0.10em',
-                  color: '#4338ca',
+                  color: '#db2777',
                   background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
@@ -170,12 +170,12 @@ function MonthView({ month, year, today }: { month: number; year: number; today:
               key={day}
               className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors ${
                 isToday
-                  ? 'bg-[#e0e7ff] border-[#c7d2fe]'
+                  ? 'bg-[#fce7f3] border-[#f9a8d4]'
                   : 'border-transparent hover:bg-[#f5f5f1] hover:border-[#e7e5e0]'
               }`}
             >
               <span className={`text-[11px] leading-none mb-[2px] ${
-                isToday ? 'text-[#3730a3] font-bold' : 'text-[#57534e] font-semibold'
+                isToday ? 'text-[#9d174d] font-bold' : 'text-[#57534e] font-semibold'
               }`} style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {day}
               </span>
@@ -225,17 +225,17 @@ function WeekView({ today }: { today: { d: number; m: number; y: number } }) {
           <div
             key={c.day}
             className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 ${
-              isToday ? 'bg-[#e0e7ff] border border-[#c7d2fe]' : 'bg-[#fafaf7] border border-[#f0efeb]'
+              isToday ? 'bg-[#fce7f3] border border-[#f9a8d4]' : 'bg-[#fafaf7] border border-[#f0efeb]'
             }`}
           >
             <div className="text-center mb-1">
-              <div className={`text-[9px] font-semibold uppercase tracking-[0.12em] ${isToday ? 'text-[#3730a3]' : 'text-[#a8a29e]'}`}>
+              <div className={`text-[9px] font-semibold uppercase tracking-[0.12em] ${isToday ? 'text-[#9d174d]' : 'text-[#a8a29e]'}`}>
                 {c.name}
               </div>
               <div
                 style={{ ...DISPLAY_FONT, fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center mx-auto mt-0.5 leading-none ${
-                  isToday ? 'bg-[#c7d2fe] text-[#3730a3]' : 'text-[#0a0a0a]'
+                  isToday ? 'bg-[#fbcfe8] text-[#9d174d]' : 'text-[#0a0a0a]'
                 }`}
               >
                 {c.day}
@@ -269,9 +269,9 @@ function DayView({ today }: { today: { d: number; m: number; y: number } }) {
 
   return (
     <>
-      <div className="mb-3 px-3 py-2 rounded-lg flex justify-between items-center" style={{ background: '#e0e7ff' }}>
-        <span style={{ ...DISPLAY_FONT, fontSize: '20px', color: '#3730a3' }}>{dateStr}</span>
-        <span className="text-[9px] uppercase tracking-[0.16em] text-[#3730a3] font-semibold">Today</span>
+      <div className="mb-3 px-3 py-2 rounded-lg flex justify-between items-center" style={{ background: '#fce7f3' }}>
+        <span style={{ ...DISPLAY_FONT, fontSize: '20px', color: '#9d174d' }}>{dateStr}</span>
+        <span className="text-[9px] uppercase tracking-[0.16em] text-[#9d174d] font-semibold">Today</span>
       </div>
       {Array.from({ length: 11 }).map((_, i) => {
         const hour = i + 8
@@ -281,14 +281,14 @@ function DayView({ today }: { today: { d: number; m: number; y: number } }) {
           <div key={hour} className="flex items-start gap-2" style={{ minHeight: events.length ? '40px' : '20px' }}>
             <span
               className={`text-[10.5px] font-semibold w-[34px] flex-shrink-0 pt-[3px] text-right ${
-                isNow ? 'text-[#4338ca]' : 'text-[#d6d3d1]'
+                isNow ? 'text-[#db2777]' : 'text-[#d6d3d1]'
               }`}
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
               {hour.toString().padStart(2, '0')}:00
             </span>
-            <div className="flex-1 pt-[3px]" style={{ borderTop: `1px solid ${isNow ? '#c7d2fe' : '#f5f5f1'}` }}>
-              {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#4338ca' }} />}
+            <div className="flex-1 pt-[3px]" style={{ borderTop: `1px solid ${isNow ? '#f9a8d4' : '#f5f5f1'}` }}>
+              {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#db2777' }} />}
               {events.map((ev, j) => (
                 <div
                   key={j}
