@@ -66,7 +66,7 @@ export default function Dashboard() {
   const deadlineEvents: DeadlineEvent[] = useMemo(() => {
     return Object.entries(taskMeta)
       .filter(([, m]) => m.deadline)
-      .map(([, m]) => ({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8', hour: m.hour }))
+      .map(([, m]) => ({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8', hour: m.hour, minute: m.minute }))
   }, [taskMeta])
 
   /* ── Render ── */
