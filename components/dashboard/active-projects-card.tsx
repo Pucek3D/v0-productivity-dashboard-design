@@ -1,14 +1,18 @@
 'use client'
 import { useState } from 'react'
 import { PROJECTS, statusStyle, Project } from '@/lib/data'
+import { TaskActions } from './task-actions'
+import type { TaskMeta } from '@/lib/task-meta'
 
 interface ActiveProjectsCardProps {
   projectDone: Record<string, boolean>
   toggleProjectTask: (projectKey: string, taskType: 'task' | 'done', index: number) => void
   getProjectCompletion: (project: Project) => number
+  taskMeta: Record<string, TaskMeta>
+  updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
 }
 
-export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion }: ActiveProjectsCardProps) {
+export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta }: ActiveProjectsCardProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
 
@@ -28,7 +32,8 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
           {workProjects.map(project => (
             <ProjectTile key={project.key} project={project} projectDone={projectDone}
               toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
-              isExpanded={!!expanded[project.key]} toggleExpand={toggleExpand} />
+              isExpanded={!!expanded[project.key]} toggleExpand={toggleExpand}
+              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
           ))}
         </div>
         {homeProjects.length > 0 && (
@@ -40,7 +45,8 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
               {homeProjects.map(project => (
                 <ProjectTile key={project.key} project={project} projectDone={projectDone}
                   toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
-                  isExpanded={!!expanded[project.key]} toggleExpand={toggleExpand} />
+                  isExpanded={!!expanded[project.key]} toggleExpand={toggleExpand}
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
               ))}
             </div>
           </>
@@ -62,6 +68,7 @@ function SectionHeader({ label, color, count }: { label: string; color: string; 
 
 function ProjectTile({
   project, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand,
+  taskMeta, updateTaskMeta,
 }: {
   project: Project
   projectDone: Record<string, boolean>
@@ -69,6 +76,8 @@ function ProjectTile({
   getProjectCompletion: (project: Project) => number
   isExpanded: boolean
   toggleExpand: (key: string) => void
+  taskMeta: Record<string, TaskMeta>
+  updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
 }) {
   const pct = getProjectCompletion(project)
   const style = statusStyle(project.status, project.color)
@@ -127,7 +136,9 @@ function ProjectTile({
           <div className="grid grid-cols-3 gap-1">
             {visibleTasks.map(t => (
               <TaskItem key={t.originalIdx} task={t.task} done={t.done}
-                onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)} />
+                onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)}
+                taskKey={`proj-${project.key}-${t.originalIdx}`}
+                taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
             ))}
           </div>
         </div>
@@ -137,12 +148,16 @@ function ProjectTile({
             <div className="grid grid-cols-3 gap-1">
               {hiddenTasks.map(t => (
                 <TaskItem key={t.originalIdx} task={t.task} done={t.done}
-                  onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)} />
+                  onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)}
+                  taskKey={`proj-${project.key}-${t.originalIdx}`}
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
               ))}
               {project.doneTasks.map((task, i) => {
                 const isDone = projectDone[`${project.key}-done-${i}`] !== false
                 return <TaskItem key={`done-${i}`} task={task} done={isDone}
-                  onClick={() => toggleProjectTask(project.key, 'done', i)} />
+                  onClick={() => toggleProjectTask(project.key, 'done', i)}
+                  taskKey={`proj-${project.key}-done-${i}`}
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
               })}
             </div>
           </div>
@@ -162,9 +177,13 @@ function ProjectTile({
   )
 }
 
-function TaskItem({ task, done, onClick }: { task: string; done: boolean; onClick: () => void }) {
+function TaskItem({ task, done, onClick, taskKey, taskMeta, updateTaskMeta }: {
+  task: string; done: boolean; onClick: () => void
+  taskKey: string; taskMeta: Record<string, TaskMeta>
+  updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
+}) {
   return (
-    <div className="flex items-start gap-1 py-0.5 cursor-pointer select-none" onClick={onClick}>
+    <div className="flex items-start gap-1 py-0.5 cursor-pointer select-none group" onClick={onClick}>
       <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
         done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'
       }`}>
@@ -173,6 +192,8 @@ function TaskItem({ task, done, onClick }: { task: string; done: boolean; onClic
       <span className={`text-[9px] leading-[1.2] ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
         {task}
       </span>
+      <TaskActions taskKey={taskKey} taskLabel={task} taskMeta={taskMeta}
+        updateTaskMeta={updateTaskMeta} compact />
     </div>
   )
 }
