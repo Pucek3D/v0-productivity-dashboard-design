@@ -1,6 +1,7 @@
 export interface TaskMeta {
   deadline?: string
   hour?: number
+  minute?: number
   owner?: string
   label?: string
 }
