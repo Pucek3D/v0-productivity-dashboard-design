@@ -286,36 +286,39 @@ function DayView({ today, deadlineEvents }: { today: { d: number; m: number; y: 
         </div>
       )}
 
-      {Array.from({ length: 11 }).map((_, i) => {
-        const hour = i + 8
-        const events = DAY_EVENTS.filter(e => e.hour === hour)
-        const isNow = hour === new Date().getHours()
-        const hasContent = events.length > 0 || isNow
-        return (
-          <div key={hour} className="flex items-start gap-2 transition-all"
-            style={{ minHeight: hasContent ? '40px' : '10px', opacity: hasContent ? 1 : 0.35 }}>
-            <span className={`text-[10.5px] font-semibold w-[34px] flex-shrink-0 pt-[3px] text-right ${
-              isNow ? 'text-rose-400' : 'text-slate-600'
-            }`} style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {hour.toString().padStart(2, '0')}:00
-            </span>
-            <div className="flex-1 pt-[3px]" style={{
-              borderTop: `1px solid ${isNow ? 'rgba(251, 113, 133, 0.4)' : 'rgba(255,255,255,0.05)'}`,
-            }}>
-              {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#fb7185', boxShadow: '0 0 8px #fb7185' }} />}
-              {events.map((ev, j) => (
-                <div key={j} className="rounded-r-md px-2 py-1 mb-1"
-                  style={{ background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`, boxShadow: `0 0 12px ${ev.color}33` }}>
-                  <div className="text-[12px] font-bold" style={{ color: ev.color }}>{ev.label}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {ev.hour.toString().padStart(2, '0')}:00 — {ev.end.toString().padStart(2, '0')}:00
-                  </div>
-                </div>
-              ))}
+     {Array.from({ length: 11 }).map((_, i) => {
+  const hour = i + 8
+  const staticEvents = DAY_EVENTS.filter(e => e.hour === hour)
+  const timedDeadlines = deadlineEvents.filter(e => e.date === todayStr && e.hour === hour)
+    .map(e => ({ label: `→ ${e.label}`, color: e.color, hour, end: hour + 1 }))
+  const events = [...staticEvents, ...timedDeadlines]
+  const isNow = hour === new Date().getHours()
+  const hasContent = events.length > 0 || isNow
+  return (
+    <div key={hour} className="flex items-start gap-2 transition-all"
+      style={{ minHeight: hasContent ? '40px' : '10px', opacity: hasContent ? 1 : 0.35 }}>
+      <span className={`text-[10.5px] font-semibold w-[34px] flex-shrink-0 pt-[3px] text-right ${
+        isNow ? 'text-rose-400' : 'text-slate-600'
+      }`} style={{ fontVariantNumeric: 'tabular-nums' }}>
+        {hour.toString().padStart(2, '0')}:00
+      </span>
+      <div className="flex-1 pt-[3px]" style={{
+        borderTop: `1px solid ${isNow ? 'rgba(251, 113, 133, 0.4)' : 'rgba(255,255,255,0.05)'}`,
+      }}>
+        {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#fb7185', boxShadow: '0 0 8px #fb7185' }} />}
+        {events.map((ev, j) => (
+          <div key={j} className="rounded-r-md px-2 py-1 mb-1"
+            style={{ background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`, boxShadow: `0 0 12px ${ev.color}33` }}>
+            <div className="text-[12px] font-bold" style={{ color: ev.color }}>{ev.label}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {ev.hour.toString().padStart(2, '0')}:00 — {ev.end.toString().padStart(2, '0')}:00
             </div>
           </div>
-        )
-      })}
+        ))}
+      </div>
+    </div>
+  )
+})}
     </>
   )
 }
