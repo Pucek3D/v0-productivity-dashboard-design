@@ -35,7 +35,7 @@ export function TopPrioCard() {
         {tasks.map((section, sectionIdx) => (
           <div key={section.section}>
             <div
-              className="text-[12px] font-semibold text-[#0a0a0a] flex items-center gap-2 uppercase tracking-[0.08em]"
+              className="text-[12px] font-semibold text-white flex items-center gap-2 uppercase tracking-[0.08em]"
               style={{ marginTop: sectionIdx > 0 ? '14px' : '0', marginBottom: '6px' }}
             >
               <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: section.color }} />
@@ -51,7 +51,7 @@ export function TopPrioCard() {
                   className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
                     task.done
                       ? 'bg-indigo-500/30 border-indigo-400'
-                      : 'border-slate-600 bg-[#0f1623] group-hover:border-[#a8a29e]'
+                      : 'border-slate-600 bg-[#0f1623] group-hover:border-slate-400'
                   }`}
                 >
                   {task.done && (
@@ -63,7 +63,7 @@ export function TopPrioCard() {
                   style={{ background: PRIORITY_COLORS[task.priority] }}
                 />
                 <span className={`text-[12.5px] leading-[1.35] ${
-                  task.done ? 'text-slate-500 line-through' : 'text-[#0a0a0a]'
+                  task.done ? 'text-slate-500 line-through' : 'text-slate-200'
                 }`}>
                   {task.text}
                 </span>
