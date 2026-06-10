@@ -61,17 +61,17 @@ export function LtGoalsCalendar() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => changeMonth(-1)}
-              className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1] transition-colors"
+              className="bg-white/5 border border-white/10 rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
               style={{ visibility: view === 'month' ? 'visible' : 'hidden' }}
             >
               ‹
             </button>
-            <span className="font-display text-[18px] tracking-tight text-[#0a0a0a] text-shadow-soft leading-none">
-              {MONTH_NAMES[month]} <span className="text-[#a8a29e]">{year}</span>
+            <span className="font-display text-[18px] tracking-tight text-white text-shadow-soft leading-none">
+              {MONTH_NAMES[month]} <span className="text-slate-500">{year}</span>
             </span>
             <button
               onClick={() => changeMonth(1)}
-              className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1] transition-colors"
+              className="bg-white/5 border border-white/10 rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
               style={{ visibility: view === 'month' ? 'visible' : 'hidden' }}
             >
               ›
@@ -79,7 +79,7 @@ export function LtGoalsCalendar() {
             {view === 'month' && (
               <button
                 onClick={() => { setMonth(today.m); setYear(today.y) }}
-                className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-[#047857] hover:text-[#065f46] transition-colors"
+                className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-[#2dd4bf] hover:text-[#14b8a6] transition-colors"
                 title="Jump to today"
               >
                 Today
@@ -98,7 +98,7 @@ function GanttView() {
     <div className="grid gap-1" style={{ gridTemplateColumns: '64px repeat(4, 1fr)' }}>
       <div />
       {['W1', 'W2', 'W3', 'W4'].map(w => (
-        <div key={w} className="text-[9px] font-semibold text-[#a8a29e] text-center uppercase tracking-[0.12em]">
+        <div key={w} className="text-[9px] font-semibold text-slate-500 text-center uppercase tracking-[0.12em]">
           {w}
         </div>
       ))}
@@ -115,8 +115,8 @@ function GanttView() {
               key={i}
               className="h-4 rounded-[4px]"
               style={{
-                background: a ? pastel(row.color, 0.78) : '#f5f5f1',
-                boxShadow: a ? `inset 0 0 0 1px ${pastel(row.color, 0.55)}` : 'none',
+                background: a ? `${row.color}33` : 'rgba(255,255,255,0.03)',
+                boxShadow: a ? `inset 0 0 0 1px ${row.color}55, 0 0 8px ${row.color}33` : 'none',
               }}
             />
           ))}
@@ -135,7 +135,7 @@ function LtMonthView({ month, year, today }: { month: number; year: number; toda
     <>
       <div className="grid grid-cols-7 gap-0.5 mb-1">
         {DAY_NAMES.map((d, i) => (
-          <div key={i} className="text-center text-[9.5px] font-semibold text-[#a8a29e] uppercase tracking-[0.12em] py-1">
+          <div key={i} className="text-center text-[9.5px] font-semibold text-slate-500 uppercase tracking-[0.12em] py-1">
             {d}
           </div>
         ))}
@@ -150,15 +150,16 @@ function LtMonthView({ month, year, today }: { month: number; year: number; toda
           const dayEvents = events[day] || []
           return (
             <div
-              key={day}
-              className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors ${
-                isToday
-                  ? 'bg-[#d1fae5] border-[#a7f3d0] shadow-[inset_0_0_0_1px_rgba(4,120,87,0.08)]'
-                  : 'border-transparent hover:bg-[#f5f5f1] hover:border-[#e7e5e0]'
-              }`}
-            >
+  key={day}
+  className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors ${
+    isToday
+      ? 'border-teal-400/60'
+      : 'border-transparent hover:bg-white/[0.03] hover:border-white/10'
+  }`}
+  style={isToday ? { background: 'rgba(20, 184, 166, 0.12)' } : {}}
+>
               <span className={`text-[11px] leading-none mb-[2px] tabular ${
-                isToday ? 'text-[#047857] font-bold' : 'text-[#57534e] font-semibold'
+                isToday ? 'text-teal-300 font-bold' : 'text-slate-300 font-semibold'
               }`}>
                 {day}
               </span>
@@ -166,7 +167,7 @@ function LtMonthView({ month, year, today }: { month: number; year: number; toda
                 <div
                   key={j}
                   className="text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
-                  style={{ background: pastel(ev.color, 0.84), color: ev.color }}
+                  style={{ background: `${ev.color}22`, color: ev.color, border: `1px solid ${ev.color}44` }}
                 >
                   {ev.label}
                 </div>
@@ -175,9 +176,9 @@ function LtMonthView({ month, year, today }: { month: number; year: number; toda
           )
         })}
       </div>
-      <div className="flex flex-wrap gap-2 mt-3 pt-2.5 border-t border-[#f0efeb]">
+      <div className="flex flex-wrap gap-2 mt-3 pt-2.5 border-t border-white/5">
         {LT_LEGEND.map(leg => (
-          <div key={leg.label} className="flex items-center gap-1.5 text-[9.5px] text-[#57534e] font-medium uppercase tracking-[0.08em]">
+          <div key={leg.label} className="flex items-center gap-1.5 text-[9.5px] text-slate-400 font-medium uppercase tracking-[0.08em]">
             <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: leg.color }} />
             {leg.label}
           </div>
