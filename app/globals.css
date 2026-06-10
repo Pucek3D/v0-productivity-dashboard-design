@@ -188,3 +188,5 @@
 .group:hover .icon-on-hover {
   opacity: 1;
 }
+.scroll-wheel::-webkit-scrollbar { display: none; }
+.scroll-wheel { -ms-overflow-style: none; scrollbar-width: none; }
