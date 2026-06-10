@@ -1,12 +1,11 @@
 'use client'
-
 import { useState } from 'react'
 import { TOP_PRIO_TASKS } from '@/lib/data'
 
 const PRIORITY_COLORS = {
-  red: '#fca5a5',
-  yellow: '#fde68a',
-  gray: '#e5e7eb',
+  red: '#be123c',
+  yellow: '#b45309',
+  gray: '#a8a29e',
 }
 
 export function TopPrioCard() {
@@ -18,8 +17,6 @@ export function TopPrioCard() {
       const section = { ...newTasks[sectionIdx] }
       const taskList = [...section.tasks]
       taskList[taskIdx] = { ...taskList[taskIdx], done: !taskList[taskIdx].done }
-      
-      // Sort: done tasks sink to bottom
       taskList.sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1))
       section.tasks = taskList
       newTasks[sectionIdx] = section
@@ -28,47 +25,46 @@ export function TopPrioCard() {
   }
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
-      <div className="bg-[#7c3aed] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
-        <span className="text-white font-bold text-[14.5px] tracking-[0.07em] uppercase">
+    <div className="card-base halo-indigo">
+      <div className="section-header header-indigo px-4 py-2.5">
+        <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
           Top prio today
         </span>
       </div>
-      <div className="p-[11px_13px]">
+      <div className="px-3.5 py-3">
         {tasks.map((section, sectionIdx) => (
           <div key={section.section}>
-            <div 
-              className="text-[16.5px] font-bold text-[#111827] flex items-center gap-[5px]"
-              style={{ marginTop: sectionIdx > 0 ? '10px' : '0', marginBottom: '4px' }}
+            <div
+              className="text-[12px] font-semibold text-[#0a0a0a] flex items-center gap-2 uppercase tracking-[0.08em]"
+              style={{ marginTop: sectionIdx > 0 ? '14px' : '0', marginBottom: '6px' }}
             >
-              <div 
-                className="w-2 h-2 rounded-sm flex-shrink-0" 
-                style={{ background: section.color }} 
-              />
+              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: section.color }} />
               {section.section}
             </div>
             {section.tasks.map((task, taskIdx) => (
               <div
                 key={task.id}
-                className="flex items-center gap-[7px] py-[3px] cursor-pointer select-none"
+                className="flex items-start gap-2 py-[3px] cursor-pointer select-none group"
                 onClick={() => toggleTask(sectionIdx, taskIdx)}
               >
-                <div 
-                  className={`w-3.5 h-3.5 rounded-[3px] border-[1.5px] flex-shrink-0 flex items-center justify-center transition-all ${
-                    task.done 
-                      ? 'bg-[#c4b5fd] border-[#c4b5fd]' 
-                      : 'border-[#d1d5db] bg-transparent'
+                <div
+                  className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
+                    task.done
+                      ? 'bg-[#c7d2fe] border-[#c7d2fe]'
+                      : 'border-[#d6d3d1] bg-white group-hover:border-[#a8a29e]'
                   }`}
                 >
                   {task.done && (
-                    <span className="text-[#5b21b6] text-[8px] font-extrabold">✓</span>
+                    <span className="text-[#3730a3] text-[8px] font-bold leading-none">✓</span>
                   )}
                 </div>
-                <div 
-                  className="w-[5px] h-[5px] rounded-full flex-shrink-0"
+                <div
+                  className="w-1 h-1 rounded-full flex-shrink-0 mt-[7px]"
                   style={{ background: PRIORITY_COLORS[task.priority] }}
                 />
-                <span className={`text-[15px] text-[#111827] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : ''}`}>
+                <span className={`text-[12.5px] leading-[1.35] ${
+                  task.done ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'
+                }`}>
                   {task.text}
                 </span>
               </div>
