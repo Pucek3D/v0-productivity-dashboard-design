@@ -1,10 +1,10 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   IconMoon, IconRun, IconCheckbox, IconChartCandle,
   IconPigMoney, IconMicrophone, IconMessage
 } from '@tabler/icons-react'
-import { KPI_CATEGORIES, KPI_DAYS, TODAY_IDX, pastel, KpiCategory, Kpi } from '@/lib/data'
+import { KPI_CATEGORIES, KPI_DAYS, pastel, KpiCategory, Kpi } from '@/lib/data'
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   moon: IconMoon,
@@ -16,28 +16,27 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   message: IconMessage,
 }
 
-// Streak = consecutive 1s ending at today (or yesterday if today is still empty)
-function calculateStreak(days: number[], todayIdx: number): number {
-  let streak = 0
-  const startIdx = days[todayIdx] === 1 ? todayIdx : todayIdx - 1
-  for (let i = startIdx; i >= 0; i--) {
-    if (days[i] === 1) streak++
-    else break
-  }
-  return streak
+// Total days done this week (was previously "consecutive streak only")
+function totalDone(days: number[]): number {
+  return days.reduce((sum, d) => sum + (d ? 1 : 0), 0)
+}
+
+// Convert JS day (0=Sun..6=Sat) to Monday-start (0=Mon..6=Sun)
+function getMondayStartIdx(): number {
+  const jsDay = new Date().getDay()
+  return (jsDay + 6) % 7
 }
 
 export function KpisCard() {
   const [view, setView] = useState<'day' | 'week'>('day')
+  // Default to Monday on SSR; real value lands after mount to avoid hydration mismatch
+  const [todayIdx, setTodayIdx] = useState(0)
+  useEffect(() => { setTodayIdx(getMondayStartIdx()) }, [])
 
-  // Initialize with calculated streaks so they're consistent with day data
   const [categories, setCategories] = useState<KpiCategory[]>(() =>
     KPI_CATEGORIES.map(cat => ({
       ...cat,
-      kpis: cat.kpis.map(k => ({
-        ...k,
-        streak: calculateStreak(k.days, TODAY_IDX),
-      })),
+      kpis: cat.kpis.map(k => ({ ...k, streak: totalDone(k.days) })),
     }))
   )
 
@@ -50,9 +49,8 @@ export function KpisCard() {
           if (k.id !== kpiId) return k
           const newDays = [...k.days]
           newDays[dayIdx] = newDays[dayIdx] === 1 ? 0 : 1
-          const newStreak = calculateStreak(newDays, TODAY_IDX)
-          const newChecked = k.type === 'check' ? newDays[TODAY_IDX] === 1 : k.checked
-          return { ...k, days: newDays, streak: newStreak, checked: newChecked }
+          const newChecked = k.type === 'check' ? newDays[todayIdx] === 1 : k.checked
+          return { ...k, days: newDays, streak: totalDone(newDays), checked: newChecked }
         }),
       }
     }))
@@ -87,9 +85,9 @@ export function KpisCard() {
       </div>
       <div className="px-3.5 py-3">
         {view === 'day' ? (
-          <DayView categories={categories} toggleDay={toggleDay} />
+          <DayView categories={categories} toggleDay={toggleDay} todayIdx={todayIdx} />
         ) : (
-          <WeekView categories={categories} toggleDay={toggleDay} />
+          <WeekView categories={categories} toggleDay={toggleDay} todayIdx={todayIdx} />
         )}
       </div>
     </div>
@@ -97,13 +95,12 @@ export function KpisCard() {
 }
 
 function DotRow({
-  kpi,
-  cat,
-  toggleDay,
+  kpi, cat, toggleDay, todayIdx,
 }: {
   kpi: Kpi
   cat: KpiCategory
   toggleDay: (catId: string, kpiId: string, dayIdx: number) => void
+  todayIdx: number
 }) {
   return (
     <div style={{ marginBottom: kpi.type === 'num' ? '3px' : '0' }}>
@@ -115,9 +112,7 @@ function DotRow({
             className="w-[12px] h-[12px] rounded-full flex-shrink-0 cursor-pointer hover:scale-125 transition-transform"
             style={{
               background: d ? cat.color : '#f0efeb',
-              boxShadow: i === TODAY_IDX
-                ? `0 0 0 1.5px ${pastel(cat.color, 0.55)}`
-                : 'none',
+              boxShadow: i === todayIdx ? `0 0 0 1.5px ${pastel(cat.color, 0.55)}` : 'none',
             }}
             title={`${KPI_DAYS[i]}: ${d ? 'done — click to undo' : 'not done — click to mark'}`}
           />
@@ -129,8 +124,8 @@ function DotRow({
             key={i}
             className="w-[12px] text-center text-[8px] tabular"
             style={{
-              fontWeight: i === TODAY_IDX ? 700 : 500,
-              color: i === TODAY_IDX ? cat.color : '#d6d3d1',
+              fontWeight: i === todayIdx ? 700 : 500,
+              color: i === todayIdx ? cat.color : '#d6d3d1',
             }}
           >
             {d}
@@ -142,11 +137,11 @@ function DotRow({
 }
 
 function DayView({
-  categories,
-  toggleDay,
+  categories, toggleDay, todayIdx,
 }: {
   categories: KpiCategory[]
   toggleDay: (catId: string, kpiId: string, dayIdx: number) => void
+  todayIdx: number
 }) {
   return (
     <>
@@ -174,7 +169,7 @@ function DayView({
                     <span className="text-[12px] font-medium text-[#292524] truncate">{k.label}</span>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {k.type === 'num' && (
+                    {k.type === 'num' && k.val && k.target && (
                       <span className="font-display text-[13px] tabular leading-none" style={{ color: cat.color }}>
                         {k.val}<span className="text-[#a8a29e]"> / {k.target}</span>
                       </span>
@@ -189,8 +184,8 @@ function DayView({
                     )}
                   </div>
                 </div>
-                <DotRow kpi={k} cat={cat} toggleDay={toggleDay} />
-                {k.type === 'num' && (
+                <DotRow kpi={k} cat={cat} toggleDay={toggleDay} todayIdx={todayIdx} />
+                {k.type === 'num' && k.val && k.target && (
                   <div className="h-[3px] bg-[#f5f5f1] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
@@ -208,11 +203,11 @@ function DayView({
 }
 
 function WeekView({
-  categories,
-  toggleDay,
+  categories, toggleDay, todayIdx,
 }: {
   categories: KpiCategory[]
   toggleDay: (catId: string, kpiId: string, dayIdx: number) => void
+  todayIdx: number
 }) {
   let bestStreak = { label: '', streak: 0 }
 
@@ -232,8 +227,8 @@ function WeekView({
                 key={i}
                 className="text-[9px] text-center p-1 uppercase tabular"
                 style={{
-                  fontWeight: i === TODAY_IDX ? 800 : 600,
-                  color: i === TODAY_IDX ? '#4338ca' : '#a8a29e',
+                  fontWeight: i === todayIdx ? 800 : 600,
+                  color: i === todayIdx ? '#4338ca' : '#a8a29e',
                 }}
               >
                 {d}
@@ -273,7 +268,7 @@ function WeekView({
                           className="w-[11px] h-[11px] rounded-full mx-auto cursor-pointer hover:scale-125 transition-transform block"
                           style={{
                             background: d ? cat.color : '#f0efeb',
-                            boxShadow: i === TODAY_IDX ? `0 0 0 1.5px ${pastel(cat.color, 0.65)}` : 'none',
+                            boxShadow: i === todayIdx ? `0 0 0 1.5px ${pastel(cat.color, 0.65)}` : 'none',
                           }}
                         />
                       </td>
@@ -293,7 +288,7 @@ function WeekView({
       </table>
       {bestStreak.streak > 0 && (
         <div className="mt-3 pt-2 border-t border-[#f0efeb] flex gap-2 items-center">
-          <span className="text-[9px] text-[#a8a29e] uppercase tracking-[0.12em] font-semibold">Best streak</span>
+          <span className="text-[9px] text-[#a8a29e] uppercase tracking-[0.12em] font-semibold">Most done</span>
           <span
             className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
             style={{ color: '#b45309', background: '#fef3c7' }}
