@@ -32,7 +32,7 @@ export function ProgressOverview({ projectDone, getProjectCompletion }: Progress
   const avgPct = data.length > 0 ? Math.round(totalPct / data.length) : 0
 
   return (
-    <div className="card-base">
+    <div className="card-base halo-slate-blue">
       <div className="section-header header-slate-blue px-4 py-2.5">
         <div className="flex justify-between items-center">
           <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">

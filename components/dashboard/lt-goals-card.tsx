@@ -13,7 +13,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
   const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
 
   return (
-    <div className="card-base">
+    <div className="card-base halo-sage">
       <div className="section-header header-sage px-4 py-2.5">
         <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
           Long-term goals
