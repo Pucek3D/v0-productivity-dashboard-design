@@ -3,7 +3,7 @@ import { MESSAGES } from '@/lib/data'
 
 export function MessagesCard() {
   return (
-    <div className="card-base">
+    <div className="card-base halo-stone">
       <div className="section-header header-stone px-4 py-2.5">
         <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
           Messages
