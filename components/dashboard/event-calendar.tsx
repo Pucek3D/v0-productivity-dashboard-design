@@ -5,6 +5,60 @@ import {
   MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth, pastel
 } from '@/lib/data'
 
+const CARD: React.CSSProperties = {
+  background: '#ffffff',
+  border: '1px solid rgba(10, 10, 10, 0.06)',
+  borderRadius: '0.875rem',
+  boxShadow:
+    '0 1px 2px rgba(30, 58, 138, 0.08), 0 4px 16px rgba(30, 58, 138, 0.10), 0 16px 40px rgba(30, 58, 138, 0.08)',
+  overflow: 'hidden',
+}
+
+const HEADER_BAR: React.CSSProperties = {
+  background: 'linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%)',
+  position: 'relative',
+  boxShadow:
+    'inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.04)',
+  padding: '10px 16px',
+}
+
+const TOGGLE_WRAP: React.CSSProperties = {
+  background: 'rgba(255, 255, 255, 0.14)',
+  borderRadius: '6px',
+  overflow: 'hidden',
+  boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.10)',
+  display: 'flex',
+}
+
+const togBtn = (active: boolean): React.CSSProperties => ({
+  background: active ? 'rgba(255, 255, 255, 0.30)' : 'transparent',
+  color: active ? '#ffffff' : 'rgba(255, 255, 255, 0.64)',
+  boxShadow: active ? 'inset 0 0 0 1px rgba(255, 255, 255, 0.14)' : 'none',
+  border: 'none',
+  cursor: 'pointer',
+  fontWeight: 600,
+  fontSize: '10px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  padding: '2px 8px',
+})
+
+const TITLE: React.CSSProperties = {
+  color: '#ffffff',
+  fontWeight: 600,
+  fontSize: '11px',
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  textShadow: '0 1px 2px rgba(0, 0, 0, 0.22)',
+}
+
+const DISPLAY_FONT: React.CSSProperties = {
+  fontFamily: 'Inter, system-ui, sans-serif',
+  fontWeight: 800,
+  letterSpacing: '-0.025em',
+  fontStyle: 'normal',
+}
+
 export function EventCalendar() {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
   const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
@@ -29,21 +83,13 @@ export function EventCalendar() {
   }
 
   return (
-    <div className="card-base halo-slate-blue">
-      <div className="section-header header-slate-blue px-4 py-2.5">
-        <div className="flex justify-between items-center">
-          <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
-            Event Calendar
-          </span>
-          <div className="seg-toggle flex">
+    <div style={CARD}>
+      <div style={HEADER_BAR}>
+        <div className="flex justify-between items-center" style={{ position: 'relative' }}>
+          <span style={TITLE}>Event Calendar</span>
+          <div style={TOGGLE_WRAP}>
             {(['d', 'm', 'w'] as const).map(v => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
-                  view === v ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
-                }`}
-              >
+              <button key={v} onClick={() => setView(v)} style={togBtn(view === v)}>
                 {v === 'd' ? 'Day' : v === 'm' ? 'Month' : 'Week'}
               </button>
             ))}
@@ -57,23 +103,32 @@ export function EventCalendar() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => changeMonth(-1)}
-                className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1] transition-colors"
+                className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1]"
               >
                 ‹
               </button>
-              <span className="font-display text-[20px] tracking-tight text-[#0a0a0a] text-shadow-soft leading-none">
-                {MONTH_NAMES[month]} <span className="text-[#a8a29e]">{year}</span>
+              <span style={{ ...DISPLAY_FONT, fontSize: '20px', color: '#0a0a0a', textShadow: '0 1px 1px rgba(0,0,0,0.05)' }}>
+                {MONTH_NAMES[month]} <span style={{ color: '#a8a29e' }}>{year}</span>
               </span>
               <button
                 onClick={() => changeMonth(1)}
-                className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1] transition-colors"
+                className="bg-white border border-[#e7e5e0] rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-[#57534e] hover:bg-[#f5f5f1]"
               >
                 ›
               </button>
               <button
                 onClick={() => { setMonth(today.m); setYear(today.y) }}
-                className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-[#4338ca] hover:text-[#3730a3] transition-colors"
-                title="Jump to today"
+                style={{
+                  marginLeft: '8px',
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.10em',
+                  color: '#4338ca',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
               >
                 Today
               </button>
@@ -115,13 +170,13 @@ function MonthView({ month, year, today }: { month: number; year: number; today:
               key={day}
               className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors ${
                 isToday
-                  ? 'bg-[#e0e7ff] border-[#c7d2fe] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.08)]'
+                  ? 'bg-[#e0e7ff] border-[#c7d2fe]'
                   : 'border-transparent hover:bg-[#f5f5f1] hover:border-[#e7e5e0]'
               }`}
             >
-              <span className={`text-[11px] leading-none mb-[2px] tabular ${
+              <span className={`text-[11px] leading-none mb-[2px] ${
                 isToday ? 'text-[#3730a3] font-bold' : 'text-[#57534e] font-semibold'
-              }`}>
+              }`} style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {day}
               </span>
               {dayEvents.slice(0, 2).map((ev, j) => (
@@ -169,10 +224,8 @@ function WeekView({ today }: { today: { d: number; m: number; y: number } }) {
         return (
           <div
             key={c.day}
-            className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 transition-colors ${
-              isToday
-                ? 'bg-[#e0e7ff] border border-[#c7d2fe] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.06)]'
-                : 'bg-[#fafaf7] border border-[#f0efeb]'
+            className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 ${
+              isToday ? 'bg-[#e0e7ff] border border-[#c7d2fe]' : 'bg-[#fafaf7] border border-[#f0efeb]'
             }`}
           >
             <div className="text-center mb-1">
@@ -180,7 +233,8 @@ function WeekView({ today }: { today: { d: number; m: number; y: number } }) {
                 {c.name}
               </div>
               <div
-                className={`font-display text-[18px] tabular w-7 h-7 rounded-full flex items-center justify-center mx-auto mt-0.5 text-shadow-soft leading-none ${
+                style={{ ...DISPLAY_FONT, fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}
+                className={`w-7 h-7 rounded-full flex items-center justify-center mx-auto mt-0.5 leading-none ${
                   isToday ? 'bg-[#c7d2fe] text-[#3730a3]' : 'text-[#0a0a0a]'
                 }`}
               >
@@ -193,7 +247,7 @@ function WeekView({ today }: { today: { d: number; m: number; y: number } }) {
                 className="rounded-[5px] px-1.5 py-1"
                 style={{ background: pastel(ev.color, 0.88), borderLeft: `2px solid ${ev.color}` }}
               >
-                <div className="text-[9.5px] font-bold tabular" style={{ color: ev.color }}>
+                <div className="text-[9.5px] font-bold" style={{ color: ev.color, fontVariantNumeric: 'tabular-nums' }}>
                   {ev.time}
                 </div>
                 <div className="text-[10px] font-semibold leading-[1.25] text-[#292524] mt-px">
@@ -215,11 +269,8 @@ function DayView({ today }: { today: { d: number; m: number; y: number } }) {
 
   return (
     <>
-      <div
-        className="mb-3 px-3 py-2 rounded-lg flex justify-between items-center"
-        style={{ background: '#e0e7ff' }}
-      >
-        <span className="font-display text-[20px] text-[#3730a3] text-shadow-soft leading-none">{dateStr}</span>
+      <div className="mb-3 px-3 py-2 rounded-lg flex justify-between items-center" style={{ background: '#e0e7ff' }}>
+        <span style={{ ...DISPLAY_FONT, fontSize: '20px', color: '#3730a3' }}>{dateStr}</span>
         <span className="text-[9px] uppercase tracking-[0.16em] text-[#3730a3] font-semibold">Today</span>
       </div>
       {Array.from({ length: 11 }).map((_, i) => {
@@ -227,22 +278,16 @@ function DayView({ today }: { today: { d: number; m: number; y: number } }) {
         const events = DAY_EVENTS.filter(e => e.hour === hour)
         const isNow = hour === new Date().getHours()
         return (
-          <div
-            key={hour}
-            className="flex items-start gap-2"
-            style={{ minHeight: events.length ? '40px' : '20px' }}
-          >
+          <div key={hour} className="flex items-start gap-2" style={{ minHeight: events.length ? '40px' : '20px' }}>
             <span
-              className={`text-[10.5px] font-semibold w-[34px] flex-shrink-0 pt-[3px] text-right tabular ${
+              className={`text-[10.5px] font-semibold w-[34px] flex-shrink-0 pt-[3px] text-right ${
                 isNow ? 'text-[#4338ca]' : 'text-[#d6d3d1]'
               }`}
+              style={{ fontVariantNumeric: 'tabular-nums' }}
             >
               {hour.toString().padStart(2, '0')}:00
             </span>
-            <div
-              className="flex-1 pt-[3px]"
-              style={{ borderTop: `1px solid ${isNow ? '#c7d2fe' : '#f5f5f1'}` }}
-            >
+            <div className="flex-1 pt-[3px]" style={{ borderTop: `1px solid ${isNow ? '#c7d2fe' : '#f5f5f1'}` }}>
               {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#4338ca' }} />}
               {events.map((ev, j) => (
                 <div
@@ -251,7 +296,7 @@ function DayView({ today }: { today: { d: number; m: number; y: number } }) {
                   style={{ background: pastel(ev.color, 0.86), borderLeft: `2.5px solid ${ev.color}` }}
                 >
                   <div className="text-[12px] font-bold" style={{ color: ev.color }}>{ev.label}</div>
-                  <div className="text-[10px] text-[#a8a29e] tabular mt-0.5">
+                  <div className="text-[10px] text-[#a8a29e] mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {ev.hour.toString().padStart(2, '0')}:00 — {ev.end.toString().padStart(2, '0')}:00
                   </div>
                 </div>
