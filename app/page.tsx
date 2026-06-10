@@ -46,7 +46,7 @@ export default function Dashboard() {
       <header className="flex items-end justify-between mb-6 pb-5 border-b border-[#e7e5e0]">
         <div>
           <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.025em] text-shadow-display">
-            <span className="italic text-[#4338ca]">Kornelia&rsquo;s</span>{' '}
+            <span className="text-[#4338ca]">Kornelia&rsquo;s</span>{' '}
             <span className="text-[#0a0a0a]">op system</span>
           </h1>
           <p className="text-[10.5px] uppercase tracking-[0.18em] text-[#a8a29e] font-medium mt-3">
