@@ -25,9 +25,21 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
             const pct = getProjectCompletion(project)
             const style = statusStyle(project.status, project.color)
             const isExpanded = expanded[project.key]
-            const visibleTasks = project.tasks.slice(0, 2)
-            const hiddenTasks = project.tasks.slice(2)
+
+            // Build indexed list, sort: undone first, done sink to bottom
+            const indexedTasks = project.tasks.map((task, originalIdx) => ({
+              task,
+              originalIdx,
+              done: !!projectDone[`${project.key}-task-${originalIdx}`],
+            }))
+            const sortedTasks = [...indexedTasks].sort((a, b) => Number(a.done) - Number(b.done))
+
+            const visibleTasks = sortedTasks.slice(0, 3)
+            const hiddenTasks = sortedTasks.slice(3)
             const hasMore = hiddenTasks.length > 0 || project.doneTasks.length > 0
+
+            // "→" line shows next undone task dynamically (fallback to project.next from data)
+            const nextLabel = sortedTasks.find(t => !t.done)?.task ?? project.next
 
             return (
               <div
@@ -56,56 +68,49 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                   />
                 </div>
                 <div className="text-[10px] text-[#a8a29e] mb-1 whitespace-nowrap overflow-hidden text-ellipsis font-medium">
-                  → {project.next}
+                  → {nextLabel}
                 </div>
 
                 <div className="border-t border-[#f5f5f1] pt-1 mt-1">
                   <div className="grid grid-cols-3 gap-1">
-                    {visibleTasks.map((task, i) => {
-                      const isDone = projectDone[`${project.key}-task-${i}`]
-                      return (
-                        <div
-                          key={i}
-                          className="flex items-start gap-1 py-0.5 cursor-pointer select-none"
-                          onClick={() => toggleProjectTask(project.key, 'task', i)}
-                        >
-                          <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
-                            isDone ? 'bg-[#c7d2fe] border-[#c7d2fe]' : 'border-[#d6d3d1] bg-white'
-                          }`}>
-                            {isDone && <span className="text-[#3730a3] text-[6.5px] font-bold leading-none">✓</span>}
-                          </div>
-                          <span className={`text-[9px] leading-[1.2] ${isDone ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'}`}>
-                            {task}
-                          </span>
+                    {visibleTasks.map(t => (
+                      <div
+                        key={t.originalIdx}
+                        className="flex items-start gap-1 py-0.5 cursor-pointer select-none"
+                        onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)}
+                      >
+                        <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
+                          t.done ? 'bg-[#c7d2fe] border-[#c7d2fe]' : 'border-[#d6d3d1] bg-white'
+                        }`}>
+                          {t.done && <span className="text-[#3730a3] text-[6.5px] font-bold leading-none">✓</span>}
                         </div>
-                      )
-                    })}
+                        <span className={`text-[9px] leading-[1.2] ${t.done ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'}`}>
+                          {t.task}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 {isExpanded && (
                   <div className="pt-0.5">
                     <div className="grid grid-cols-3 gap-1">
-                      {hiddenTasks.map((task, i) => {
-                        const idx = i + 2
-                        const isDone = projectDone[`${project.key}-task-${idx}`]
-                        return (
-                          <div
-                            key={idx}
-                            className="flex items-start gap-1 py-0.5 cursor-pointer select-none"
-                            onClick={() => toggleProjectTask(project.key, 'task', idx)}
-                          >
-                            <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
-                              isDone ? 'bg-[#c7d2fe] border-[#c7d2fe]' : 'border-[#d6d3d1] bg-white'
-                            }`}>
-                              {isDone && <span className="text-[#3730a3] text-[6.5px] font-bold leading-none">✓</span>}
-                            </div>
-                            <span className={`text-[9px] leading-[1.2] ${isDone ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'}`}>
-                              {task}
-                            </span>
+                      {hiddenTasks.map(t => (
+                        <div
+                          key={t.originalIdx}
+                          className="flex items-start gap-1 py-0.5 cursor-pointer select-none"
+                          onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)}
+                        >
+                          <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
+                            t.done ? 'bg-[#c7d2fe] border-[#c7d2fe]' : 'border-[#d6d3d1] bg-white'
+                          }`}>
+                            {t.done && <span className="text-[#3730a3] text-[6.5px] font-bold leading-none">✓</span>}
                           </div>
-                        )
-                      })}
+                          <span className={`text-[9px] leading-[1.2] ${t.done ? 'text-[#a8a29e] line-through' : 'text-[#0a0a0a]'}`}>
+                            {t.task}
+                          </span>
+                        </div>
+                      ))}
                       {project.doneTasks.map((task, i) => {
                         const isDone = projectDone[`${project.key}-done-${i}`] !== false
                         return (
