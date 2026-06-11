@@ -45,7 +45,7 @@ export function MessagesCard() {
             >
               {it.done && <span className="text-indigo-300 text-[7px] font-bold leading-none">✓</span>}
             </div>
-            <span className={`text-[11.5px] leading-[1.3] ${
+            <span className={`text-[12.5px] leading-[1.35] ${
               it.done ? 'text-slate-500 line-through' : 'text-slate-200'
             }`}>
               {it.text}
