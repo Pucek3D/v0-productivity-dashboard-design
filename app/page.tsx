@@ -16,7 +16,9 @@ import { DailyShutdown } from '@/components/dashboard/daily-shutdown'
 import { PROJECTS, LT_GOALS, TOP_PRIO_TASKS, DAY_EVENTS, Project } from '@/lib/data'
 import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
 import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone, loadCapturedTasks, saveCapturedTasks } from '@/lib/task-meta'
-import { IconMoon, IconTarget } from '@tabler/icons-react'
+import { IconMoon, IconChartBar } from '@tabler/icons-react'
+import { WeeklyAnalytics } from '@/components/dashboard/weekly-analytics'
+import { IconChartBar } from '@tabler/icons-react'
 
 export default function Dashboard() {
   /* ── Header date ── */
@@ -41,6 +43,7 @@ export default function Dashboard() {
   })
   useEffect(() => { const saved = loadProjectDone(); if (saved) setProjectDone(saved) }, [])
   useEffect(() => { saveProjectDone(projectDone) }, [projectDone])
+  
 
   const toggleProjectTask = useCallback((projectKey: string, taskType: 'task' | 'done', index: number) => {
     const key = taskType === 'done' ? `${projectKey}-done-${index}` : `${projectKey}-task-${index}`
@@ -82,6 +85,10 @@ export default function Dashboard() {
   /* ── Task modal ── */
   const [modalTask, setModalTask] = useState<{ key: string; label: string } | null>(null)
   const openModal = useCallback((key: string, label: string) => setModalTask({ key, label }), [])
+
+  const [modalTask, setModalTask] = useState<{ key: string; label: string } | null>(null)
+const [showAnalytics, setShowAnalytics] = useState(false)
+const [showShutdown, setShowShutdown] = useState(false)
 
   /* ── Focus timer ── */
   const [focusTask, setFocusTask] = useState<{ key: string; label: string } | null>(null)
