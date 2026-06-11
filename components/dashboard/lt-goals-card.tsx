@@ -95,7 +95,11 @@ function GoalTile({
               style={{ background: style.text, boxShadow: `0 0 6px ${style.text}` }} />
             <span className="text-[9px] font-semibold uppercase tracking-[0.10em] truncate" style={{ color: style.text }}>
               {autoStatus}
-            </span>
+            {streak > 2 && (
+  <span style={{ fontSize: 8, fontWeight: 700, color: '#fbbf24', marginLeft: 4 }}>
+    🔥{streak}
+  </span>
+)}
           </span>
           <span className="font-display text-[22px] tabular leading-none flex-shrink-0" style={{
             color: goal.color, textShadow: `0 0 16px ${goal.color}aa, 0 0 32px ${goal.color}55`,
