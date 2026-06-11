@@ -4,19 +4,13 @@ import { TOP_PRIO_TASKS } from '@/lib/data'
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
 
-const PRIORITY_COLORS = {
-  red: '#fb7185',
-  yellow: '#fbbf24',
-  gray: '#64748b',
-}
-
 interface TopPrioCardProps {
   taskMeta: Record<string, TaskMeta>
   updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
   openModal: (key: string, label: string) => void
 }
 
-export function TopPrioCard({ taskMeta, updateTaskMeta }: TopPrioCardProps) {
+export function TopPrioCard({ taskMeta, updateTaskMeta, openModal }: TopPrioCardProps) {
   const [tasks, setTasks] = useState(TOP_PRIO_TASKS)
 
   const toggleTask = (sectionIdx: number, taskIdx: number) => {
@@ -46,6 +40,8 @@ export function TopPrioCard({ taskMeta, updateTaskMeta }: TopPrioCardProps) {
               className="text-[12px] font-semibold text-white flex items-center gap-2 uppercase tracking-[0.08em]"
               style={{ marginTop: sectionIdx > 0 ? '14px' : '0', marginBottom: '6px' }}
             >
+              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{ background: section.color, boxShadow: `0 0 6px ${section.color}` }} />
               {section.section}
             </div>
             {section.tasks.map((task, taskIdx) => (
@@ -53,29 +49,22 @@ export function TopPrioCard({ taskMeta, updateTaskMeta }: TopPrioCardProps) {
                 key={task.id}
                 className="flex items-start gap-2 py-[3px] cursor-pointer select-none group"
                 onClick={() => toggleTask(sectionIdx, taskIdx)}
+                onDoubleClick={() => openModal(`prio-${task.id}`, task.text)}
               >
-                <div
-                  className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
-                    task.done
-                      ? 'bg-indigo-500/30 border-indigo-400'
-                      : 'border-slate-600 bg-white/5 group-hover:border-slate-400'
-                  }`}
-                >
-                  {task.done && (
-                    <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>
-                  )}
+                <div className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
+                  task.done
+                    ? 'bg-indigo-500/30 border-indigo-400'
+                    : 'border-slate-600 bg-white/5 group-hover:border-slate-400'
+                }`}>
+                  {task.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}
                 </div>
-                                <span className={`text-[12.5px] leading-[1.35] ${
+                <span className={`text-[12.5px] leading-[1.35] ${
                   task.done ? 'text-slate-500 line-through' : 'text-slate-200'
                 }`}>
                   {task.text}
                 </span>
-                <TaskActions
-                  taskKey={`prio-${task.id}`}
-                  taskLabel={task.text}
-                  taskMeta={taskMeta}
-                  updateTaskMeta={updateTaskMeta}
-                />
+                <TaskActions taskKey={`prio-${task.id}`} taskLabel={task.text}
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
               </div>
             ))}
           </div>
