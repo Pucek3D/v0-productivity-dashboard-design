@@ -64,6 +64,7 @@ function GoalTile({
   openModal: (key: string, label: string) => void
 }) {
   const pct = getProjectCompletion(goal)
+  const streak = Object.keys(projectDone).filter(k => k.startsWith(`${project.key}-`) && projectDone[k]).length
   const autoStatus = computeStatus(goal, projectDone, taskMeta, 'goal')
   const style = statusStyle(autoStatus, goal.color)
   const isUrgent = autoStatus.includes('Today') || autoStatus.includes('🔥')
