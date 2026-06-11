@@ -3,8 +3,7 @@ import { useState } from 'react'
 import { PROJECTS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
-import { computeStatus } from '@/lib/task-meta'
-import { computeStatus } from '@/lib/task-meta'
+import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 
 interface ActiveProjectsCardProps {
   projectDone: Record<string, boolean>
