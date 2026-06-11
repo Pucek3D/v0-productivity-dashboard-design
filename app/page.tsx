@@ -18,7 +18,6 @@ import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
 import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone, loadCapturedTasks, saveCapturedTasks } from '@/lib/task-meta'
 import { IconMoon, IconChartBar } from '@tabler/icons-react'
 import { WeeklyAnalytics } from '@/components/dashboard/weekly-analytics'
-import { IconChartBar } from '@tabler/icons-react'
 
 export default function Dashboard() {
   /* ── Header date ── */
@@ -85,10 +84,7 @@ export default function Dashboard() {
   /* ── Task modal ── */
   const [modalTask, setModalTask] = useState<{ key: string; label: string } | null>(null)
   const openModal = useCallback((key: string, label: string) => setModalTask({ key, label }), [])
-
-  const [modalTask, setModalTask] = useState<{ key: string; label: string } | null>(null)
 const [showAnalytics, setShowAnalytics] = useState(false)
-const [showShutdown, setShowShutdown] = useState(false)
 
   /* ── Focus timer ── */
   const [focusTask, setFocusTask] = useState<{ key: string; label: string } | null>(null)
