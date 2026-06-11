@@ -191,6 +191,16 @@ const [showShutdown, setShowShutdown] = useState(false)
               )}
             </div>
 
+            {/* Analytics button */}
+<button onClick={() => setShowAnalytics(true)} style={{
+  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+  background: 'rgba(45,212,191,0.10)', border: '1px solid rgba(45,212,191,0.20)',
+  borderRadius: 10, cursor: 'pointer', color: '#2dd4bf', fontSize: 11, fontWeight: 600,
+  textTransform: 'uppercase', letterSpacing: '0.06em',
+}}>
+  <IconChartBar size={14} /> Weekly Review
+</button>
+
             {/* Shutdown button */}
             <button onClick={() => setShowShutdown(true)} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
@@ -202,6 +212,7 @@ const [showShutdown, setShowShutdown] = useState(false)
             </button>
           </div>
         </div>
+
 
         <QuickCapture captured={captured} onAdd={addCapture} onRemove={removeCapture} />
       </header>
@@ -246,6 +257,15 @@ const [showShutdown, setShowShutdown] = useState(false)
           tasksTotal={timeStats.totalTodayTasks}
         />
       )}
+
+      {showAnalytics && (
+  <WeeklyAnalytics
+    onClose={() => setShowAnalytics(false)}
+    projectDone={projectDone}
+    taskMeta={taskMeta}
+    getProjectCompletion={getProjectCompletion}
+  />
+)}
     </div>
   )
 }
