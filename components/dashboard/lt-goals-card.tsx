@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { LT_GOALS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
-import { computeStatus } from '@/lib/task-meta'
+import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 
 interface LtGoalsCardProps {
   projectDone: Record<string, boolean>
