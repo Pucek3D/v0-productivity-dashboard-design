@@ -10,6 +10,7 @@ interface TaskModalProps {
   meta: TaskMeta
   onUpdate: (updates: Partial<TaskMeta>) => void
   onClose: () => void
+  onStartFocus?: (key: string, label: string) => void
 }
 
 const PRIORITIES = [
@@ -20,11 +21,12 @@ const PRIORITIES = [
 
 const TIME_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 240]
 
-export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose }: TaskModalProps) {
+export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStartFocus }: TaskModalProps) {
   const [desc, setDesc] = useState(meta.description || '')
   const [newLink, setNewLink] = useState('')
   const [newSubtask, setNewSubtask] = useState('')
   const descRef = useRef<HTMLTextAreaElement>(null)
+  
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
