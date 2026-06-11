@@ -1,5 +1,7 @@
 export interface TaskMeta {
   deadline?: string
+  hour?: number
+  minute?: number
   owner?: string
   label?: string
 }
@@ -69,3 +71,5 @@ export function computeStatus(
   if (doneCount > 0) return 'Active'
   return 'Planning'
 }
+.scroll-wheel::-webkit-scrollbar { display: none; }
+.scroll-wheel { -ms-overflow-style: none; scrollbar-width: none; }
