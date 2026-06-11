@@ -174,6 +174,26 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
             </div>
           </div>
 
+{/* Recurring */}
+<div>
+  <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+    🔄 Recurring
+  </div>
+  <div style={{ display: 'flex', gap: 4 }}>
+    {(['daily', 'weekly', 'monthly'] as const).map(freq => (
+      <button key={freq} onClick={() => onUpdate({ recurring: meta.recurring === freq ? null : freq })}
+        style={{
+          padding: '3px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 10, fontWeight: 600,
+          border: 'none', textTransform: 'uppercase', letterSpacing: '0.06em',
+          background: meta.recurring === freq ? 'rgba(45,212,191,0.15)' : 'rgba(255,255,255,0.04)',
+          color: meta.recurring === freq ? '#2dd4bf' : '#475569',
+          boxShadow: meta.recurring === freq ? 'inset 0 0 0 1px rgba(45,212,191,0.3)' : 'none',
+        }}>
+        {freq}
+      </button>
+    ))}
+  </div>
+</div>
           {/* Description */}
           <Section label="Notes / Description">
             <textarea ref={descRef} value={desc} onChange={e => setDesc(e.target.value)} onBlur={saveDesc}
