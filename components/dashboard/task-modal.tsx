@@ -98,12 +98,24 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
             </div>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1.3 }}>
               {taskLabel}
+              {onStartFocus && (
+  <button onClick={() => { onStartFocus(taskKey, taskLabel); onClose() }}
+    style={{
+      display: 'flex', alignItems: 'center', gap: 4, marginTop: 8,
+      background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)',
+      borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+      fontSize: 10, fontWeight: 600, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.06em',
+    }}>
+    <IconTarget size={12} /> Start Focus
+  </button>
+)}
             </h2>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
             <IconX size={18} color="#64748b" />
           </button>
         </div>
+        
 
         {/* Body */}
         <div style={{ padding: '16px 20px', flex: 1 }}>
