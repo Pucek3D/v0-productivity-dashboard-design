@@ -45,10 +45,6 @@ export function TopPrioCard({ taskMeta, updateTaskMeta }: TopPrioCardProps) {
               className="text-[12px] font-semibold text-white flex items-center gap-2 uppercase tracking-[0.08em]"
               style={{ marginTop: sectionIdx > 0 ? '14px' : '0', marginBottom: '6px' }}
             >
-              <div
-                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                style={{ background: section.color, boxShadow: `0 0 6px ${section.color}` }}
-              />
               {section.section}
             </div>
             {section.tasks.map((task, taskIdx) => (
