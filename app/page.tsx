@@ -9,14 +9,15 @@ import { ProgressOverview } from '@/components/dashboard/progress-overview'
 import { ActiveProjectsCard } from '@/components/dashboard/active-projects-card'
 import { OtherTodoCard } from '@/components/dashboard/other-todo-card'
 import { LtGoalsCard } from '@/components/dashboard/lt-goals-card'
+import { TaskModal } from '@/components/dashboard/task-modal'
+import { QuickCapture } from '@/components/dashboard/quick-capture'
 import { PROJECTS, LT_GOALS, Project } from '@/lib/data'
 import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
+import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone, loadCapturedTasks, saveCapturedTasks } from '@/lib/task-meta'
 
 export default function Dashboard() {
   /* ── Header date ── */
-  const [headerDate, setHeaderDate] = useState({
-    weekday: 'Tuesday', day: 26, month: 'May', year: 2026,
-  })
+  const [headerDate, setHeaderDate] = useState({ weekday: 'Tuesday', day: 26, month: 'May', year: 2026 })
   useEffect(() => {
     const now = new Date()
     setHeaderDate({
@@ -27,16 +28,21 @@ export default function Dashboard() {
     })
   }, [])
 
-  /* ── Project done state ── */
+  /* ── Project done state (persisted) ── */
   const [projectDone, setProjectDone] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     ;[...PROJECTS, ...LT_GOALS].forEach(p => {
-      p.doneTasks.forEach((_, i) => {
-        initial[`${p.key}-done-${i}`] = true
-      })
+      p.doneTasks.forEach((_, i) => { initial[`${p.key}-done-${i}`] = true })
     })
     return initial
   })
+
+  useEffect(() => {
+    const saved = loadProjectDone()
+    if (saved) setProjectDone(saved)
+  }, [])
+
+  useEffect(() => { saveProjectDone(projectDone) }, [projectDone])
 
   const toggleProjectTask = useCallback((projectKey: string, taskType: 'task' | 'done', index: number) => {
     const key = taskType === 'done' ? `${projectKey}-done-${index}` : `${projectKey}-task-${index}`
@@ -47,75 +53,97 @@ export default function Dashboard() {
     const totalTasks = project.tasks.length + project.doneTasks.length
     if (totalTasks === 0) return 0
     let doneCount = 0
-    project.tasks.forEach((_, i) => {
-      if (projectDone[`${project.key}-task-${i}`]) doneCount++
-    })
-    project.doneTasks.forEach((_, i) => {
-      if (projectDone[`${project.key}-done-${i}`] !== false) doneCount++
-    })
+    project.tasks.forEach((_, i) => { if (projectDone[`${project.key}-task-${i}`]) doneCount++ })
+    project.doneTasks.forEach((_, i) => { if (projectDone[`${project.key}-done-${i}`] !== false) doneCount++ })
     return Math.round((doneCount / totalTasks) * 100)
   }, [projectDone])
 
-  /* ── Task metadata (deadlines + owners) ── */
+  /* ── Task metadata (persisted) ── */
   const [taskMeta, setTaskMeta] = useState<Record<string, TaskMeta>>({})
+
+  useEffect(() => { setTaskMeta(loadTaskMeta()) }, [])
+  useEffect(() => { saveTaskMeta(taskMeta) }, [taskMeta])
 
   const updateTaskMeta = useCallback((key: string, updates: Partial<TaskMeta>) => {
     setTaskMeta(prev => ({ ...prev, [key]: { ...prev[key], ...updates } }))
   }, [])
 
+  /* ── Deadline events for calendar ── */
   const deadlineEvents: DeadlineEvent[] = useMemo(() => {
     return Object.entries(taskMeta)
       .filter(([, m]) => m.deadline)
       .map(([, m]) => ({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8', hour: m.hour, minute: m.minute }))
   }, [taskMeta])
 
+  /* ── Quick capture (persisted) ── */
+  const [captured, setCaptured] = useState<string[]>([])
+
+  useEffect(() => { setCaptured(loadCapturedTasks()) }, [])
+  useEffect(() => { saveCapturedTasks(captured) }, [captured])
+
+  const addCapture = useCallback((text: string) => {
+    setCaptured(prev => [text, ...prev])
+  }, [])
+
+  const removeCapture = useCallback((idx: number) => {
+    setCaptured(prev => prev.filter((_, i) => i !== idx))
+  }, [])
+
+  /* ── Task modal ── */
+  const [modalTask, setModalTask] = useState<{ key: string; label: string } | null>(null)
+
+  const openModal = useCallback((key: string, label: string) => {
+    setModalTask({ key, label })
+  }, [])
+
   /* ── Render ── */
   return (
     <div className="min-h-screen bg-background p-5 font-sans">
-      <header className="flex items-end justify-between mb-6 pb-5 border-b border-white/5">
-        <div>
-          <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.025em] text-shadow-display">
-            <span className="text-[#818cf8] glow-text-indigo">Kornelia&rsquo;s</span>{' '}
-            <span className="text-white">op system</span>
-          </h1>
-          <p className="text-[10.5px] uppercase tracking-[0.18em] text-slate-500 font-medium mt-3">
-            {headerDate.weekday} <span className="mx-2 text-slate-600">·</span> {headerDate.day} {headerDate.month} {headerDate.year}
-          </p>
+      <header className="mb-6 pb-5 border-b border-white/5">
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.025em] text-shadow-display">
+              <span className="text-[#818cf8] glow-text-indigo">Kornelia&rsquo;s</span>{' '}
+              <span className="text-white">op system</span>
+            </h1>
+            <p className="text-[10.5px] uppercase tracking-[0.18em] text-slate-500 font-medium mt-3">
+              {headerDate.weekday} <span className="mx-2 text-slate-600">·</span> {headerDate.day} {headerDate.month} {headerDate.year}
+            </p>
+          </div>
         </div>
+        <QuickCapture captured={captured} onAdd={addCapture} onRemove={removeCapture} />
       </header>
 
       <div className="grid grid-cols-[196px_minmax(0,0.75fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="flex flex-col gap-3">
-          <TopPrioCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+          <TopPrioCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} />
           <MessagesCard />
           <KpisCard />
         </div>
         <div className="flex flex-col gap-3">
           <EventCalendar deadlineEvents={deadlineEvents} />
           <LtGoalsCalendar />
-          <ProgressOverview
-            projectDone={projectDone}
-            getProjectCompletion={getProjectCompletion}
-          />
+          <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
         </div>
         <div className="flex flex-col gap-3">
-          <ActiveProjectsCard
-            projectDone={projectDone}
-            toggleProjectTask={toggleProjectTask}
-            getProjectCompletion={getProjectCompletion}
-            taskMeta={taskMeta}
-            updateTaskMeta={updateTaskMeta}
-          />
-          <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
-          <LtGoalsCard
-            projectDone={projectDone}
-            toggleProjectTask={toggleProjectTask}
-            getProjectCompletion={getProjectCompletion}
-            taskMeta={taskMeta}
-            updateTaskMeta={updateTaskMeta}
-          />
+          <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask}
+            getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} />
+          <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} />
+          <LtGoalsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask}
+            getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} />
         </div>
       </div>
+
+      {/* Task Modal */}
+      {modalTask && (
+        <TaskModal
+          taskKey={modalTask.key}
+          taskLabel={modalTask.label}
+          meta={taskMeta[modalTask.key] || {}}
+          onUpdate={(updates) => updateTaskMeta(modalTask.key, updates)}
+          onClose={() => setModalTask(null)}
+        />
+      )}
     </div>
   )
 }
