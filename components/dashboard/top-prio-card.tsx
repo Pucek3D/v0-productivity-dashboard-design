@@ -64,11 +64,7 @@ export function TopPrioCard({ taskMeta, updateTaskMeta }: TopPrioCardProps) {
                     <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>
                   )}
                 </div>
-                <div
-                  className="w-1 h-1 rounded-full flex-shrink-0 mt-[7px]"
-                  style={{ background: PRIORITY_COLORS[task.priority] }}
-                />
-                <span className={`text-[12.5px] leading-[1.35] ${
+                                <span className={`text-[12.5px] leading-[1.35] ${
                   task.done ? 'text-slate-500 line-through' : 'text-slate-200'
                 }`}>
                   {task.text}
