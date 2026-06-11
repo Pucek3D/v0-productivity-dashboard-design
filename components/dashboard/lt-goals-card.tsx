@@ -4,6 +4,17 @@ import { LT_GOALS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 
+function getStreak(projectDone: Record<string, boolean>, key: string, totalTasks: number): number {
+  // Count consecutive done tasks from the start
+  let streak = 0
+  for (let i = 0; i < totalTasks; i++) {
+    if (projectDone[`${key}-task-${i}`] || projectDone[`${key}-done-${i}`] !== undefined && projectDone[`${key}-done-${i}`] !== false) {
+      streak++
+    }
+  }
+  return streak
+}
+
 interface LtGoalsCardProps {
   projectDone: Record<string, boolean>
   toggleProjectTask: (projectKey: string, taskType: 'task' | 'done', index: number) => void
