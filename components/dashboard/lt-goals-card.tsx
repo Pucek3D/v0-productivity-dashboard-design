@@ -89,21 +89,24 @@ function GoalTile({
         <div className="font-display text-[15px] text-white whitespace-nowrap overflow-hidden text-ellipsis leading-tight">
           {goal.name}
         </div>
-        <div className="flex items-center justify-between mt-1.5 mb-2 gap-2">
+       <div className="flex items-center justify-between mt-1.5 mb-2 gap-2">
           <span className="flex items-center gap-1.5 whitespace-nowrap min-w-0">
             <span className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${isUrgent ? 'pulse-soft' : ''}`}
               style={{ background: style.text, boxShadow: `0 0 6px ${style.text}` }} />
             <span className="text-[9px] font-semibold uppercase tracking-[0.10em] truncate" style={{ color: style.text }}>
               {autoStatus}
-            {streak > 2 && (
-  <span style={{ fontSize: 8, fontWeight: 700, color: '#fbbf24', marginLeft: 4 }}>
-    🔥{streak}
-  </span>
-)}
+              {streak > 2 && (
+                <span style={{ fontSize: 8, fontWeight: 700, color: '#fbbf24', marginLeft: 4 }}>
+                  🔥{streak}
+                </span>
+              )}
+            </span>
           </span>
           <span className="font-display text-[22px] tabular leading-none flex-shrink-0" style={{
-            color: goal.color, textShadow: `0 0 16px ${goal.color}aa, 0 0 32px ${goal.color}55`,
-          }}>{pct}%</span>
+            color: project.color, textShadow: `0 0 16px ${project.color}aa, 0 0 32px ${project.color}55`,
+          }}>
+            {pct}%
+          </span>
         </div>
         <div className="h-[4px] bg-white/5 rounded-full overflow-hidden mb-1.5">
           <div className="h-full rounded-full transition-all duration-500" style={{
