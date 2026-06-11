@@ -46,12 +46,13 @@ export function TopPrioCard({ taskMeta, updateTaskMeta, openModal }: TopPrioCard
             </div>
             {section.tasks.map((task, taskIdx) => (
               <div
-                key={task.id}
-                className="flex items-start gap-2 py-[3px] cursor-pointer select-none group"
-                onClick={() => toggleTask(sectionIdx, taskIdx)}
-                onDoubleClick={() => openModal(`prio-${task.id}`, task.text)}
-              >
-                <div className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
+  key={task.id}
+  className="flex items-start gap-2 py-[3px] cursor-pointer select-none group"
+  onClick={() => openModal(`prio-${task.id}`, task.text)}
+>
+  <div
+    onClick={(e) => { e.stopPropagation(); toggleTask(sectionIdx, taskIdx) }}
+                className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
                   task.done
                     ? 'bg-indigo-500/30 border-indigo-400'
                     : 'border-slate-600 bg-white/5 group-hover:border-slate-400'
