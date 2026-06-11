@@ -103,7 +103,7 @@ function GoalTile({
             </span>
           </span>
           <span className="font-display text-[22px] tabular leading-none flex-shrink-0" style={{
-            color: project.color, textShadow: `0 0 16px ${project.color}aa, 0 0 32px ${project.color}55`,
+            color: goal.color, textShadow: `0 0 16px ${goal.color}aa, 0 0 32px ${goal.color}55`,
           }}>
             {pct}%
           </span>
