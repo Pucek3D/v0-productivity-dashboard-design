@@ -13,6 +13,7 @@ const PRIORITY_COLORS = {
 interface TopPrioCardProps {
   taskMeta: Record<string, TaskMeta>
   updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
+  openModal: (key: string, label: string) => void
 }
 
 export function TopPrioCard({ taskMeta, updateTaskMeta }: TopPrioCardProps) {
