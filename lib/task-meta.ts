@@ -9,6 +9,7 @@ export interface TaskMeta {
   priority?: 'high' | 'medium' | 'low'
   links?: string[]
   subtasks?: { id: string; text: string; done: boolean }[]
+  recurring?: 'daily' | 'weekly' | 'monthly' | null
 }
 
 export interface DeadlineEvent {
