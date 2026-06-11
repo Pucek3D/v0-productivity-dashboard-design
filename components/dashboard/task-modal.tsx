@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconChecklist, IconPlus, IconTrash } from '@tabler/icons-react'
 import { type TaskMeta, getDateLabel } from '@/lib/task-meta'
+import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconChecklist, IconPlus, IconTrash, IconTarget } from '@tabler/icons-react'
 
 interface TaskModalProps {
   taskKey: string
