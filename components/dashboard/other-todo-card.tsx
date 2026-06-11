@@ -44,11 +44,12 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal }: OtherTodo
             </div>
             {group.tasks.map((task, taskIdx) => (
               <div key={task.id}
-                className="flex items-start gap-2 py-[3px] cursor-pointer select-none group"
-                onClick={() => toggleTask(groupIdx, taskIdx)}
-                onDoubleClick={() => openModal(`todo-${task.id}`, task.text)}
-              >
-                <div className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
+  className="flex items-start gap-2 py-[3px] cursor-pointer select-none group"
+  onClick={() => openModal(`todo-${task.id}`, task.text)}
+>
+  <div
+    onClick={(e) => { e.stopPropagation(); toggleTask(groupIdx, taskIdx) }}
+    className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${
                   task.done
                     ? 'bg-indigo-500/30 border-indigo-400'
                     : 'border-slate-600 bg-white/5 group-hover:border-slate-400'
