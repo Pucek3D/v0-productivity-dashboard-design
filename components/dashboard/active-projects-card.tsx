@@ -179,9 +179,11 @@ function TaskItem({ task, done, onClick, onOpen, taskKey, taskMeta, updateTaskMe
   updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
 }) {
   return (
-    <div className="flex items-start gap-1 py-0.5 cursor-pointer select-none group"
-      onClick={onClick} onDoubleClick={onOpen}>
-      <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
+   <div className="flex items-start gap-1 py-0.5 cursor-pointer select-none group"
+  onClick={onOpen}>
+  <div
+    onClick={(e) => { e.stopPropagation(); onClick() }}
+     className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
         done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'
       }`}>
         {done && <span className="text-indigo-300 text-[6.5px] font-bold leading-none">✓</span>}
