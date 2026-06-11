@@ -10,6 +10,8 @@ export interface DeadlineEvent {
   date: string
   label: string
   color: string
+  hour?: number
+  minute?: number
 }
 
 export function getDateLabel(dateStr: string): { text: string; className: string } {
