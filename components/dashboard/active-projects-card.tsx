@@ -4,17 +4,6 @@ import { PROJECTS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 
-function getStreak(projectDone: Record<string, boolean>, key: string, totalTasks: number): number {
-  // Count consecutive done tasks from the start
-  let streak = 0
-  for (let i = 0; i < totalTasks; i++) {
-    if (projectDone[`${key}-task-${i}`] || projectDone[`${key}-done-${i}`] !== undefined && projectDone[`${key}-done-${i}`] !== false) {
-      streak++
-    }
-  }
-  return streak
-}
-
 interface ActiveProjectsCardProps {
   projectDone: Record<string, boolean>
   toggleProjectTask: (projectKey: string, taskType: 'task' | 'done', index: number) => void
@@ -93,10 +82,10 @@ function ProjectTile({
   openModal: (key: string, label: string) => void
 }) {
   const pct = getProjectCompletion(project)
-  const streak = Object.keys(projectDone).filter(k => k.startsWith(`${project.key}-`) && projectDone[k]).length
   const autoStatus = computeStatus(project, projectDone, taskMeta, 'proj')
   const style = statusStyle(autoStatus, project.color)
   const isUrgent = autoStatus.includes('Today') || autoStatus.includes('🔥')
+  const streak = Object.keys(projectDone).filter(k => k.startsWith(`${project.key}-`) && projectDone[k]).length
 
   const indexedTasks = project.tasks.map((task, originalIdx) => ({
     task, originalIdx, done: !!projectDone[`${project.key}-task-${originalIdx}`],
@@ -118,6 +107,7 @@ function ProjectTile({
         <div className="font-display text-[15px] text-white whitespace-nowrap overflow-hidden text-ellipsis leading-tight">
           {project.name}
         </div>
+
         <div className="flex items-center justify-between mt-1.5 mb-2 gap-2">
           <span className="flex items-center gap-1.5 whitespace-nowrap min-w-0">
             <span className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${isUrgent ? 'pulse-soft' : ''}`}
@@ -125,24 +115,31 @@ function ProjectTile({
             <span className="text-[9px] font-semibold uppercase tracking-[0.10em] truncate" style={{ color: style.text }}>
               {autoStatus}
               {streak > 2 && (
-  <span style={{ fontSize: 8, fontWeight: 700, color: '#fbbf24', marginLeft: 4 }}>
-    🔥{streak}
-  </span>
-)}
+                <span style={{ fontSize: 8, fontWeight: 700, color: '#fbbf24', marginLeft: 4 }}>
+                  🔥{streak}
+                </span>
+              )}
+            </span>
           </span>
           <span className="font-display text-[22px] tabular leading-none flex-shrink-0" style={{
             color: project.color, textShadow: `0 0 16px ${project.color}aa, 0 0 32px ${project.color}55`,
-          }}>{pct}%</span>
+          }}>
+            {pct}%
+          </span>
         </div>
+
         <div className="h-[4px] bg-white/5 rounded-full overflow-hidden mb-1.5">
           <div className="h-full rounded-full transition-all duration-500" style={{
-            width: `${pct}%`, background: `linear-gradient(90deg, ${project.color}, ${project.color}cc)`,
+            width: `${pct}%`,
+            background: `linear-gradient(90deg, ${project.color}, ${project.color}cc)`,
             boxShadow: `0 0 6px ${project.color}80`,
           }} />
         </div>
+
         <div className="text-[10px] text-slate-500 mb-1 whitespace-nowrap overflow-hidden text-ellipsis font-medium">
           → {nextLabel}
         </div>
+
         <div className="border-t border-white/5 pt-1 mt-1">
           <div className="grid grid-cols-3 gap-1">
             {visibleTasks.map(t => (
@@ -154,6 +151,7 @@ function ProjectTile({
             ))}
           </div>
         </div>
+
         {isExpanded && (
           <div className="pt-0.5">
             <div className="grid grid-cols-3 gap-1">
@@ -175,6 +173,7 @@ function ProjectTile({
             </div>
           </div>
         )}
+
         {hasMore && (
           <div className="flex items-center gap-1 mt-1 cursor-pointer text-slate-500 hover:text-[#818cf8] transition-colors"
             onClick={() => toggleExpand(project.key)}>
@@ -195,13 +194,13 @@ function TaskItem({ task, done, onClick, onOpen, taskKey, taskMeta, updateTaskMe
   updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
 }) {
   return (
-   <div className="flex items-start gap-1 py-0.5 cursor-pointer select-none group"
-  onClick={onOpen}>
-  <div
-    onClick={(e) => { e.stopPropagation(); onClick() }}
-     className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
-        done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'
-      }`}>
+    <div className="flex items-start gap-1 py-0.5 cursor-pointer select-none group"
+      onClick={onOpen}>
+      <div
+        onClick={(e) => { e.stopPropagation(); onClick() }}
+        className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
+          done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'
+        }`}>
         {done && <span className="text-indigo-300 text-[6.5px] font-bold leading-none">✓</span>}
       </div>
       <span className={`text-[12.5px] leading-[1.35] ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
