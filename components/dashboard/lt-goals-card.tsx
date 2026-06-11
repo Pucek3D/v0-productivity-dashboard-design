@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { LT_GOALS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
-import type { TaskMeta } from '@/lib/task-meta'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 
 interface LtGoalsCardProps {
@@ -11,9 +10,10 @@ interface LtGoalsCardProps {
   getProjectCompletion: (project: Project) => number
   taskMeta: Record<string, TaskMeta>
   updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
+  openModal: (key: string, label: string) => void
 }
 
-export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta }: LtGoalsCardProps) {
+export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal }: LtGoalsCardProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
 
@@ -30,7 +30,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
             <GoalTile key={goal.key} goal={goal} projectDone={projectDone}
               toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
               isExpanded={!!expanded[goal.key]} toggleExpand={toggleExpand}
-              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} />
           ))}
         </div>
       </div>
@@ -40,7 +40,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
 
 function GoalTile({
   goal, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand,
-  taskMeta, updateTaskMeta,
+  taskMeta, updateTaskMeta, openModal,
 }: {
   goal: Project
   projectDone: Record<string, boolean>
@@ -50,6 +50,7 @@ function GoalTile({
   toggleExpand: (key: string) => void
   taskMeta: Record<string, TaskMeta>
   updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
+  openModal: (key: string, label: string) => void
 }) {
   const pct = getProjectCompletion(goal)
   const autoStatus = computeStatus(goal, projectDone, taskMeta, 'goal')
@@ -76,7 +77,6 @@ function GoalTile({
         <div className="font-display text-[15px] text-white whitespace-nowrap overflow-hidden text-ellipsis leading-tight">
           {goal.name}
         </div>
-
         <div className="flex items-center justify-between mt-1.5 mb-2 gap-2">
           <span className="flex items-center gap-1.5 whitespace-nowrap min-w-0">
             <span className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${isUrgent ? 'pulse-soft' : ''}`}
@@ -86,39 +86,33 @@ function GoalTile({
             </span>
           </span>
           <span className="font-display text-[22px] tabular leading-none flex-shrink-0" style={{
-            color: goal.color,
-            textShadow: `0 0 16px ${goal.color}aa, 0 0 32px ${goal.color}55`,
-          }}>
-            {pct}%
-          </span>
+            color: goal.color, textShadow: `0 0 16px ${goal.color}aa, 0 0 32px ${goal.color}55`,
+          }}>{pct}%</span>
         </div>
-
         <div className="h-[4px] bg-white/5 rounded-full overflow-hidden mb-1.5">
           <div className="h-full rounded-full transition-all duration-500" style={{
-            width: `${pct}%`,
-            background: `linear-gradient(90deg, ${goal.color}, ${goal.color}cc)`,
+            width: `${pct}%`, background: `linear-gradient(90deg, ${goal.color}, ${goal.color}cc)`,
             boxShadow: `0 0 6px ${goal.color}80`,
           }} />
         </div>
-
         <div className="text-[10px] text-slate-500 mb-1 whitespace-nowrap overflow-hidden text-ellipsis font-medium">
           → {nextLabel}
         </div>
-
         <div className="border-t border-white/5 pt-1 mt-1">
           {visibleTasks.map(t => (
             <TaskItem key={t.originalIdx} task={t.task} done={t.done}
               onClick={() => toggleProjectTask(goal.key, 'task', t.originalIdx)}
+              onOpen={() => openModal(`goal-${goal.key}-${t.originalIdx}`, t.task)}
               taskKey={`goal-${goal.key}-${t.originalIdx}`}
               taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
           ))}
         </div>
-
         {isExpanded && (
           <div className="pt-0.5">
             {hiddenTasks.map(t => (
               <TaskItem key={t.originalIdx} task={t.task} done={t.done}
                 onClick={() => toggleProjectTask(goal.key, 'task', t.originalIdx)}
+                onOpen={() => openModal(`goal-${goal.key}-${t.originalIdx}`, t.task)}
                 taskKey={`goal-${goal.key}-${t.originalIdx}`}
                 taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
             ))}
@@ -126,12 +120,12 @@ function GoalTile({
               const isDone = projectDone[`${goal.key}-done-${i}`] !== false
               return <TaskItem key={`done-${i}`} task={task} done={isDone}
                 onClick={() => toggleProjectTask(goal.key, 'done', i)}
+                onOpen={() => openModal(`goal-${goal.key}-done-${i}`, task)}
                 taskKey={`goal-${goal.key}-done-${i}`}
                 taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
             })}
           </div>
         )}
-
         {hasMore && (
           <div className="flex items-center gap-1 mt-1 cursor-pointer text-slate-500 hover:text-[#2dd4bf] transition-colors"
             onClick={() => toggleExpand(goal.key)}>
@@ -146,15 +140,17 @@ function GoalTile({
   )
 }
 
-function TaskItem({ task, done, onClick, taskKey, taskMeta, updateTaskMeta }: {
-  task: string; done: boolean; onClick: () => void
+function TaskItem({ task, done, onClick, onOpen, taskKey, taskMeta, updateTaskMeta }: {
+  task: string; done: boolean; onClick: () => void; onOpen: () => void
   taskKey: string; taskMeta: Record<string, TaskMeta>
   updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
 }) {
   return (
-    <div className="flex items-start gap-1.5 py-0.5 cursor-pointer select-none group" onClick={onClick}>
-      <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${done ? 'bg-teal-500/30 border-teal-400' : 'border-slate-600 bg-white/5'
-        }`}>
+    <div className="flex items-start gap-1.5 py-0.5 cursor-pointer select-none group"
+      onClick={onClick} onDoubleClick={onOpen}>
+      <div className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${
+        done ? 'bg-teal-500/30 border-teal-400' : 'border-slate-600 bg-white/5'
+      }`}>
         {done && <span className="text-teal-300 text-[6.5px] font-bold leading-none">✓</span>}
       </div>
       <span className={`text-[12.5px] leading-[1.35] ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
