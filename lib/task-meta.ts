@@ -4,6 +4,11 @@ export interface TaskMeta {
   minute?: number
   owner?: string
   label?: string
+  description?: string
+  timeEstimate?: number
+  priority?: 'high' | 'medium' | 'low'
+  links?: string[]
+  subtasks?: { id: string; text: string; done: boolean }[]
 }
 
 export interface DeadlineEvent {
@@ -20,9 +25,9 @@ export function getDateLabel(dateStr: string): { text: string; className: string
   const date = new Date(dateStr + 'T00:00:00')
   const diff = Math.round((date.getTime() - today.getTime()) / 86400000)
 
-  if (diff < 0)  return { text: 'OVERDUE', className: 'text-rose-400 bg-rose-500/20' }
-  if (diff === 0) return { text: 'TODAY',   className: 'text-rose-400 bg-rose-500/15' }
-  if (diff === 1) return { text: 'TMR',     className: 'text-amber-400 bg-amber-500/15' }
+  if (diff < 0) return { text: 'OVERDUE', className: 'text-rose-400 bg-rose-500/20' }
+  if (diff === 0) return { text: 'TODAY', className: 'text-rose-400 bg-rose-500/15' }
+  if (diff === 1) return { text: 'TMR', className: 'text-amber-400 bg-amber-500/15' }
   if (diff <= 6) {
     const name = date.toLocaleDateString('en', { weekday: 'short' })
     return { text: name, className: 'text-indigo-300 bg-indigo-500/15' }
@@ -72,4 +77,48 @@ export function computeStatus(
   if (hasDeadlines) return 'On track'
   if (doneCount > 0) return 'Active'
   return 'Planning'
+}
+
+// localStorage persistence
+const STORAGE_KEY_META = 'kornelia-task-meta'
+const STORAGE_KEY_DONE = 'kornelia-project-done'
+const STORAGE_KEY_CAPTURE = 'kornelia-quick-capture'
+
+export function loadTaskMeta(): Record<string, TaskMeta> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_META)
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
+
+export function saveTaskMeta(data: Record<string, TaskMeta>) {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(STORAGE_KEY_META, JSON.stringify(data)) } catch {}
+}
+
+export function loadProjectDone(): Record<string, boolean> | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_DONE)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+export function saveProjectDone(data: Record<string, boolean>) {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(STORAGE_KEY_DONE, JSON.stringify(data)) } catch {}
+}
+
+export function loadCapturedTasks(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CAPTURE)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+export function saveCapturedTasks(tasks: string[]) {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(STORAGE_KEY_CAPTURE, JSON.stringify(tasks)) } catch {}
 }
