@@ -215,6 +215,7 @@ export const WEEK_EVENTS: Record<number, { time: string; label: string; color: s
   30: [{ time: '09:00', label: 'Trainings TL block', color: '#7c3aed' }],
 }
 
+export const DAY_EVENTS: { label: string; color: string; hour: number; end: number }[] = []
 
 export const GANTT_DATA = [
   { name: 'Health', color: '#059669', active: [1, 1, 1, 1] },
