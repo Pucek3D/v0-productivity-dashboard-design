@@ -30,7 +30,7 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
   const sz = compact ? 14 : 16
 
   return (
-    <span className="flex flex-col items-end gap-0 ml-auto flex-shrink-0" onClick={e => e.stopPropagation()}>
+    <span className="inline-flex items-center gap-0.5 ml-auto flex-shrink-0" onClick={e => e.stopPropagation()}>
       <span className="flex items-center gap-0.5">
         {dateInfo ? (
           <button ref={calRef} onClick={() => setShowCal(true)}
