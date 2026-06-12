@@ -199,6 +199,7 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
                   </button>
                 ))}
               </div>
+              
               {/* Actual time */}
               {meta.actualTime && meta.actualTime > 0 && (
                 <div style={{ marginTop: 6 }}>
