@@ -157,7 +157,7 @@ function MonthView({ month, year, today, deadlineEvents }: {
           const taskEvents = deadlineEvents.filter(e => {
             const d = new Date(e.date + 'T00:00')
             return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year
-          }).map(e => ({ label: `→ ${e.label}`, color: e.color }))
+          }).map(e => ({ label: e.label, color: e.color }))
           const dayEvents = [...regularEvents, ...taskEvents]
 
           return (
@@ -214,7 +214,7 @@ function WeekView({ today, deadlineEvents }: { today: { d: number; m: number; y:
         const isToday = c.day === today.d
         const regularEvents = WEEK_EVENTS[c.day] || []
         const taskEvents = deadlineEvents.filter(e => e.date === c.dateStr)
-          .map(e => ({ label: `→ ${e.label}`, color: e.color, time: 'All day' }))
+          .map(e => ({ label: e.label, color: e.color, time: 'All day' }))
         const events = [...regularEvents, ...taskEvents]
 
         return (
@@ -280,7 +280,7 @@ function DayView({ today, deadlineEvents }: { today: { d: number; m: number; y: 
               borderRadius: '0 6px 6px 0', padding: '4px 8px', marginBottom: 2,
               boxShadow: `0 0 12px ${ev.color}33`,
             }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: ev.color }}>→ {ev.label}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: ev.color }}>{ev.label}</span>
             </div>
           ))}
         </div>
@@ -291,7 +291,7 @@ function DayView({ today, deadlineEvents }: { today: { d: number; m: number; y: 
   const staticEvents = DAY_EVENTS.filter(e => e.hour === hour)
   const timedDeadlines = deadlineEvents.filter(e => e.date === todayStr && e.hour === hour)
   .map(e => ({
-    label: `→ ${e.label}`,
+    label: e.label,
     color: e.color,
     hour,
     end: hour + 1,
