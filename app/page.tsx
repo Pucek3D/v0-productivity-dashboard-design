@@ -112,7 +112,12 @@ export default function Dashboard() {
   const stopFocus = useCallback((k: string, mins: number) => {
     if (mins > 0) setTaskMeta(p => { const e = p[k] || {}; return { ...p, [k]: { ...e, actualTime: ((e as any).actualTime || 0) + mins } } })
   }, [])
-
+const dailyCleanup = useCallback(() => {
+    setPrioTasks(prev => prev.map(s => ({
+      ...s,
+      tasks: s.tasks.filter(t => !t.done)
+    })))
+  }, [])
   const deadlineEvents: DeadlineEvent[] = useMemo(() =>
     Object.entries(taskMeta).filter(([,m]) => m.deadline).map(([,m]) => ({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8', hour: m.hour, minute: m.minute }))
   , [taskMeta])
