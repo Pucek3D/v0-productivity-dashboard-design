@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { PROJECTS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
-import { IconStar, IconGripVertical } from '@tabler/icons-react'
+import { IconStar, IconGripVertical, IconPlus } from '@tabler/icons-react'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -11,6 +11,46 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
+/* ─── badge helpers (shared pattern) ─── */
+function PriorityBadge({ priority }: { priority?: string }) {
+  if (!priority) return null
+  const map: Record<string, { bg: string; text: string; border: string }> = {
+    high: { bg: 'rgba(251,113,133,0.15)', text: '#fb7185', border: 'rgba(251,113,133,0.30)' },
+    medium: { bg: 'rgba(251,191,36,0.15)', text: '#fbbf24', border: 'rgba(251,191,36,0.30)' },
+    low: { bg: 'rgba(100,116,139,0.15)', text: '#94a3b8', border: 'rgba(100,116,139,0.30)' },
+  }
+  const s = map[priority] || map.low
+  return (
+    <span style={{ fontSize: 7, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+      background: s.bg, color: s.text, border: `1px solid ${s.border}`,
+      borderRadius: 3, padding: '0px 3px', lineHeight: '14px', whiteSpace: 'nowrap' }}>
+      {priority.slice(0, 4).toUpperCase()}
+    </span>
+  )
+}
+
+function RecurringBadge({ recurring }: { recurring?: string | null }) {
+  if (!recurring) return null
+  const map: Record<string, { bg: string; text: string; border: string }> = {
+    daily: { bg: 'rgba(168,85,247,0.15)', text: '#c084fc', border: 'rgba(168,85,247,0.30)' },
+    weekly: { bg: 'rgba(34,211,238,0.15)', text: '#22d3ee', border: 'rgba(34,211,238,0.30)' },
+    monthly: { bg: 'rgba(52,211,153,0.15)', text: '#34d399', border: 'rgba(52,211,153,0.30)' },
+  }
+  const s = map[recurring] || map.weekly
+  return (
+    <span style={{ fontSize: 7, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+      background: s.bg, color: s.text, border: `1px solid ${s.border}`,
+      borderRadius: 3, padding: '0px 3px', lineHeight: '14px', whiteSpace: 'nowrap' }}>
+      {recurring.slice(0, 3).toUpperCase()}
+    </span>
+  )
+}
+
+/* ─── random color for new projects ─── */
+const PROJECT_COLORS = ['#818cf8', '#f472b6', '#34d399', '#fbbf24', '#fb7185', '#38bdf8', '#a78bfa', '#f97316', '#14b8a6', '#e879f9']
+function randomColor() { return PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)] }
+
+/* ─── main interface ─── */
 interface ActiveProjectsCardProps {
   projectDone: Record<string, boolean>
   toggleProjectTask: (k: string, t: 'task' | 'done', i: number) => void
@@ -19,11 +59,21 @@ interface ActiveProjectsCardProps {
   updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
   openModal: (k: string, l: string) => void
   starToPrio: (text: string, category: 'work' | 'home') => void
+  isTaskStarred?: (text: string) => boolean
+  hideTask?: (k: string) => void
+  hiddenTasks?: Set<string>
+  onAddProject?: (project: Project) => void
 }
 
-export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio }: ActiveProjectsCardProps) {
+export function ActiveProjectsCard({
+  projectDone, toggleProjectTask, getProjectCompletion,
+  taskMeta, updateTaskMeta, openModal, starToPrio,
+  isTaskStarred, hideTask, hiddenTasks,
+  onAddProject,
+}: ActiveProjectsCardProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [taskOrders, setTaskOrders] = useState<Record<string, number[]>>({})
+  const [extraProjects, setExtraProjects] = useState<Project[]>([])
   const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
 
   const reorderTasks = (projectKey: string, oldIdx: number, newIdx: number, taskList: { originalIdx: number }[]) => {
@@ -32,13 +82,35 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
     setTaskOrders(prev => ({ ...prev, [projectKey]: reordered }))
   }
 
-  const workProjects = PROJECTS.filter(p => (p.category ?? 'work') === 'work')
-  const homeProjects = PROJECTS.filter(p => p.category === 'home')
+  const allProjects = [...PROJECTS, ...extraProjects]
+  const workProjects = allProjects.filter(p => (p.category ?? 'work') === 'work')
+  const homeProjects = allProjects.filter(p => p.category === 'home')
+
+  const handleAddProject = () => {
+    const newProj: Project = {
+      key: `custom-${Date.now()}`,
+      name: 'New Project',
+      color: randomColor(),
+      status: 'planning',
+      next: 'Define scope',
+      tasks: [],
+      doneTasks: [],
+      category: 'work',
+    }
+    setExtraProjects(prev => [...prev, newProj])
+    if (onAddProject) onAddProject(newProj)
+  }
 
   return (
     <div className="card-base halo-indigo">
       <div className="section-header px-4 py-3">
-        <span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Active projects</span>
+        <div className="flex items-center justify-between">
+          <span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Active projects</span>
+          <button onClick={handleAddProject}
+            className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/5 transition-colors">
+            <IconPlus size={13} />
+          </button>
+        </div>
       </div>
       <div className="p-3">
         <SectionHeader label="Work" color="#818cf8" count={workProjects.length} />
@@ -48,7 +120,9 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
               toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
               isExpanded={!!expanded[project.key]} toggleExpand={toggleExpand}
               taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal}
-              starToPrio={starToPrio} taskOrders={taskOrders} reorderTasks={reorderTasks} />
+              starToPrio={starToPrio} isTaskStarred={isTaskStarred}
+              hideTask={hideTask} hiddenTasks={hiddenTasks}
+              taskOrders={taskOrders} reorderTasks={reorderTasks} />
           ))}
         </div>
         {homeProjects.length > 0 && (
@@ -60,7 +134,9 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                   toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
                   isExpanded={!!expanded[project.key]} toggleExpand={toggleExpand}
                   taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal}
-                  starToPrio={starToPrio} taskOrders={taskOrders} reorderTasks={reorderTasks} />
+                  starToPrio={starToPrio} isTaskStarred={isTaskStarred}
+                  hideTask={hideTask} hiddenTasks={hiddenTasks}
+                  taskOrders={taskOrders} reorderTasks={reorderTasks} />
               ))}
             </div>
           </>
@@ -81,7 +157,8 @@ function SectionHeader({ label, color, count }: { label: string; color: string; 
 
 function ProjectTile({
   project, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand,
-  taskMeta, updateTaskMeta, openModal, starToPrio, taskOrders, reorderTasks,
+  taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, hideTask, hiddenTasks,
+  taskOrders, reorderTasks,
 }: {
   project: Project; projectDone: Record<string, boolean>
   toggleProjectTask: (k: string, t: 'task' | 'done', i: number) => void
@@ -91,6 +168,9 @@ function ProjectTile({
   updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
   openModal: (k: string, l: string) => void
   starToPrio: (text: string, category: 'work' | 'home') => void
+  isTaskStarred?: (text: string) => boolean
+  hideTask?: (k: string) => void
+  hiddenTasks?: Set<string>
   taskOrders: Record<string, number[]>
   reorderTasks: (projectKey: string, oldIdx: number, newIdx: number, taskList: { originalIdx: number }[]) => void
 }) {
@@ -106,14 +186,12 @@ function ProjectTile({
     task, originalIdx, done: !!projectDone[`${project.key}-task-${originalIdx}`],
   }))
 
-  // Apply custom order if exists, otherwise sort done to bottom
   const customOrder = taskOrders[project.key]
   let orderedTasks: typeof indexedTasks
   if (customOrder) {
     orderedTasks = customOrder
       .map(idx => indexedTasks.find(t => t.originalIdx === idx))
       .filter(Boolean) as typeof indexedTasks
-    // Add any tasks not in custom order
     indexedTasks.forEach(t => {
       if (!customOrder.includes(t.originalIdx)) orderedTasks.push(t)
     })
@@ -121,10 +199,15 @@ function ProjectTile({
     orderedTasks = [...indexedTasks].sort((a, b) => Number(a.done) - Number(b.done))
   }
 
-  const visibleTasks = orderedTasks.slice(0, 3)
-  const hiddenTasks = orderedTasks.slice(3)
-  const hasMore = hiddenTasks.length > 0 || project.doneTasks.length > 0
-  const nextLabel = orderedTasks.find(t => !t.done)?.task ?? project.next
+  // filter hidden tasks
+  const filteredTasks = hiddenTasks
+    ? orderedTasks.filter(t => !hiddenTasks.has(`proj-${project.key}-${t.originalIdx}`))
+    : orderedTasks
+
+  const visibleTasks = filteredTasks.slice(0, 3)
+  const hiddenCount = filteredTasks.slice(3).length + project.doneTasks.length
+  const hasMore = hiddenCount > 0
+  const nextLabel = filteredTasks.find(t => !t.done)?.task ?? project.next
 
   const handleDragEnd = (taskList: typeof indexedTasks) => (event: DragEndEvent) => {
     const { active, over } = event
@@ -134,7 +217,7 @@ function ProjectTile({
     if (oldIdx >= 0 && newIdx >= 0) reorderTasks(project.key, oldIdx, newIdx, taskList)
   }
 
-  const allVisibleTasks = isExpanded ? orderedTasks : visibleTasks
+  const allVisibleTasks = isExpanded ? filteredTasks : visibleTasks
 
   return (
     <div className="tile-base relative">
@@ -164,6 +247,7 @@ function ProjectTile({
                   onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)}
                   onOpen={() => openModal(`proj-${project.key}-${t.originalIdx}`, t.task)}
                   onStar={() => starToPrio(t.task, category)}
+                  isStarred={isTaskStarred ? isTaskStarred(t.task) : false}
                   taskKey={`proj-${project.key}-${t.originalIdx}`}
                   taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
               ))}
@@ -186,7 +270,7 @@ function ProjectTile({
 
         {hasMore && (
           <div className="flex items-center gap-1 mt-1 cursor-pointer text-slate-500 hover:text-[#818cf8] transition-colors" onClick={() => toggleExpand(project.key)}>
-            <span className="text-[9px] font-semibold uppercase tracking-[0.10em]">{isExpanded ? 'Show less' : `+${hiddenTasks.length + project.doneTasks.length} more`}</span>
+            <span className="text-[9px] font-semibold uppercase tracking-[0.10em]">{isExpanded ? 'Show less' : `+${hiddenCount} more`}</span>
             <span className={`text-[9px] transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
           </div>
         )}
@@ -195,12 +279,15 @@ function ProjectTile({
   )
 }
 
-function SortableTaskItem({ id, task, done, onClick, onOpen, onStar, taskKey, taskMeta, updateTaskMeta }: {
+/* ─── sortable task item — star UNDER owner line, badges visible ─── */
+function SortableTaskItem({ id, task, done, onClick, onOpen, onStar, isStarred, taskKey, taskMeta, updateTaskMeta }: {
   id: number; task: string; done: boolean; onClick: () => void; onOpen: () => void; onStar: () => void
+  isStarred: boolean
   taskKey: string; taskMeta: Record<string, TaskMeta>
   updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const meta = taskMeta[taskKey]
 
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 10 : 'auto' as any }}
@@ -212,11 +299,28 @@ function SortableTaskItem({ id, task, done, onClick, onOpen, onStar, taskKey, ta
         className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>
         {done && <span className="text-indigo-300 text-[6.5px] font-bold leading-none">✓</span>}
       </div>
-      <span className={`text-[12.5px] leading-[1.35] break-words min-w-0 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{task}</span>
+
+      <div className="flex flex-col min-w-0 flex-1 gap-0">
+        <span className={`text-[12.5px] leading-[1.35] break-words min-w-0 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{task}</span>
+
+        {/* badges + star row — UNDER task text */}
+        <div className="flex items-center gap-1 mt-0.5">
+          <PriorityBadge priority={meta?.priority} />
+          <RecurringBadge recurring={meta?.recurring} />
+          {meta?.owner && (
+            <span style={{ fontSize: 7, fontWeight: 500, color: '#2dd4bf', background: 'rgba(45,212,191,0.12)',
+              padding: '0px 3px', borderRadius: 3, lineHeight: '14px' }}>{meta.owner}</span>
+          )}
+        </div>
+      </div>
+
       <span className="flex flex-col items-end gap-0 ml-auto flex-shrink-0" onClick={e => e.stopPropagation()}>
         <TaskActions taskKey={taskKey} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
-        <button className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none" onClick={onStar}>
-          <IconStar size={11} className="text-slate-500 hover:text-amber-400" />
+        {/* Star — always yellow when starred, below actions */}
+        <button className="bg-transparent border-none cursor-pointer p-0 leading-none mt-0.5" onClick={onStar}>
+          <IconStar size={11}
+            className={isStarred ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'}
+            style={isStarred ? { filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.5))' } : {}} />
         </button>
       </span>
     </div>
