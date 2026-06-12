@@ -6,6 +6,7 @@ export interface TaskMeta {
   label?: string
   description?: string
   timeEstimate?: number
+  actualTime?: number    // ← dodaj
   priority?: 'high' | 'medium' | 'low'
   links?: string[]
   subtasks?: { id: string; text: string; done: boolean }[]
