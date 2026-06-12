@@ -122,11 +122,21 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
 
           {/* Meta row: deadline + owner + priority + estimate */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-            {/* Deadline */}
-            <MetaField icon={<IconCalendar size={14} />} label="Deadline"
-              value={dateInfo ? <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${dateInfo.className}`}>{dateInfo.text}{timeStr ? ` ${timeStr}` : ''}</span> : null}
-              empty="No date set"
-            />
+            <div>
+  <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+    <IconCalendar size={14} color="#64748b" /> Deadline
+  </div>
+  <input
+    type="date"
+    value={meta.deadline || ''}
+    onChange={e => onUpdate({ deadline: e.target.value || undefined })}
+    style={{
+      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none',
+      colorScheme: 'dark', width: '100%',
+    }}
+  />
+</div>
             {/* Owner */}
             <MetaField icon={<IconUser size={14} />} label="Owner"
               value={meta.owner ? <span style={{ color: '#2dd4bf', fontSize: 12, fontWeight: 600 }}>{meta.owner}</span> : null}
