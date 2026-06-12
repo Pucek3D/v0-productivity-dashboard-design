@@ -17,6 +17,7 @@ import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
 import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone, loadCapturedTasks, saveCapturedTasks } from '@/lib/task-meta'
 import { IconMoon, IconChartBar } from '@tabler/icons-react'
 import { WeeklyAnalytics } from '@/components/dashboard/weekly-analytics'
+import { PROJECTS, LT_GOALS, TOP_PRIO_TASKS, Project } from '@/lib/data'
 
 export default function Dashboard() {
   /* ── Header date ── */
