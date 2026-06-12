@@ -153,7 +153,7 @@ export default function Dashboard() {
           <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
           {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
-          <LtGoalsCalendar />
+          <LtGoalsCalendar taskMeta={taskMeta} />
           <LtGoalsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} />
         </div>
         <div className="flex flex-col gap-3">
