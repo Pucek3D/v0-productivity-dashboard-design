@@ -2,22 +2,35 @@
 import { useState } from 'react'
 import { PROJECTS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
-import { IconStar } from '@tabler/icons-react'
+import { IconStar, IconGripVertical } from '@tabler/icons-react'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface ActiveProjectsCardProps {
   projectDone: Record<string, boolean>
-  toggleProjectTask: (projectKey: string, taskType: 'task' | 'done', index: number) => void
-  getProjectCompletion: (project: Project) => number
+  toggleProjectTask: (k: string, t: 'task' | 'done', i: number) => void
+  getProjectCompletion: (p: Project) => number
   taskMeta: Record<string, TaskMeta>
-  updateTaskMeta: (key: string, updates: Partial<TaskMeta>) => void
-  openModal: (key: string, label: string) => void
+  updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
+  openModal: (k: string, l: string) => void
   starToPrio: (text: string, category: 'work' | 'home') => void
 }
 
 export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio }: ActiveProjectsCardProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [taskOrders, setTaskOrders] = useState<Record<string, number[]>>({})
   const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
+
+  const reorderTasks = (projectKey: string, oldIdx: number, newIdx: number, taskList: { originalIdx: number }[]) => {
+    const ids = taskList.map(t => t.originalIdx)
+    const reordered = arrayMove(ids, oldIdx, newIdx)
+    setTaskOrders(prev => ({ ...prev, [projectKey]: reordered }))
+  }
 
   const workProjects = PROJECTS.filter(p => (p.category ?? 'work') === 'work')
   const homeProjects = PROJECTS.filter(p => p.category === 'home')
@@ -34,7 +47,8 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
             <ProjectTile key={project.key} project={project} projectDone={projectDone}
               toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
               isExpanded={!!expanded[project.key]} toggleExpand={toggleExpand}
-              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} />
+              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal}
+              starToPrio={starToPrio} taskOrders={taskOrders} reorderTasks={reorderTasks} />
           ))}
         </div>
         {homeProjects.length > 0 && (
@@ -45,7 +59,8 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
                 <ProjectTile key={project.key} project={project} projectDone={projectDone}
                   toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
                   isExpanded={!!expanded[project.key]} toggleExpand={toggleExpand}
-                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} />
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal}
+                  starToPrio={starToPrio} taskOrders={taskOrders} reorderTasks={reorderTasks} />
               ))}
             </div>
           </>
@@ -66,7 +81,7 @@ function SectionHeader({ label, color, count }: { label: string; color: string; 
 
 function ProjectTile({
   project, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand,
-  taskMeta, updateTaskMeta, openModal, starToPrio,
+  taskMeta, updateTaskMeta, openModal, starToPrio, taskOrders, reorderTasks,
 }: {
   project: Project; projectDone: Record<string, boolean>
   toggleProjectTask: (k: string, t: 'task' | 'done', i: number) => void
@@ -76,7 +91,10 @@ function ProjectTile({
   updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
   openModal: (k: string, l: string) => void
   starToPrio: (text: string, category: 'work' | 'home') => void
+  taskOrders: Record<string, number[]>
+  reorderTasks: (projectKey: string, oldIdx: number, newIdx: number, taskList: { originalIdx: number }[]) => void
 }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const pct = getProjectCompletion(project)
   const autoStatus = computeStatus(project, projectDone, taskMeta, 'proj')
   const style = statusStyle(autoStatus, project.color)
@@ -87,11 +105,36 @@ function ProjectTile({
   const indexedTasks = project.tasks.map((task, originalIdx) => ({
     task, originalIdx, done: !!projectDone[`${project.key}-task-${originalIdx}`],
   }))
-  const sortedTasks = [...indexedTasks].sort((a, b) => Number(a.done) - Number(b.done))
-  const visibleTasks = sortedTasks.slice(0, 3)
-  const hiddenTasks = sortedTasks.slice(3)
+
+  // Apply custom order if exists, otherwise sort done to bottom
+  const customOrder = taskOrders[project.key]
+  let orderedTasks: typeof indexedTasks
+  if (customOrder) {
+    orderedTasks = customOrder
+      .map(idx => indexedTasks.find(t => t.originalIdx === idx))
+      .filter(Boolean) as typeof indexedTasks
+    // Add any tasks not in custom order
+    indexedTasks.forEach(t => {
+      if (!customOrder.includes(t.originalIdx)) orderedTasks.push(t)
+    })
+  } else {
+    orderedTasks = [...indexedTasks].sort((a, b) => Number(a.done) - Number(b.done))
+  }
+
+  const visibleTasks = orderedTasks.slice(0, 3)
+  const hiddenTasks = orderedTasks.slice(3)
   const hasMore = hiddenTasks.length > 0 || project.doneTasks.length > 0
-  const nextLabel = sortedTasks.find(t => !t.done)?.task ?? project.next
+  const nextLabel = orderedTasks.find(t => !t.done)?.task ?? project.next
+
+  const handleDragEnd = (taskList: typeof indexedTasks) => (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = taskList.findIndex(t => t.originalIdx === Number(active.id))
+    const newIdx = taskList.findIndex(t => t.originalIdx === Number(over.id))
+    if (oldIdx >= 0 && newIdx >= 0) reorderTasks(project.key, oldIdx, newIdx, taskList)
+  }
+
+  const allVisibleTasks = isExpanded ? orderedTasks : visibleTasks
 
   return (
     <div className="tile-base relative">
@@ -114,39 +157,32 @@ function ProjectTile({
         <div className="text-[10px] text-slate-500 mb-1 whitespace-nowrap overflow-hidden text-ellipsis font-medium">→ {nextLabel}</div>
 
         <div className="border-t border-white/5 pt-1 mt-1">
-          <div className="grid grid-cols-3 gap-1">
-            {visibleTasks.map(t => (
-              <TaskItem key={t.originalIdx} task={t.task} done={t.done}
-                onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)}
-                onOpen={() => openModal(`proj-${project.key}-${t.originalIdx}`, t.task)}
-                onStar={() => starToPrio(t.task, category)}
-                taskKey={`proj-${project.key}-${t.originalIdx}`}
-                taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
-            ))}
-          </div>
-        </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd(allVisibleTasks)}>
+            <SortableContext items={allVisibleTasks.map(t => t.originalIdx)} strategy={verticalListSortingStrategy}>
+              {allVisibleTasks.map(t => (
+                <SortableTaskItem key={t.originalIdx} id={t.originalIdx} task={t.task} done={t.done}
+                  onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)}
+                  onOpen={() => openModal(`proj-${project.key}-${t.originalIdx}`, t.task)}
+                  onStar={() => starToPrio(t.task, category)}
+                  taskKey={`proj-${project.key}-${t.originalIdx}`}
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+              ))}
+            </SortableContext>
+          </DndContext>
 
-        {isExpanded && (
-          <div className="pt-0.5"><div className="grid grid-cols-3 gap-1">
-            {hiddenTasks.map(t => (
-              <TaskItem key={t.originalIdx} task={t.task} done={t.done}
-                onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)}
-                onOpen={() => openModal(`proj-${project.key}-${t.originalIdx}`, t.task)}
-                onStar={() => starToPrio(t.task, category)}
-                taskKey={`proj-${project.key}-${t.originalIdx}`}
-                taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
-            ))}
-            {project.doneTasks.map((task, i) => {
-              const isDone = projectDone[`${project.key}-done-${i}`] !== false
-              return <TaskItem key={`done-${i}`} task={task} done={isDone}
-                onClick={() => toggleProjectTask(project.key, 'done', i)}
-                onOpen={() => openModal(`proj-${project.key}-done-${i}`, task)}
-                onStar={() => starToPrio(task, category)}
-                taskKey={`proj-${project.key}-done-${i}`}
-                taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
-            })}
-          </div></div>
-        )}
+          {isExpanded && project.doneTasks.map((task, i) => {
+            const isDone = projectDone[`${project.key}-done-${i}`] !== false
+            return (
+              <div key={`done-${i}`} className="flex items-start gap-1 py-0.5 cursor-pointer select-none group" onClick={() => openModal(`proj-${project.key}-done-${i}`, task)}>
+                <div onClick={(e) => { e.stopPropagation(); toggleProjectTask(project.key, 'done', i) }}
+                  className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${isDone ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>
+                  {isDone && <span className="text-indigo-300 text-[6.5px] font-bold leading-none">✓</span>}
+                </div>
+                <span className={`text-[12.5px] leading-[1.35] break-words min-w-0 ${isDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{task}</span>
+              </div>
+            )
+          })}
+        </div>
 
         {hasMore && (
           <div className="flex items-center gap-1 mt-1 cursor-pointer text-slate-500 hover:text-[#818cf8] transition-colors" onClick={() => toggleExpand(project.key)}>
@@ -159,13 +195,19 @@ function ProjectTile({
   )
 }
 
-function TaskItem({ task, done, onClick, onOpen, onStar, taskKey, taskMeta, updateTaskMeta }: {
-  task: string; done: boolean; onClick: () => void; onOpen: () => void; onStar: () => void
+function SortableTaskItem({ id, task, done, onClick, onOpen, onStar, taskKey, taskMeta, updateTaskMeta }: {
+  id: number; task: string; done: boolean; onClick: () => void; onOpen: () => void; onStar: () => void
   taskKey: string; taskMeta: Record<string, TaskMeta>
   updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+
   return (
-    <div className="flex items-start gap-1 py-0.5 cursor-pointer select-none group" onClick={onOpen}>
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 10 : 'auto' as any }}
+      className="flex items-start gap-1 py-0.5 cursor-pointer select-none group" onClick={onOpen}>
+      <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 mt-[3px] cursor-grab" onClick={e => e.stopPropagation()}>
+        <IconGripVertical size={9} className="text-slate-600" />
+      </span>
       <div onClick={(e) => { e.stopPropagation(); onClick() }}
         className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>
         {done && <span className="text-indigo-300 text-[6.5px] font-bold leading-none">✓</span>}
