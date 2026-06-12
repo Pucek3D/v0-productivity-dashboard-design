@@ -1,7 +1,7 @@
 'use client'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { TopPrioCard } from '@/components/dashboard/top-prio-card'
-import { MessagesCard } from '@/components/dashboard/messages-card'
+import { MessagesCard, INITIAL_MESSAGES, type Message } from '@/components/dashboard/messages-card'
 import { KpisCard } from '@/components/dashboard/kpis-card'
 import { EventCalendar } from '@/components/dashboard/event-calendar'
 import { LtGoalsCalendar } from '@/components/dashboard/lt-goals-calendar'
@@ -20,82 +20,89 @@ import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone } from '@/
 import { IconMoon, IconChartBar } from '@tabler/icons-react'
 
 export default function Dashboard() {
-  const [headerDate, setHeaderDate] = useState({ weekday:'Tuesday',day:26,month:'May',year:2026 })
-  useEffect(() => { const n = new Date(); setHeaderDate({ weekday:n.toLocaleDateString('en-US',{weekday:'long'}),day:n.getDate(),month:n.toLocaleDateString('en-US',{month:'long'}),year:n.getFullYear() }) }, [])
+  const [headerDate, setHeaderDate] = useState({weekday:'Tuesday',day:26,month:'May',year:2026})
+  useEffect(()=>{const n=new Date();setHeaderDate({weekday:n.toLocaleDateString('en-US',{weekday:'long'}),day:n.getDate(),month:n.toLocaleDateString('en-US',{month:'long'}),year:n.getFullYear()})}, [])
 
-  const [projectDone, setProjectDone] = useState<Record<string,boolean>>(() => { const init: Record<string,boolean> = {}; [...PROJECTS,...LT_GOALS].forEach(p => { p.doneTasks.forEach((_,i) => { init[`${p.key}-done-${i}`] = true }) }); return init })
-  useEffect(() => { const s = loadProjectDone(); if (s) setProjectDone(s) }, [])
-  useEffect(() => { saveProjectDone(projectDone) }, [projectDone])
+  const [projectDone, setProjectDone] = useState<Record<string,boolean>>(()=>{const i:Record<string,boolean>={};[...PROJECTS,...LT_GOALS].forEach(p=>{p.doneTasks.forEach((_,j)=>{i[`${p.key}-done-${j}`]=true})});return i})
+  useEffect(()=>{const s=loadProjectDone();if(s)setProjectDone(s)}, [])
+  useEffect(()=>{saveProjectDone(projectDone)}, [projectDone])
 
   const [taskMeta, setTaskMeta] = useState<Record<string,TaskMeta>>({})
-  useEffect(() => { setTaskMeta(loadTaskMeta()) }, [])
-  useEffect(() => { saveTaskMeta(taskMeta) }, [taskMeta])
-  const updateTaskMeta = useCallback((k:string, u:Partial<TaskMeta>) => { setTaskMeta(p => ({...p,[k]:{...p[k],...u}})) }, [])
+  useEffect(()=>{setTaskMeta(loadTaskMeta())}, [])
+  useEffect(()=>{saveTaskMeta(taskMeta)}, [taskMeta])
+  const updateTaskMeta = useCallback((k:string,u:Partial<TaskMeta>)=>{setTaskMeta(p=>({...p,[k]:{...p[k],...u}}))}, [])
 
-  const [prioTasks, setPrioTasks] = useState(() => {
-    const imp = TOP_PRIO_TASKS; const w = imp.find(s=>s.section==='Work'); const h = imp.find(s=>s.section==='Home'); const o = imp.find(s=>s.section==='Other')
-    return [ w||{section:'Work',color:'#818cf8',tasks:[]}, h||{section:'Home',color:'#2dd4bf',tasks:[]}, {section:'Other Work',color:'#818cf8',tasks:o?.tasks||[]}, {section:'Other Home',color:'#2dd4bf',tasks:[]} ]
+  const [prioTasks, setPrioTasks] = useState(()=>{
+    const imp=TOP_PRIO_TASKS;const w=imp.find(s=>s.section==='Work');const h=imp.find(s=>s.section==='Home');const o=imp.find(s=>s.section==='Other')
+    return [w||{section:'Work',color:'#818cf8',tasks:[]},h||{section:'Home',color:'#2dd4bf',tasks:[]},{section:'Other Work',color:'#818cf8',tasks:o?.tasks||[]},{section:'Other Home',color:'#2dd4bf',tasks:[]}]
   })
 
-  const [hiddenTasks, setHiddenTasks] = useState<Set<string>>(new Set())
-  const [modalTask, setModalTask] = useState<{key:string;label:string}|null>(null)
-  const [showAnalytics, setShowAnalytics] = useState(false)
-  const [showShutdown, setShowShutdown] = useState(false)
-  const [showPlanned, setShowPlanned] = useState(false)
-  const [showMeetings, setShowMeetings] = useState(false)
-  const [focusTask, setFocusTask] = useState<{key:string;label:string}|null>(null)
-  const [ganttProject, setGanttProject] = useState<string|null>(null)
+  /* Messages state — LIFTED here so Close Day can clean */
+  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES)
 
-  const openModal = useCallback((k:string,l:string) => setModalTask({key:k,label:l}), [])
-  const hideTask = useCallback((k:string) => { setHiddenTasks(p => new Set([...p,k])) }, [])
+  const [hiddenTasks,setHiddenTasks] = useState<Set<string>>(new Set())
+  const [modalTask,setModalTask] = useState<{key:string;label:string}|null>(null)
+  const [showAnalytics,setShowAnalytics] = useState(false)
+  const [showShutdown,setShowShutdown] = useState(false)
+  const [showPlanned,setShowPlanned] = useState(false)
+  const [showMeetings,setShowMeetings] = useState(false)
+  const [focusTask,setFocusTask] = useState<{key:string;label:string}|null>(null)
+  const [ganttProjects, setGanttProjects] = useState<Set<string>>(new Set())
 
-  const getProjectCompletion = useCallback((project:Project) => { const total = project.tasks.length + project.doneTasks.length; if (!total) return 0; let done = 0; project.tasks.forEach((_,i) => { if (projectDone[`${project.key}-task-${i}`]) done++ }); project.doneTasks.forEach((_,i) => { if (projectDone[`${project.key}-done-${i}`] !== false) done++ }); return Math.round((done/total)*100) }, [projectDone])
+  const openModal = useCallback((k:string,l:string)=>setModalTask({key:k,label:l}), [])
+  const hideTask = useCallback((k:string)=>{setHiddenTasks(p=>new Set([...p,k]))}, [])
+  const getProjectCompletion = useCallback((project:Project)=>{const total=project.tasks.length+project.doneTasks.length;if(!total)return 0;let done=0;project.tasks.forEach((_,i)=>{if(projectDone[`${project.key}-task-${i}`])done++});project.doneTasks.forEach((_,i)=>{if(projectDone[`${project.key}-done-${i}`]!==false)done++});return Math.round((done/total)*100)}, [projectDone])
 
-  const toggleProjectTask = useCallback((pk:string, tt:'task'|'done', idx:number) => {
-    const key = tt==='done'?`${pk}-done-${idx}`:`${pk}-task-${idx}`
-    setProjectDone(prev => { const nd = !prev[key]; if (tt==='task') { const proj = [...PROJECTS,...LT_GOALS].find(p=>p.key===pk); if (proj?.tasks[idx]) { const txt = proj.tasks[idx]; setPrioTasks(pt=>pt.map(s=>({...s,tasks:s.tasks.map(t=>t.text===txt?{...t,done:nd}:t)}))) } }; return {...prev,[key]:nd} })
+  const toggleProjectTask = useCallback((pk:string,tt:'task'|'done',idx:number)=>{
+    const key=tt==='done'?`${pk}-done-${idx}`:`${pk}-task-${idx}`
+    setProjectDone(prev=>{const nd=!prev[key];if(tt==='task'){const proj=[...PROJECTS,...LT_GOALS].find(p=>p.key===pk);if(proj?.tasks[idx]){const txt=proj.tasks[idx];setPrioTasks(pt=>pt.map(s=>({...s,tasks:s.tasks.map(t=>t.text===txt?{...t,done:nd}:t)})))}}return{...prev,[key]:nd}})
+  }, [])
+  const onPrioTaskToggle = useCallback((text:string,done:boolean)=>{[...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(t===text)setProjectDone(prev=>({...prev,[`${p.key}-task-${i}`]:done}))})})}, [])
+  const addPrioTask = useCallback((text:string)=>{setPrioTasks(prev=>prev.map(s=>s.section==='Other Work'?{...s,tasks:[...s.tasks,{id:`q${Date.now()}`,text,done:false}]}:s))}, [])
+
+  const starToPrio = useCallback((text:string,category:'work'|'home')=>{
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Home':'Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else n[idx].tasks.push({id:`s${Date.now()}`,text,done:false});return n})
+  }, [])
+  const starSubtaskToPrio = useCallback((text:string)=>starToPrio(text,'work'), [starToPrio])
+  const isTaskStarred = useCallback((text:string)=>prioTasks.some(s=>s.tasks.some(t=>t.text===text)), [prioTasks])
+  const startFocus = useCallback((k:string,l:string)=>setFocusTask({key:k,label:l}), [])
+  const stopFocus = useCallback((k:string,mins:number)=>{
+    if(mins<=0)return;const now=new Date();const ds=`${now.getDate()}/${now.getMonth()+1} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
+    setTaskMeta(p=>{const ex=p[k]||{};return{...p,[k]:{...ex,focusSessions:[...((ex as any).focusSessions||[]),{date:ds,minutes:mins}]} as any}})
   }, [])
 
-  const onPrioTaskToggle = useCallback((text:string, done:boolean) => { [...PROJECTS,...LT_GOALS].forEach(p => { p.tasks.forEach((t,i) => { if (t===text) setProjectDone(prev => ({...prev,[`${p.key}-task-${i}`]:done})) }) }) }, [])
+  const toggleGantt = useCallback((pk:string)=>{setGanttProjects(prev=>{const next=new Set(prev);if(next.has(pk))next.delete(pk);else next.add(pk);return next})}, [])
 
-  const addPrioTask = useCallback((text:string) => { setPrioTasks(prev => { const n=[...prev]; const idx=n.findIndex(s=>s.section==='Other Work'); if (idx>=0) { const s={...n[idx]}; s.tasks=[...s.tasks,{id:`q${Date.now()}`,text,done:false}]; n[idx]=s }; return n }) }, [])
-
-  const starToPrio = useCallback((text:string, category:'work'|'home') => {
-    setPrioTasks(prev => { const n=prev.map(s=>({...s,tasks:[...s.tasks]})); const sn=category==='home'?'Home':'Work'; const idx=n.findIndex(s=>s.section===sn); if (idx<0) return prev; const ex=n[idx].tasks.findIndex(t=>t.text===text); if (ex>=0) n[idx].tasks.splice(ex,1); else n[idx].tasks.push({id:`s${Date.now()}`,text,done:false}); return n })
-  }, [])
-  const starSubtaskToPrio = useCallback((text:string) => starToPrio(text,'work'), [starToPrio])
-  const isTaskStarred = useCallback((text:string) => prioTasks.some(s=>s.tasks.some(t=>t.text===text)), [prioTasks])
-
-  const startFocus = useCallback((k:string,l:string) => setFocusTask({key:k,label:l}), [])
-  const stopFocus = useCallback((k:string, mins:number) => {
-    if (mins<=0) return; const now=new Date(); const ds=`${now.getDate()}/${now.getMonth()+1} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
-    setTaskMeta(p => { const ex=p[k]||{}; const sess=[...((ex as any).focusSessions||[]),{date:ds,minutes:mins}]; return {...p,[k]:{...ex,focusSessions:sess} as any} })
+  /* Close the Day: remove done prio tasks + done messages + reset today focus */
+  const dailyCleanup = useCallback(()=>{
+    setPrioTasks(prev=>prev.map(s=>({...s,tasks:s.tasks.filter(t=>!t.done)})))
+    setMessages(prev=>prev.filter(m=>!m.done))
+    const td=new Date();const tp=`${td.getDate()}/${td.getMonth()+1}`
+    setTaskMeta(prev=>{const n={...prev};Object.keys(n).forEach(k=>{const m=n[k];if((m as any).focusSessions?.length){n[k]={...m,focusSessions:((m as any).focusSessions||[]).filter((s:any)=>!s.date?.startsWith(tp))} as any}});return n})
   }, [])
 
-  const dailyCleanup = useCallback(() => { setPrioTasks(prev => prev.map(s => ({...s,tasks:s.tasks.filter(t=>!t.done)}))) }, [])
-
-  const deadlineEvents: DeadlineEvent[] = useMemo(() => {
-    const ev: DeadlineEvent[] = []
-    Object.entries(taskMeta).filter(([,m]) => m.deadline).forEach(([,m]) => { ev.push({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute}) })
-    Object.entries(taskMeta).forEach(([,m]) => { (m.subtasks||[]).forEach(st => { if ((st as any).deadline) ev.push({date:(st as any).deadline,label:st.text,color:'#a78bfa'}) }) })
+  const deadlineEvents: DeadlineEvent[] = useMemo(()=>{
+    const ev:DeadlineEvent[]=[]
+    Object.entries(taskMeta).filter(([,m])=>m.deadline).forEach(([,m])=>{ev.push({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute})})
+    Object.entries(taskMeta).forEach(([,m])=>{(m.subtasks||[]).forEach(st=>{if((st as any).deadline)ev.push({date:(st as any).deadline,label:st.text,color:'#a78bfa'})})})
     return ev
   }, [taskMeta])
 
-  const completedTasks = useMemo(() => { const set=new Set<string>(); prioTasks.forEach(s=>s.tasks.forEach(t=>{if(t.done)set.add(t.text)})); [...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(projectDone[`${p.key}-task-${i}`])set.add(t)})}); return set }, [prioTasks,projectDone])
+  const completedTasks = useMemo(()=>{const set=new Set<string>();prioTasks.forEach(s=>s.tasks.forEach(t=>{if(t.done)set.add(t.text)}));[...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(projectDone[`${p.key}-task-${i}`])set.add(t)})});return set}, [prioTasks,projectDone])
+  const ganttProjectObjs = [...PROJECTS,...LT_GOALS].filter(p=>ganttProjects.has(p.key))
 
-  // Find the Gantt project object
-  const ganttProjectObj = ganttProject ? [...PROJECTS,...LT_GOALS].find(p => p.key === ganttProject) : null
+  const messagesAnswered = messages.filter(m=>m.done).length
 
-  const timeStats = useMemo(() => {
-    let plannedMin=0,totalTodayTasks=0,doneTodayTasks=0,meetingMin=0; const plannedTasks:{label:string;time:number}[]=[],meetingEvents:{label:string;time:string}[]=[]; const todayStr=new Date().toISOString().slice(0,10)
+  const timeStats = useMemo(()=>{
+    let plannedMin=0,totalTodayTasks=0,doneTodayTasks=0,meetingMin=0;const plannedTasks:{label:string;time:number}[]=[],meetingEvents:{label:string;time:string}[]=[];const todayStr=new Date().toISOString().slice(0,10)
     prioTasks.forEach(s=>s.tasks.forEach(t=>{totalTodayTasks++;if(t.done)doneTodayTasks++;const m=taskMeta[`prio-${t.id}`];if(m?.timeEstimate){plannedMin+=m.timeEstimate;plannedTasks.push({label:t.text,time:m.timeEstimate})}}))
     Object.entries(taskMeta).forEach(([k,m])=>{if(m.deadline===todayStr&&!k.startsWith('prio-')){if(m.timeEstimate){plannedMin+=m.timeEstimate;plannedTasks.push({label:m.label||k,time:m.timeEstimate})};if(m.hour!==undefined){meetingMin+=60;meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`})}}})
-    let focusedMin=0; const td=new Date(); const tp=`${td.getDate()}/${td.getMonth()+1}`
-    Object.values(taskMeta).forEach(m=>{const sess:(any[])=(m as any).focusSessions||[];sess.forEach((s:any)=>{if(s.date?.startsWith(tp))focusedMin+=s.minutes})})
-    return {plannedMin,meetingMin,overloaded:plannedMin>480,totalTodayTasks,doneTodayTasks,plannedTasks,meetingEvents,focusedMin}
+    let focusedMin=0;const td=new Date();const tp=`${td.getDate()}/${td.getMonth()+1}`
+    Object.values(taskMeta).forEach(m=>{((m as any).focusSessions||[]).forEach((s:any)=>{if(s.date?.startsWith(tp))focusedMin+=s.minutes})})
+    return{plannedMin,meetingMin,overloaded:plannedMin>480,totalTodayTasks,doneTodayTasks,plannedTasks,meetingEvents,focusedMin}
   }, [taskMeta,prioTasks])
 
-  const fmtTime = (m:number) => { const h=Math.floor(m/60); const mm=m%60; return mm>0?`${h}h ${mm}m`:`${h}h` }
+  const fmtTime = (m:number)=>{const h=Math.floor(m/60);const mm=m%60;return mm>0?`${h}h ${mm}m`:`${h}h`}
 
   return (
     <div className="min-h-screen bg-background p-5 font-sans">
@@ -125,24 +132,26 @@ export default function Dashboard() {
       </header>
 
       <div className="grid grid-cols-[196px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
-        <div className="flex flex-col gap-3"><MessagesCard /><KpisCard /></div>
+        <div className="flex flex-col gap-3">
+          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+          <KpisCard />
+        </div>
         <div className="flex flex-col gap-3">
           <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} />
           <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
-          {/* Gantt chart — appears when toggled from Active Projects */}
-          {ganttProjectObj && <ProjectGantt project={ganttProjectObj} projectDone={projectDone} taskMeta={taskMeta} onClose={() => setGanttProject(null)} />}
+          {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
           <LtGoalsCalendar />
           <LtGoalsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} />
         </div>
         <div className="flex flex-col gap-3">
-          <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} onToggleGantt={setGanttProject} activeGanttProject={ganttProject} />
+          <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} onToggleGantt={toggleGantt} activeGanttProjects={ganttProjects} />
           <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} />
         </div>
       </div>
 
       {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,u)} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} />}
-      {showShutdown&&<DailyShutdown onClose={()=>setShowShutdown(false)} tasksCompleted={timeStats.doneTodayTasks} tasksTotal={timeStats.totalTodayTasks} focusedMin={timeStats.focusedMin} onCleanup={dailyCleanup} />}
+      {showShutdown&&<DailyShutdown onClose={()=>setShowShutdown(false)} tasksCompleted={timeStats.doneTodayTasks} tasksTotal={timeStats.totalTodayTasks} focusedMin={timeStats.focusedMin} messagesAnswered={messagesAnswered} onCleanup={dailyCleanup} />}
       {showAnalytics&&<WeeklyAnalytics onClose={()=>setShowAnalytics(false)} projectDone={projectDone} taskMeta={taskMeta} getProjectCompletion={getProjectCompletion} />}
     </div>
   )
