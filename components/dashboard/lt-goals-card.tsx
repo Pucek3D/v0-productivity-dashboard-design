@@ -2,8 +2,14 @@
 import { useState } from 'react'
 import { LT_GOALS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
-import { IconStar } from '@tabler/icons-react'
+import { IconStar, IconGripVertical } from '@tabler/icons-react'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface LtGoalsCardProps {
   projectDone: Record<string, boolean>
@@ -17,7 +23,14 @@ interface LtGoalsCardProps {
 
 export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio }: LtGoalsCardProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [taskOrders, setTaskOrders] = useState<Record<string, number[]>>({})
   const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
+
+  const reorderTasks = (goalKey: string, oldIdx: number, newIdx: number, taskList: { originalIdx: number }[]) => {
+    const ids = taskList.map(t => t.originalIdx)
+    const reordered = arrayMove(ids, oldIdx, newIdx)
+    setTaskOrders(prev => ({ ...prev, [goalKey]: reordered }))
+  }
 
   return (
     <div className="card-base halo-teal">
@@ -30,7 +43,8 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
             <GoalTile key={goal.key} goal={goal} projectDone={projectDone}
               toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
               isExpanded={!!expanded[goal.key]} toggleExpand={toggleExpand}
-              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} />
+              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal}
+              starToPrio={starToPrio} taskOrders={taskOrders} reorderTasks={reorderTasks} />
           ))}
         </div>
       </div>
@@ -40,7 +54,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
 
 function GoalTile({
   goal, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand,
-  taskMeta, updateTaskMeta, openModal, starToPrio,
+  taskMeta, updateTaskMeta, openModal, starToPrio, taskOrders, reorderTasks,
 }: {
   goal: Project; projectDone: Record<string, boolean>
   toggleProjectTask: (k: string, t: 'task' | 'done', i: number) => void
@@ -50,7 +64,10 @@ function GoalTile({
   updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
   openModal: (k: string, l: string) => void
   starToPrio: (text: string, category: 'work' | 'home') => void
+  taskOrders: Record<string, number[]>
+  reorderTasks: (goalKey: string, oldIdx: number, newIdx: number, taskList: { originalIdx: number }[]) => void
 }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const pct = getProjectCompletion(goal)
   const autoStatus = computeStatus(goal, projectDone, taskMeta, 'goal')
   const style = statusStyle(autoStatus, goal.color)
@@ -60,11 +77,33 @@ function GoalTile({
   const indexedTasks = goal.tasks.map((task, originalIdx) => ({
     task, originalIdx, done: !!projectDone[`${goal.key}-task-${originalIdx}`],
   }))
-  const sortedTasks = [...indexedTasks].sort((a, b) => Number(a.done) - Number(b.done))
-  const visibleTasks = sortedTasks.slice(0, 3)
-  const hiddenTasks = sortedTasks.slice(3)
+
+  const customOrder = taskOrders[goal.key]
+  let orderedTasks: typeof indexedTasks
+  if (customOrder) {
+    orderedTasks = customOrder
+      .map(idx => indexedTasks.find(t => t.originalIdx === idx))
+      .filter(Boolean) as typeof indexedTasks
+    indexedTasks.forEach(t => {
+      if (!customOrder.includes(t.originalIdx)) orderedTasks.push(t)
+    })
+  } else {
+    orderedTasks = [...indexedTasks].sort((a, b) => Number(a.done) - Number(b.done))
+  }
+
+  const visibleTasks = orderedTasks.slice(0, 3)
+  const hiddenTasks = orderedTasks.slice(3)
   const hasMore = hiddenTasks.length > 0 || goal.doneTasks.length > 0
-  const nextLabel = sortedTasks.find(t => !t.done)?.task ?? goal.next
+  const nextLabel = orderedTasks.find(t => !t.done)?.task ?? goal.next
+  const allVisibleTasks = isExpanded ? orderedTasks : visibleTasks
+
+  const handleDragEnd = (taskList: typeof indexedTasks) => (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = taskList.findIndex(t => t.originalIdx === Number(active.id))
+    const newIdx = taskList.findIndex(t => t.originalIdx === Number(over.id))
+    if (oldIdx >= 0 && newIdx >= 0) reorderTasks(goal.key, oldIdx, newIdx, taskList)
+  }
 
   return (
     <div className="tile-base relative">
@@ -87,37 +126,32 @@ function GoalTile({
         <div className="text-[10px] text-slate-500 mb-1 whitespace-nowrap overflow-hidden text-ellipsis font-medium">→ {nextLabel}</div>
 
         <div className="border-t border-white/5 pt-1 mt-1">
-          {visibleTasks.map(t => (
-            <TaskItem key={t.originalIdx} task={t.task} done={t.done}
-              onClick={() => toggleProjectTask(goal.key, 'task', t.originalIdx)}
-              onOpen={() => openModal(`goal-${goal.key}-${t.originalIdx}`, t.task)}
-              onStar={() => starToPrio(t.task, 'home')}
-              taskKey={`goal-${goal.key}-${t.originalIdx}`}
-              taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
-          ))}
-        </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd(allVisibleTasks)}>
+            <SortableContext items={allVisibleTasks.map(t => t.originalIdx)} strategy={verticalListSortingStrategy}>
+              {allVisibleTasks.map(t => (
+                <SortableTaskItem key={t.originalIdx} id={t.originalIdx} task={t.task} done={t.done}
+                  onClick={() => toggleProjectTask(goal.key, 'task', t.originalIdx)}
+                  onOpen={() => openModal(`goal-${goal.key}-${t.originalIdx}`, t.task)}
+                  onStar={() => starToPrio(t.task, 'home')}
+                  taskKey={`goal-${goal.key}-${t.originalIdx}`}
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+              ))}
+            </SortableContext>
+          </DndContext>
 
-        {isExpanded && (
-          <div className="pt-0.5">
-            {hiddenTasks.map(t => (
-              <TaskItem key={t.originalIdx} task={t.task} done={t.done}
-                onClick={() => toggleProjectTask(goal.key, 'task', t.originalIdx)}
-                onOpen={() => openModal(`goal-${goal.key}-${t.originalIdx}`, t.task)}
-                onStar={() => starToPrio(t.task, 'home')}
-                taskKey={`goal-${goal.key}-${t.originalIdx}`}
-                taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
-            ))}
-            {goal.doneTasks.map((task, i) => {
-              const isDone = projectDone[`${goal.key}-done-${i}`] !== false
-              return <TaskItem key={`done-${i}`} task={task} done={isDone}
-                onClick={() => toggleProjectTask(goal.key, 'done', i)}
-                onOpen={() => openModal(`goal-${goal.key}-done-${i}`, task)}
-                onStar={() => starToPrio(task, 'home')}
-                taskKey={`goal-${goal.key}-done-${i}`}
-                taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
-            })}
-          </div>
-        )}
+          {isExpanded && goal.doneTasks.map((task, i) => {
+            const isDone = projectDone[`${goal.key}-done-${i}`] !== false
+            return (
+              <div key={`done-${i}`} className="flex items-start gap-1.5 py-0.5 cursor-pointer select-none group" onClick={() => openModal(`goal-${goal.key}-done-${i}`, task)}>
+                <div onClick={(e) => { e.stopPropagation(); toggleProjectTask(goal.key, 'done', i) }}
+                  className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${isDone ? 'bg-teal-500/30 border-teal-400' : 'border-slate-600 bg-white/5'}`}>
+                  {isDone && <span className="text-teal-300 text-[6.5px] font-bold leading-none">✓</span>}
+                </div>
+                <span className={`text-[12.5px] leading-[1.35] break-words min-w-0 ${isDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{task}</span>
+              </div>
+            )
+          })}
+        </div>
 
         {hasMore && (
           <div className="flex items-center gap-1 mt-1 cursor-pointer text-slate-500 hover:text-[#2dd4bf] transition-colors" onClick={() => toggleExpand(goal.key)}>
@@ -130,13 +164,19 @@ function GoalTile({
   )
 }
 
-function TaskItem({ task, done, onClick, onOpen, onStar, taskKey, taskMeta, updateTaskMeta }: {
-  task: string; done: boolean; onClick: () => void; onOpen: () => void; onStar: () => void
+function SortableTaskItem({ id, task, done, onClick, onOpen, onStar, taskKey, taskMeta, updateTaskMeta }: {
+  id: number; task: string; done: boolean; onClick: () => void; onOpen: () => void; onStar: () => void
   taskKey: string; taskMeta: Record<string, TaskMeta>
   updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+
   return (
-    <div className="flex items-start gap-1.5 py-0.5 cursor-pointer select-none group" onClick={onOpen}>
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 10 : 'auto' as any }}
+      className="flex items-start gap-1.5 py-0.5 cursor-pointer select-none group" onClick={onOpen}>
+      <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 mt-[3px] cursor-grab" onClick={e => e.stopPropagation()}>
+        <IconGripVertical size={9} className="text-slate-600" />
+      </span>
       <div onClick={(e) => { e.stopPropagation(); onClick() }}
         className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${done ? 'bg-teal-500/30 border-teal-400' : 'border-slate-600 bg-white/5'}`}>
         {done && <span className="text-teal-300 text-[6.5px] font-bold leading-none">✓</span>}
