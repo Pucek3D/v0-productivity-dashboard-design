@@ -94,13 +94,14 @@ const [showAnalytics, setShowAnalytics] = useState(false)
   }, [])
 
   const stopFocus = useCallback((key: string, elapsedMinutes: number) => {
-    if (elapsedMinutes > 0) {
-      setTaskMeta(prev => {
-        const existing = prev[key] || {}
-        return { ...prev, [key]: { ...existing, timeEstimate: (existing.timeEstimate || 0) } }
-      })
-    }
-  }, [])
+  if (elapsedMinutes > 0) {
+    setTaskMeta(prev => {
+      const existing = prev[key] || {}
+      const prevActual = (existing as any).actualTime || 0
+      return { ...prev, [key]: { ...existing, actualTime: prevActual + elapsedMinutes } }
+    })
+  }
+}, [])
 
   /* ── Daily shutdown ── */
   const [showShutdown, setShowShutdown] = useState(false)
