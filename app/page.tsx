@@ -75,7 +75,7 @@ export default function Dashboard() {
   /* ── Top Prio tasks (lifted state) ── */
   const [prioTasks, setPrioTasks] = useState(TOP_PRIO_TASKS)
 
-  const addPrioTask = useCallback((text: string) => {
+  const<div className="text-[10px] font-semibold leading-[1.25] text-slate-200 mt-px overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}> = useCallback((text: string) => {
     setPrioTasks(prev => {
       const newTasks = [...prev]
       const otherIdx = newTasks.findIndex(s => s.section === 'Other')
@@ -87,6 +87,21 @@ export default function Dashboard() {
       return newTasks
     })
   }, [])
+
+  const starToPrio = useCallback((text: string, category: 'work' | 'home') => {
+  setPrioTasks(prev => {
+    const newTasks = [...prev]
+    const sectionName = category === 'home' ? 'Home' : 'Work'
+    const idx = newTasks.findIndex(s => s.section === sectionName)
+    if (idx >= 0) {
+      const section = { ...newTasks[idx] }
+      if (section.tasks.some(t => t.text === text)) return prev // already there
+      section.tasks = [...section.tasks, { id: `s${Date.now()}`, text, done: false, priority: 'yellow' as const }]
+      newTasks[idx] = section
+    }
+    return newTasks
+  })
+}, [])
 
   /* ── Modals ── */
   const [modalTask, setModalTask] = useState<{ key: string; label: string } | null>(null)
@@ -310,7 +325,7 @@ export default function Dashboard() {
             placeholder="Add task to Top Prio — press Enter"
             onKeyDown={e => {
               if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
-                addPrioTask((e.target as HTMLInputElement).value.trim());
+               <div className="text-[10px] font-semibold leading-[1.25] text-slate-200 mt-px overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>((e.target as HTMLInputElement).value.trim());
                 (e.target as HTMLInputElement).value = ''
               }
             }}
