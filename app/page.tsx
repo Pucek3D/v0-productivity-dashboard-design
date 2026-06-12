@@ -35,7 +35,21 @@ export default function Dashboard() {
   useEffect(() => { saveTaskMeta(taskMeta) }, [taskMeta])
   const updateTaskMeta = useCallback((k: string, u: Partial<TaskMeta>) => { setTaskMeta(p => ({ ...p, [k]: { ...p[k], ...u } })) }, [])
 
-  const [prioTasks, setPrioTasks] = useState(TOP_PRIO_TASKS)
+  /* ─── 4-quadrant prio tasks ─── */
+  const [prioTasks, setPrioTasks] = useState(() => {
+    const imported = TOP_PRIO_TASKS
+    const workSection = imported.find(s => s.section === 'Work')
+    const homeSection = imported.find(s => s.section === 'Home')
+    const otherSection = imported.find(s => s.section === 'Other')
+
+    return [
+      workSection || { section: 'Work', color: '#818cf8', tasks: [] },
+      homeSection || { section: 'Home', color: '#a78bfa', tasks: [] },
+      { section: 'Other Work', color: '#818cf8', tasks: otherSection?.tasks || [] },
+      { section: 'Other Home', color: '#a78bfa', tasks: [] },
+    ]
+  })
+
   const [hiddenTasks, setHiddenTasks] = useState<Set<string>>(new Set())
   const [modalTask, setModalTask] = useState<{key:string;label:string}|null>(null)
   const [showAnalytics, setShowAnalytics] = useState(false)
@@ -81,30 +95,36 @@ export default function Dashboard() {
 
   const addPrioTask = useCallback((text: string) => {
     setPrioTasks(prev => {
-      const n = [...prev]; const idx = n.findIndex(s => s.section === 'Other')
-      if (idx >= 0) { const s = { ...n[idx] }; s.tasks = [...s.tasks, { id: `q${Date.now()}`, text, done: false, priority: 'gray' as const }]; n[idx] = s }
+      const n = [...prev]
+      // Add to "Other Work" by default (index 2)
+      const idx = n.findIndex(s => s.section === 'Other Work')
+      if (idx >= 0) {
+        const s = { ...n[idx] }
+        s.tasks = [...s.tasks, { id: `q${Date.now()}`, text, done: false, priority: 'gray' as const }]
+        n[idx] = s
+      }
       return n
     })
   }, [])
 
   const starToPrio = useCallback((text: string, category: 'work' | 'home') => {
-  setPrioTasks(prev => {
-    const n = prev.map(s => ({ ...s, tasks: [...s.tasks] }))
-    const sn = category === 'home' ? 'Home' : 'Work'
-    const idx = n.findIndex(s => s.section === sn)
-    if (idx < 0) return prev
+    setPrioTasks(prev => {
+      const n = prev.map(s => ({ ...s, tasks: [...s.tasks] }))
+      const sn = category === 'home' ? 'Home' : 'Work'
+      const idx = n.findIndex(s => s.section === sn)
+      if (idx < 0) return prev
 
-    const existingIdx = n[idx].tasks.findIndex(t => t.text === text)
-    if (existingIdx >= 0) {
-      // Already starred → remove from Prio
-      n[idx].tasks.splice(existingIdx, 1)
-    } else {
-      // Not starred → add to Prio
-      n[idx].tasks.push({ id: `s${Date.now()}`, text, done: false, priority: 'yellow' as const })
-    }
-    return n
-  })
-}, [])
+      const existingIdx = n[idx].tasks.findIndex(t => t.text === text)
+      if (existingIdx >= 0) {
+        // Already starred → remove from Prio
+        n[idx].tasks.splice(existingIdx, 1)
+      } else {
+        // Not starred → add to Prio
+        n[idx].tasks.push({ id: `s${Date.now()}`, text, done: false, priority: 'yellow' as const })
+      }
+      return n
+    })
+  }, [])
 
   const isTaskStarred = useCallback((text: string) => prioTasks.some(s => s.tasks.some(t => t.text === text)), [prioTasks])
 
@@ -112,17 +132,29 @@ export default function Dashboard() {
   const stopFocus = useCallback((k: string, mins: number) => {
     if (mins > 0) setTaskMeta(p => { const e = p[k] || {}; return { ...p, [k]: { ...e, actualTime: ((e as any).actualTime || 0) + mins } } })
   }, [])
-const dailyCleanup = useCallback(() => {
+
+  const dailyCleanup = useCallback(() => {
     setPrioTasks(prev => prev.map(s => ({
       ...s,
       tasks: s.tasks.filter(t => !t.done)
     })))
   }, [])
+
   const deadlineEvents: DeadlineEvent[] = useMemo(() =>
     Object.entries(taskMeta).filter(([,m]) => m.deadline).map(([,m]) => ({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8', hour: m.hour, minute: m.minute }))
   , [taskMeta])
 
-const timeStats = useMemo(() => {
+  /* ─── completed tasks set — for calendar auto-cleanup ─── */
+  const completedTasks = useMemo(() => {
+    const set = new Set<string>()
+    prioTasks.forEach(s => s.tasks.forEach(t => { if (t.done) set.add(t.text) }))
+    ;[...PROJECTS, ...LT_GOALS].forEach(p => {
+      p.tasks.forEach((t, i) => { if (projectDone[`${p.key}-task-${i}`]) set.add(t) })
+    })
+    return set
+  }, [prioTasks, projectDone])
+
+  const timeStats = useMemo(() => {
     let plannedMin = 0, totalTodayTasks = 0, doneTodayTasks = 0, meetingMin = 0
     const plannedTasks: {label:string;time:number}[] = [], meetingEvents: {label:string;time:string}[] = []
     const todayStr = new Date().toISOString().slice(0, 10)
@@ -190,17 +222,28 @@ const timeStats = useMemo(() => {
         </div>
       </header>
 
-      <div className="grid grid-cols-[196px_minmax(0,0.75fr)_minmax(0,1fr)] gap-3 items-start">
+      {/* ─── RESTRUCTURED LAYOUT ───
+          Left:   Messages + KPIs (narrow sidebar)
+          Center: TopPrio (2×2) → EventCalendar → LtGoalsCalendar → ProgressOverview
+          Right:  ActiveProjects → OtherTodo → LtGoals
+      ─── */}
+      <div className="grid grid-cols-[196px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
+
+        {/* ── LEFT COLUMN: Messages + KPIs ── */}
         <div className="flex flex-col gap-3">
-          <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} />
           <MessagesCard />
           <KpisCard />
         </div>
+
+        {/* ── CENTER COLUMN: TopPrio (2×2) + Calendar + LT Calendar + Progress ── */}
         <div className="flex flex-col gap-3">
-          <EventCalendar deadlineEvents={deadlineEvents} />
+          <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} />
+          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} />
           <LtGoalsCalendar />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
         </div>
+
+        {/* ── RIGHT COLUMN: ActiveProjects + OtherTodo + LtGoals ── */}
         <div className="flex flex-col gap-3">
           <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} />
           <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} />
