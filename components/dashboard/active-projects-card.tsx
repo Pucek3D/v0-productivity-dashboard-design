@@ -121,13 +121,13 @@ function ProjectTile({ project, projectDone, toggleProjectTask, getProjectComple
                 const firstSub = meta?.subtasks?.find(s => !s.done)
                 return <div key={t.originalIdx}>
                   <TaskRow id={t.originalIdx} task={t.task} done={t.done} onClick={()=>toggleProjectTask(project.key,'task',t.originalIdx)} onOpen={()=>openModal(tk,t.task)} onStar={()=>starToPrio(t.task,category)} isStarred={isTaskStarred?isTaskStarred(t.task):false} taskKey={tk} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} onDelete={()=>hideTask?.(tk)} meta={meta} />
-                  {/* Subtask preview */}
-                  {firstSub && <div className="ml-[22px] flex items-center gap-1.5 mt-[-1px] mb-0.5"><span className="text-[10px] text-slate-600">→</span><div className="w-2 h-2 rounded-sm border border-slate-700 flex-shrink-0" /><span className="text-[10px] text-slate-500 truncate">{firstSub.text}</span></div>}
+                  {/* Subtask preview — tight, bigger font, checkbox, next uncompleted */}
+                  {firstSub && <div className="ml-[22px] flex items-center gap-1.5 leading-none"><span className="text-[11px] text-slate-600">→</span><div className="w-3 h-3 rounded-[3px] border border-slate-600 bg-white/5 flex-shrink-0 flex items-center justify-center" /><span className="text-[11px] text-slate-500 truncate">{firstSub.text}</span></div>}
                 </div>
               })}
             </SortableContext>
           </DndContext>
-          {(isExpanded ? customTasks : customTasks.slice(0,1)).map((task:string,i:number) => <div key={`c-${i}`} className="flex items-start gap-1 py-0.5 group"><div className="w-2.5 h-2.5 rounded-[2.5px] border border-slate-600 bg-white/5 flex-shrink-0 mt-[2px]" /><span className="text-[12.5px] leading-[1.35] text-slate-200 flex-1">{task}</span><button onClick={()=>onDeleteCustomTask(i)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0"><IconTrash size={10} className="text-slate-500 hover:text-rose-400" /></button></div>)}
+          {(isExpanded ? customTasks : customTasks.slice(0,1)).map((task:string,i:number) => <div key={`c-${i}`} className="flex items-start gap-1 py-0.5 group"><div className="w-3.5 h-3.5 rounded-[4px] border border-slate-600 bg-white/5 flex-shrink-0 mt-[2px]" /><span className="text-[12.5px] leading-[1.35] text-slate-200 flex-1">{task}</span><button onClick={()=>onDeleteCustomTask(i)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0"><IconTrash size={10} className="text-slate-500 hover:text-rose-400" /></button></div>)}
         </div>
         <div className="flex items-center justify-between mt-1">
           <button onClick={onAddTask} className="flex items-center gap-1 text-slate-500 hover:text-[#818cf8] transition-colors"><IconPlus size={10} /><span className="text-[9px] font-semibold uppercase tracking-[0.08em]">Task</span></button>
@@ -144,7 +144,7 @@ function TaskRow({ id, task, done, onClick, onOpen, onStar, isStarred, taskKey, 
     <div ref={setNodeRef} style={{ transform:CSS.Transform.toString(transform),transition,opacity:isDragging?0.5:1 }} className="py-0.5 cursor-pointer select-none group" onClick={onOpen}>
       <div className="flex items-start gap-1">
         <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 mt-[3px] cursor-grab" onClick={(e:any)=>e.stopPropagation()}><IconGripVertical size={9} className="text-slate-600" /></span>
-        <div onClick={(e:any)=>{e.stopPropagation();onClick()}} className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${done?'bg-indigo-500/30 border-indigo-400':'border-slate-600 bg-white/5'}`}>{done&&<span className="text-indigo-300 text-[6.5px] font-bold leading-none">✓</span>}</div>
+        <div onClick={(e:any)=>{e.stopPropagation();onClick()}} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${done?'bg-indigo-500/30 border-indigo-400':'border-slate-600 bg-white/5'}`}>{done&&<span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         <span className={`text-[12.5px] leading-[1.35] break-words min-w-0 flex-1 ${done?'text-slate-500 line-through':'text-slate-200'}`}>{task}</span>
       </div>
       <div className="flex items-center gap-1 ml-[22px] mt-0.5 flex-wrap" onClick={(e:any)=>e.stopPropagation()}>
