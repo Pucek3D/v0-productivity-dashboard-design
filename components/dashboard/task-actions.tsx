@@ -27,7 +27,7 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
   const timeStr = meta?.hour !== undefined
     ? `${meta.hour.toString().padStart(2, '0')}:${(meta.minute ?? 0).toString().padStart(2, '0')}`
     : null
-  const sz = compact ? 9 : 11
+  const sz = compact ? 12 : 14
 
   return (
     <span className="flex flex-col items-end gap-0 ml-auto flex-shrink-0" onClick={e => e.stopPropagation()}>
