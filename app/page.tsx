@@ -1,7 +1,19 @@
 'use client'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { TopPrioCard } from '@/components/dashboard/top-prio-card'
-import { MessagesCard, INITIAL_MESSAGES, type Message } from '@/components/dashboard/messages-card'
+import { MessagesCard } from '@/components/dashboard/messages-card'
+
+type Message = { id: string; text: string; done: boolean }
+const INITIAL_MESSAGES: Message[] = [
+  { id:'m1',text:'Varun — respond today',done:false },
+  { id:'m2',text:'Surabhi — AI initiative (Jun 5)',done:false },
+  { id:'m3',text:'John — meeting doc needed',done:false },
+  { id:'m4',text:'Himadri — write meeting note',done:false },
+  { id:'m5',text:'Prashant — act on findings',done:false },
+  { id:'m6',text:'Anurag — skill status follow-up',done:false },
+  { id:'m7',text:'Konrad — PPK + workshop?',done:false },
+  { id:'m8',text:'Shratha — review case example',done:false },
+]
 import { KpisCard } from '@/components/dashboard/kpis-card'
 import { EventCalendar } from '@/components/dashboard/event-calendar'
 import { LtGoalsCalendar } from '@/components/dashboard/lt-goals-calendar'
