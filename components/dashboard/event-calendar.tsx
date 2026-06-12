@@ -4,6 +4,7 @@ import {
   MONTH_EVENTS, WEEK_EVENTS, DAY_EVENTS,
   MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth
 } from '@/lib/data'
+import { IconPlus, IconX } from '@tabler/icons-react'
 import type { DeadlineEvent } from '@/lib/task-meta'
 
 const CARD: React.CSSProperties = {
@@ -16,9 +17,7 @@ const CARD: React.CSSProperties = {
 }
 
 const GLOW_LINE: React.CSSProperties = {
-  position: 'absolute',
-  top: 0, left: 0, right: 0,
-  height: '1.5px',
+  position: 'absolute', top: 0, left: 0, right: 0, height: '1.5px',
   background: 'linear-gradient(90deg, transparent 0%, #fb7185 25%, #fb7185 75%, transparent 100%)',
   boxShadow: '0 0 12px rgba(251, 113, 133, 0.6), 0 0 28px rgba(251, 113, 133, 0.4)',
   zIndex: 2,
@@ -27,16 +26,12 @@ const GLOW_LINE: React.CSSProperties = {
 const HEADER_BAR: React.CSSProperties = {
   background: 'transparent',
   borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-  position: 'relative',
-  padding: '12px 16px',
+  position: 'relative', padding: '12px 16px',
 }
 
 const TOGGLE_WRAP: React.CSSProperties = {
-  background: 'rgba(255, 255, 255, 0.05)',
-  borderRadius: '6px',
-  overflow: 'hidden',
-  boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.08)',
-  display: 'flex',
+  background: 'rgba(255, 255, 255, 0.05)', borderRadius: '6px', overflow: 'hidden',
+  boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.08)', display: 'flex',
 }
 
 const togBtn = (active: boolean): React.CSSProperties => ({
@@ -48,8 +43,7 @@ const togBtn = (active: boolean): React.CSSProperties => ({
 })
 
 const TITLE: React.CSSProperties = {
-  color: 'rgba(255, 255, 255, 0.92)',
-  fontWeight: 600, fontSize: '11px',
+  color: 'rgba(255, 255, 255, 0.92)', fontWeight: 600, fontSize: '11px',
   letterSpacing: '0.18em', textTransform: 'uppercase',
 }
 
@@ -58,15 +52,35 @@ const DISPLAY_FONT: React.CSSProperties = {
   fontWeight: 700, letterSpacing: '-0.025em',
 }
 
-interface EventCalendarProps {
-  deadlineEvents?: DeadlineEvent[]
+/* ─── custom meeting type ─── */
+interface CustomMeeting {
+  id: string
+  day: number
+  month: number
+  year: number
+  label: string
+  color: string
+  time?: string
+  done?: boolean
 }
 
-export function EventCalendar({ deadlineEvents = [] }: EventCalendarProps) {
+const MEETING_COLORS = ['#818cf8', '#fb7185', '#fbbf24', '#2dd4bf', '#a78bfa', '#f97316']
+
+interface EventCalendarProps {
+  deadlineEvents?: DeadlineEvent[]
+  completedTasks?: Set<string>
+}
+
+export function EventCalendar({ deadlineEvents = [], completedTasks }: EventCalendarProps) {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
   const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
   const [month, setMonth] = useState(4)
   const [year, setYear] = useState(2026)
+  const [customMeetings, setCustomMeetings] = useState<CustomMeeting[]>([])
+  const [showAddForm, setShowAddForm] = useState<{ day: number } | null>(null)
+  const [newMeetingText, setNewMeetingText] = useState('')
+  const [newMeetingTime, setNewMeetingTime] = useState('')
+  const [newMeetingColor, setNewMeetingColor] = useState('#818cf8')
 
   useEffect(() => {
     const now = new Date()
@@ -81,12 +95,49 @@ export function EventCalendar({ deadlineEvents = [] }: EventCalendarProps) {
     setMonth(newMonth); setYear(newYear)
   }
 
+  /* ─ filter out completed task events from calendar ─ */
+  const activeDeadlineEvents = completedTasks
+    ? deadlineEvents.filter(e => !completedTasks.has(e.label))
+    : deadlineEvents
+
+  const addMeeting = (day: number) => {
+    if (!newMeetingText.trim()) return
+    setCustomMeetings(prev => [...prev, {
+      id: `mtg-${Date.now()}`,
+      day, month, year,
+      label: newMeetingText.trim(),
+      color: newMeetingColor,
+      time: newMeetingTime || undefined,
+    }])
+    setNewMeetingText('')
+    setNewMeetingTime('')
+    setShowAddForm(null)
+  }
+
+  const removeMeeting = (id: string) => {
+    setCustomMeetings(prev => prev.filter(m => m.id !== id))
+  }
+
+  const getMeetingsForDay = (day: number, m: number, y: number) => {
+    return customMeetings.filter(mtg =>
+      mtg.day === day && mtg.month === m && mtg.year === y && !mtg.done
+    )
+  }
+
   return (
     <div style={CARD}>
       <div style={GLOW_LINE} />
       <div style={HEADER_BAR}>
         <div className="flex justify-between items-center" style={{ position: 'relative' }}>
-          <span style={TITLE}>Event Calendar</span>
+          <div className="flex items-center gap-2">
+            <span style={TITLE}>Event Calendar</span>
+            {/* + Meeting button */}
+            <button onClick={() => setShowAddForm(showAddForm ? null : { day: today.d })}
+              className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+              title="Add meeting">
+              <IconPlus size={13} />
+            </button>
+          </div>
           <div style={TOGGLE_WRAP}>
             {(['d', 'm', 'w'] as const).map(v => (
               <button key={v} onClick={() => setView(v)} style={togBtn(view === v)}>
@@ -96,6 +147,56 @@ export function EventCalendar({ deadlineEvents = [] }: EventCalendarProps) {
           </div>
         </div>
       </div>
+
+      {/* Add meeting inline form */}
+      {showAddForm && (
+        <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600 }}>
+              New meeting — {MONTH_NAMES[month]} {showAddForm.day}
+            </span>
+            <button onClick={() => setShowAddForm(null)} className="ml-auto text-slate-500 hover:text-white">
+              <IconX size={12} />
+            </button>
+          </div>
+          <div className="flex gap-1.5">
+            <input value={newMeetingText} onChange={e => setNewMeetingText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addMeeting(showAddForm.day) }}
+              placeholder="Meeting name..."
+              style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#fff', outline: 'none' }} />
+            <input value={newMeetingTime} onChange={e => setNewMeetingTime(e.target.value)}
+              placeholder="14:00" type="time"
+              style={{ width: 72, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '4px 6px', fontSize: 11, color: '#fff', outline: 'none', colorScheme: 'dark' }} />
+            <div className="flex gap-0.5">
+              {MEETING_COLORS.map(c => (
+                <button key={c} onClick={() => setNewMeetingColor(c)}
+                  style={{ width: 16, height: 16, borderRadius: 4, background: c, border: newMeetingColor === c ? '2px solid #fff' : '2px solid transparent', cursor: 'pointer' }} />
+              ))}
+            </div>
+            <button onClick={() => addMeeting(showAddForm.day)}
+              style={{ background: '#6366f1', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 600, color: '#fff' }}>
+              Add
+            </button>
+          </div>
+          {/* Day picker row */}
+          <div className="flex gap-0.5 mt-1.5 overflow-x-auto">
+            {Array.from({ length: getDaysInMonth(month, year) }).map((_, i) => {
+              const d = i + 1
+              const isSelected = showAddForm.day === d
+              const isToday = d === today.d && month === today.m && year === today.y
+              return (
+                <button key={d} onClick={() => setShowAddForm({ day: d })}
+                  style={{
+                    width: 22, height: 22, borderRadius: 4, border: 'none', cursor: 'pointer',
+                    fontSize: 9, fontWeight: isSelected ? 700 : 400, flexShrink: 0,
+                    background: isSelected ? '#6366f1' : 'transparent',
+                    color: isSelected ? '#fff' : isToday ? '#fb7185' : '#475569',
+                  }}>{d}</button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="px-3.5 py-3">
         {view !== 'd' && (
@@ -115,16 +216,24 @@ export function EventCalendar({ deadlineEvents = [] }: EventCalendarProps) {
             </div>
           </div>
         )}
-        {view === 'm' && <MonthView month={month} year={year} today={today} deadlineEvents={deadlineEvents} />}
-        {view === 'w' && <WeekView today={today} deadlineEvents={deadlineEvents} />}
-        {view === 'd' && <DayView today={today} deadlineEvents={deadlineEvents} />}
+        {view === 'm' && <MonthView month={month} year={year} today={today}
+          deadlineEvents={activeDeadlineEvents} customMeetings={customMeetings}
+          onClickDay={(day) => setShowAddForm({ day })}
+          onRemoveMeeting={removeMeeting} />}
+        {view === 'w' && <WeekView today={today} deadlineEvents={activeDeadlineEvents}
+          customMeetings={customMeetings} month={month} year={year} />}
+        {view === 'd' && <DayView today={today} deadlineEvents={activeDeadlineEvents}
+          customMeetings={customMeetings} month={month} year={year} />}
       </div>
     </div>
   )
 }
 
-function MonthView({ month, year, today, deadlineEvents }: {
-  month: number; year: number; today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
+/* ─── Month View ─── */
+function MonthView({ month, year, today, deadlineEvents, customMeetings, onClickDay, onRemoveMeeting }: {
+  month: number; year: number; today: { d: number; m: number; y: number }
+  deadlineEvents: DeadlineEvent[]; customMeetings: CustomMeeting[]
+  onClickDay: (day: number) => void; onRemoveMeeting: (id: string) => void
 }) {
   const startDay = getFirstDayOfMonth(month, year)
   const daysInMonth = getDaysInMonth(month, year)
@@ -147,18 +256,26 @@ function MonthView({ month, year, today, deadlineEvents }: {
             const d = new Date(e.date + 'T00:00')
             return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year
           }).map(e => ({ label: e.label, color: e.color }))
-          const dayEvents = [...regularEvents, ...taskEvents]
+          const meetingEvents = customMeetings
+            .filter(m => m.day === day && m.month === month && m.year === year && !m.done)
+            .map(m => ({ label: m.label, color: m.color, id: m.id }))
+          const dayEvents = [...regularEvents, ...taskEvents, ...meetingEvents]
 
           return (
-            <div key={day} className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors ${
-              isToday ? 'border-rose-400/60' : 'border-transparent hover:bg-white/[0.03] hover:border-white/10'
-            }`} style={isToday ? { background: 'rgba(244, 63, 94, 0.12)' } : {}}>
+            <div key={day}
+              className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors cursor-pointer ${
+                isToday ? 'border-rose-400/60' : 'border-transparent hover:bg-white/[0.03] hover:border-white/10'
+              }`}
+              style={isToday ? { background: 'rgba(244, 63, 94, 0.12)' } : {}}
+              onClick={() => onClickDay(day)}>
               <span className={`text-[11px] leading-none mb-[2px] ${
                 isToday ? 'text-rose-300 font-bold' : 'text-slate-300 font-semibold'
               }`} style={{ fontVariantNumeric: 'tabular-nums' }}>{day}</span>
               {dayEvents.slice(0, 2).map((ev, j) => (
                 <div key={j} className="text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
-                  style={{ background: `${ev.color}22`, color: ev.color, border: `1px solid ${ev.color}44` }}>{ev.label}</div>
+                  style={{ background: `${ev.color}22`, color: ev.color, border: `1px solid ${ev.color}44` }}>
+                  {ev.label}
+                </div>
               ))}
               {dayEvents.length > 2 && (
                 <div className="text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] bg-white/5 text-slate-500">+{dayEvents.length - 2}</div>
@@ -171,9 +288,13 @@ function MonthView({ month, year, today, deadlineEvents }: {
   )
 }
 
-function WeekView({ today, deadlineEvents }: { today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[] }) {
+/* ─── Week View ─── */
+function WeekView({ today, deadlineEvents, customMeetings, month, year }: {
+  today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
+  customMeetings: CustomMeeting[]; month: number; year: number
+}) {
   const cols = (() => {
-    const result: { name: string; day: number; dateStr: string }[] = []
+    const result: { name: string; day: number; dateStr: string; month: number; year: number }[] = []
     const base = new Date(today.y, today.m, today.d)
     const dayOfWeek = base.getDay()
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
@@ -181,9 +302,9 @@ function WeekView({ today, deadlineEvents }: { today: { d: number; m: number; y:
       const d = new Date(base); d.setDate(base.getDate() + mondayOffset + i)
       const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
       result.push({
-        name: names[i],
-        day: d.getDate(),
+        name: names[i], day: d.getDate(),
         dateStr: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        month: d.getMonth(), year: d.getFullYear(),
       })
     }
     return result
@@ -192,11 +313,14 @@ function WeekView({ today, deadlineEvents }: { today: { d: number; m: number; y:
   return (
     <div className="grid grid-cols-7 gap-1">
       {cols.map(c => {
-        const isToday = c.day === today.d
+        const isToday = c.day === today.d && c.month === today.m
         const regularEvents = WEEK_EVENTS[c.day] || []
         const taskEvents = deadlineEvents.filter(e => e.date === c.dateStr)
           .map(e => ({ label: e.label, color: e.color, time: 'All day' }))
-        const events = [...regularEvents, ...taskEvents]
+        const meetingEvents = customMeetings
+          .filter(m => m.day === c.day && m.month === c.month && m.year === c.year && !m.done)
+          .map(m => ({ label: m.label, color: m.color, time: m.time || 'All day' }))
+        const events = [...regularEvents, ...taskEvents, ...meetingEvents]
 
         return (
           <div key={c.day} className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 border overflow-hidden ${
@@ -204,7 +328,7 @@ function WeekView({ today, deadlineEvents }: { today: { d: number; m: number; y:
           }`} style={isToday ? { background: 'rgba(244, 63, 94, 0.10)' } : {}}>
             <div className="text-center mb-1">
               <div className={`text-[9px] font-semibold uppercase tracking-[0.12em] ${isToday ? 'text-rose-300' : 'text-slate-500'}`}>{c.name}</div>
-              <div style={{ ...DISPLAY_FONT, fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}
+              <div style={{ ...({ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif', fontWeight: 700, letterSpacing: '-0.025em' }), fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center mx-auto mt-0.5 leading-none ${
                   isToday ? 'text-rose-300' : 'text-white'
                 }`}>{c.day}</div>
@@ -226,26 +350,35 @@ function WeekView({ today, deadlineEvents }: { today: { d: number; m: number; y:
   )
 }
 
-function DayView({ today, deadlineEvents }: { today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[] }) {
+/* ─── Day View ─── */
+function DayView({ today, deadlineEvents, customMeetings, month, year }: {
+  today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
+  customMeetings: CustomMeeting[]; month: number; year: number
+}) {
   const dateStr = new Date(today.y, today.m, today.d).toLocaleDateString('en-US', {
     weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
   })
-
   const todayStr = `${today.y}-${String(today.m + 1).padStart(2, '0')}-${String(today.d).padStart(2, '0')}`
   const allDayEvents = deadlineEvents.filter(e => e.date === todayStr && e.hour === undefined)
   const timedDeadlines = deadlineEvents.filter(e => e.date === todayStr && e.hour !== undefined)
 
+  const todayMeetings = customMeetings.filter(m =>
+    m.day === today.d && m.month === today.m && m.year === today.y && !m.done
+  )
+  const allDayMeetings = todayMeetings.filter(m => !m.time)
+  const timedMeetings = todayMeetings.filter(m => m.time)
+
   return (
     <>
       <div className="mb-3 flex items-center justify-between">
-        <span style={{ ...DISPLAY_FONT, fontSize: '20px', color: '#ffffff' }}>{dateStr}</span>
+        <span style={{ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif', fontWeight: 700, letterSpacing: '-0.025em', fontSize: '20px', color: '#ffffff' }}>{dateStr}</span>
         <span style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.16em', color: '#fb7185' }}>Today</span>
       </div>
 
-      {allDayEvents.length > 0 && (
+      {(allDayEvents.length > 0 || allDayMeetings.length > 0) && (
         <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 4 }}>All day</div>
-          {allDayEvents.map((ev, i) => (
+          {[...allDayEvents, ...allDayMeetings.map(m => ({ label: m.label, color: m.color, date: todayStr }))].map((ev, i) => (
             <div key={i} style={{
               background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`,
               borderRadius: '0 6px 6px 0', padding: '4px 8px', marginBottom: 2,
@@ -261,14 +394,15 @@ function DayView({ today, deadlineEvents }: { today: { d: number; m: number; y: 
         const hour = i + 8
         const staticEvents = DAY_EVENTS.filter(e => e.hour === hour)
         const deadlineAtHour = timedDeadlines.filter(e => e.hour === hour)
-          .map(e => ({
-            label: e.label,
-            color: e.color,
-            hour,
-            end: hour + 1,
-            timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}`,
-          }))
-        const events = [...staticEvents.map(e => ({ ...e, timeLabel: `${e.hour.toString().padStart(2, '0')}:00` })), ...deadlineAtHour]
+          .map(e => ({ label: e.label, color: e.color, hour, end: hour + 1, timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}` }))
+        const meetingAtHour = timedMeetings
+          .filter(m => m.time && parseInt(m.time.split(':')[0]) === hour)
+          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time! }))
+        const events = [
+          ...staticEvents.map(e => ({ ...e, timeLabel: `${e.hour.toString().padStart(2, '0')}:00` })),
+          ...deadlineAtHour,
+          ...meetingAtHour,
+        ]
         const isNow = hour === new Date().getHours()
         const hasContent = events.length > 0 || isNow
 
