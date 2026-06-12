@@ -13,7 +13,6 @@ import { TaskModal } from '@/components/dashboard/task-modal'
 import { QuickCapture } from '@/components/dashboard/quick-capture'
 import { FocusTimer } from '@/components/dashboard/focus-timer'
 import { DailyShutdown } from '@/components/dashboard/daily-shutdown'
-import { PROJECTS, LT_GOALS, TOP_PRIO_TASKS, DAY_EVENTS, Project } from '@/lib/data'
 import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
 import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone, loadCapturedTasks, saveCapturedTasks } from '@/lib/task-meta'
 import { IconMoon, IconChartBar } from '@tabler/icons-react'
@@ -131,8 +130,7 @@ const [showAnalytics, setShowAnalytics] = useState(false)
     })
 
     // Meeting time from static events
-    let meetingMin = 0
-    DAY_EVENTS.forEach(ev => { meetingMin += (ev.end - ev.hour) * 60 })
+    let meetingMin = 300 // 5h meetings (adjust manually)
 
     const availableMin = 480 - meetingMin // 8h day minus meetings
     const overloaded = plannedMin > availableMin
