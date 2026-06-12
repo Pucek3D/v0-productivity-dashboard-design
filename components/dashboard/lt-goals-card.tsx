@@ -75,7 +75,7 @@ function GT({ goal, projectDone, toggleProjectTask, getProjectCompletion, isExpa
         <div className="flex items-center justify-between mt-1.5 mb-2 gap-2">
           <span className="flex items-center gap-1.5 whitespace-nowrap min-w-0">
             <span className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${isUrgent?'pulse-soft':''}`} style={{background:style.text,boxShadow:`0 0 6px ${style.text}`}} />
-            <span className="text-[9px] font-semibold uppercase tracking-[0.10em] truncate" style={{color:style.text}}>{autoStatus}{streak>5&&<span style={{fontSize:8,fontWeight:700,color:'#fbbf24',marginLeft:4}}>🔥{streak}</span>}</span>
+            <span className="text-[9px] font-semibold uppercase tracking-[0.10em] truncate" style={{color:style.text}}>{autoStatus}{false&&streak>5&&<span style={{fontSize:8,fontWeight:700,color:'#fbbf24',marginLeft:4}}>🔥{streak}</span>}</span>
           </span>
           <span className="font-display text-[22px] tabular leading-none flex-shrink-0" style={{color:goal.color,textShadow:`0 0 16px ${goal.color}aa, 0 0 32px ${goal.color}55`}}>{pct}%</span>
         </div>
