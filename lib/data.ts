@@ -215,13 +215,6 @@ export const WEEK_EVENTS: Record<number, { time: string; label: string; color: s
   30: [{ time: '09:00', label: 'Trainings TL block', color: '#7c3aed' }],
 }
 
-export const DAY_EVENTS = [
-  { hour: 9, end: 10, label: 'Morning planning + emails', color: '#9ca3af' },
-  { hour: 11, end: 12, label: 'Respond to Varun', color: '#2563eb' },
-  { hour: 13, end: 14, label: 'Meeting doc for John', color: '#374151' },
-  { hour: 14, end: 15, label: 'PPK email Christine', color: '#dc2626' },
-  { hour: 15, end: 16, label: 'Monthly check-in', color: '#d97706' },
-]
 
 export const GANTT_DATA = [
   { name: 'Health', color: '#059669', active: [1, 1, 1, 1] },
