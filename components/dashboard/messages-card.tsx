@@ -1,91 +1,63 @@
 'use client'
 import { useState } from 'react'
-import { MESSAGES } from '@/lib/data'
-import { IconGripVertical } from '@tabler/icons-react'
-import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { IconTrash, IconPlus } from '@tabler/icons-react'
 
-interface Item {
-  id: number
-  text: string
-  done: boolean
-}
+const INITIAL_MESSAGES = [
+  { id: 'm1', text: 'Varun — respond today', done: false },
+  { id: 'm2', text: 'Surabhi — AI initiative (Jun 5)', done: false },
+  { id: 'm3', text: 'John — meeting doc needed', done: false },
+  { id: 'm4', text: 'Himadri — write meeting note', done: false },
+  { id: 'm5', text: 'Prashant — act on findings', done: false },
+  { id: 'm6', text: 'Anurag — skill status follow-up', done: false },
+  { id: 'm7', text: 'Konrad — PPK + workshop?', done: false },
+  { id: 'm8', text: 'Shratha — review case example', done: false },
+]
 
 export function MessagesCard() {
-  const [items, setItems] = useState<Item[]>(() =>
-    MESSAGES.map((text, i) => ({ id: i, text, done: false }))
-  )
+  const [messages, setMessages] = useState(INITIAL_MESSAGES)
+  const [newMsg, setNewMsg] = useState('')
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-
-  const toggle = (id: number) => {
-    setItems(prev => {
-      const updated = prev.map(it => (it.id === id ? { ...it, done: !it.done } : it))
-      return updated.sort((a, b) => Number(a.done) - Number(b.done))
-    })
-  }
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    setItems(prev => {
-      const oldIdx = prev.findIndex(it => it.id === active.id)
-      const newIdx = prev.findIndex(it => it.id === over.id)
-      return arrayMove(prev, oldIdx, newIdx)
-    })
+  const toggle = (id: string) => setMessages(prev => prev.map(m => m.id === id ? { ...m, done: !m.done } : m))
+  const remove = (id: string) => setMessages(prev => prev.filter(m => m.id !== id))
+  const add = () => {
+    if (!newMsg.trim()) return
+    setMessages(prev => [...prev, { id: `m${Date.now()}`, text: newMsg.trim(), done: false }])
+    setNewMsg('')
   }
 
   return (
-    <div className="card-base halo-indigo">
-      <div className="section-header px-4 py-3">
+    <div className="card-base halo-stone">
+      <div className="section-header header-stone px-4 py-3">
         <span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Messages</span>
       </div>
-      <div className="px-3.5 py-2.5">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={items.map(it => it.id)} strategy={verticalListSortingStrategy}>
-            {items.map((it, i) => (
-              <SortableMessage key={it.id} item={it} isLast={i === items.length - 1} onToggle={() => toggle(it.id)} />
-            ))}
-          </SortableContext>
-        </DndContext>
+      <div className="px-3.5 py-3">
+        {messages.map(msg => (
+          <div key={msg.id} className="flex items-start gap-2 py-[3px] group">
+            <div onClick={() => toggle(msg.id)}
+              className={`w-3 h-3 rounded-[3px] border flex-shrink-0 flex items-center justify-center mt-[2px] cursor-pointer ${
+                msg.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'
+              }`}>
+              {msg.done && <span className="text-indigo-300 text-[7px] font-bold leading-none">✓</span>}
+            </div>
+            <span className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${msg.done ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
+              {msg.text}
+            </span>
+            <button onClick={() => remove(msg.id)}
+              className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none flex-shrink-0 mt-[2px]">
+              <IconTrash size={11} className="text-slate-500 hover:text-rose-400" />
+            </button>
+          </div>
+        ))}
+
+        {/* Add message */}
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
+          <span className="text-slate-600"><IconPlus size={12} /></span>
+          <input value={newMsg} onChange={e => setNewMsg(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') add() }}
+            placeholder="Add message..."
+            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 11, color: '#e2e8f0', fontFamily: 'inherit' }} />
+        </div>
       </div>
-    </div>
-  )
-}
-
-function SortableMessage({ item, isLast, onToggle }: { item: Item; isLast: boolean; onToggle: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 10 : 'auto' as any,
-  }
-
-  return (
-    <div ref={setNodeRef} style={style}
-      className={`flex items-center gap-2.5 py-[5px] group cursor-pointer select-none ${
-        !isLast ? 'border-b border-white/5' : ''
-      }`}>
-      <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab">
-        <IconGripVertical size={10} className="text-slate-600" />
-      </span>
-      <div onClick={onToggle}
-        className={`w-3 h-3 rounded-[3px] border flex-shrink-0 flex items-center justify-center transition-all ${
-          item.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5 group-hover:border-slate-400'
-        }`}>
-        {item.done && <span className="text-indigo-300 text-[7px] font-bold leading-none">✓</span>}
-      </div>
-      <span className={`text-[12.5px] leading-[1.35] ${
-        item.done ? 'text-slate-500 line-through' : 'text-slate-200'
-      }`}>
-        {item.text}
-      </span>
     </div>
   )
 }
