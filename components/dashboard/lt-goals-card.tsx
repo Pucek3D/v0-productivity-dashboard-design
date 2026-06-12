@@ -197,8 +197,8 @@ function GoalTile({
           {visible.map(t => (
             <div key={t.originalIdx} className="flex items-start gap-1 py-0.5 cursor-pointer select-none group" onClick={() => openModal(`proj-${goal.key}-${t.originalIdx}`, t.task)}>
               <div onClick={e => { e.stopPropagation(); toggleProjectTask(goal.key, 'task', t.originalIdx) }}
-                className={`w-2.5 h-2.5 rounded-[2.5px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${t.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>
-                {t.done && <span className="text-indigo-300 text-[6.5px] font-bold leading-none">✓</span>}
+                className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center mt-[2px] ${t.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>
+                {t.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}
               </div>
               <span className={`text-[12px] leading-[1.35] break-words min-w-0 flex-1 ${t.done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{t.task}</span>
               <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
