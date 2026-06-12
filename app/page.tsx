@@ -173,6 +173,11 @@ const timeStats = useMemo(() => {
                   {timeStats.meetingEvents.map((t,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:i<timeStats.meetingEvents.length-1?'1px solid rgba(255,255,255,0.04)':'none'}}><span style={{fontSize:11,color:'#e2e8f0',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginRight:8}}>{t.label}</span><span style={{fontSize:10,fontWeight:600,color:'#fbbf24',flexShrink:0}}>{t.time}</span></div>)}
                 </div>}
               </div>
+              <div style={{width:1,height:20,background:'rgba(255,255,255,0.06)'}} />
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:14,fontWeight:700,color:'#2dd4bf',fontVariantNumeric:'tabular-nums'}}>{fmtTime(timeStats.focusedMin)}</div>
+                <div style={{fontSize:8,color:'#475569',textTransform:'uppercase',letterSpacing:'0.10em',fontWeight:600}}>Focused</div>
+              </div>
               {timeStats.overloaded&&<><div style={{width:1,height:20,background:'rgba(255,255,255,0.06)'}} /><span style={{fontSize:8,fontWeight:700,color:'#fb7185',background:'rgba(244,63,94,0.15)',padding:'2px 6px',borderRadius:4,textTransform:'uppercase'}}>Overloaded</span></>}
             </div>
             <button onClick={()=>setShowAnalytics(true)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',background:'rgba(45,212,191,0.10)',border:'1px solid rgba(45,212,191,0.20)',borderRadius:10,cursor:'pointer',color:'#2dd4bf',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}><IconChartBar size={14} /> Weekly Review</button>
