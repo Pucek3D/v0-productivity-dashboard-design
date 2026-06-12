@@ -238,7 +238,7 @@ function WeekView({ today, deadlineEvents }: { today: { d: number; m: number; y:
                 <div className="text-[9.5px] font-bold" style={{ color: ev.color, fontVariantNumeric: 'tabular-nums' }}>
                   {ev.time}
                 </div>
-                <div className="text-[10px] font-semibold leading-[1.25] text-slate-200 mt-px">
+                <div className="text-[10px] font-semibold leading-[1.25] text-slate-200 mt-px overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                   {ev.label}
                 </div>
               </div>
@@ -258,6 +258,8 @@ function DayView({ today, deadlineEvents }: { today: { d: number; m: number; y: 
 
   const todayStr = `${today.y}-${String(today.m + 1).padStart(2, '0')}-${String(today.d).padStart(2, '0')}`
  const allDayEvents = deadlineEvents.filter(e => e.date === todayStr && e.hour === undefined)
+
+ <div key={c.day} className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 border overflow-hidden ${
 
   return (
     <>
