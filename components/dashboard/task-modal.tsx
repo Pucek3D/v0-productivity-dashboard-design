@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconPlus, IconTrash, IconTarget } from '@tabler/icons-react'
 import { type TaskMeta, getDateLabel } from '@/lib/task-meta'
-import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconChecklist, IconPlus, IconTrash, IconTarget } from '@tabler/icons-react'
 
 interface TaskModalProps {
   taskKey: string
@@ -26,7 +26,6 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   const [newLink, setNewLink] = useState('')
   const [newSubtask, setNewSubtask] = useState('')
   const descRef = useRef<HTMLTextAreaElement>(null)
-  
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -68,7 +67,6 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   }
 
   const dateInfo = meta.deadline ? getDateLabel(meta.deadline) : null
-  const timeStr = meta.hour !== undefined ? `${meta.hour.toString().padStart(2, '0')}:${(meta.minute ?? 0).toString().padStart(2, '0')}` : null
   const subtasksDone = (meta.subtasks || []).filter(s => s.done).length
   const subtasksTotal = (meta.subtasks || []).length
 
@@ -98,50 +96,69 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
             </div>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1.3 }}>
               {taskLabel}
-              {onStartFocus && (
-  <button onClick={() => { onStartFocus(taskKey, taskLabel); onClose() }}
-    style={{
-      display: 'flex', alignItems: 'center', gap: 4, marginTop: 8,
-      background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)',
-      borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
-      fontSize: 10, fontWeight: 600, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.06em',
-    }}>
-    <IconTarget size={12} /> Start Focus
-  </button>
-)}
             </h2>
+            {onStartFocus && (
+              <button onClick={() => { onStartFocus(taskKey, taskLabel); onClose() }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4, marginTop: 8,
+                  background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)',
+                  borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+                  fontSize: 10, fontWeight: 600, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.06em',
+                }}>
+                <IconTarget size={12} /> Start Focus
+              </button>
+            )}
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
             <IconX size={18} color="#64748b" />
           </button>
         </div>
-        
 
         {/* Body */}
         <div style={{ padding: '16px 20px', flex: 1 }}>
 
-          {/* Meta row: deadline + owner + priority + estimate */}
+          {/* Meta grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+
+            {/* Deadline */}
             <div>
-  <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-    <IconCalendar size={14} color="#64748b" /> Deadline
-  </div>
-  <input
-    type="date"
-    value={meta.deadline || ''}
-    onChange={e => onUpdate({ deadline: e.target.value || undefined })}
-    style={{
-      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none',
-      colorScheme: 'dark', width: '100%',
-    }}
-  />
-</div>
+              <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <IconCalendar size={14} color="#64748b" /> Deadline
+              </div>
+              <input
+                type="date"
+                value={meta.deadline || ''}
+                onChange={e => onUpdate({ deadline: e.target.value || undefined })}
+                style={{
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none',
+                  colorScheme: 'dark', width: '100%',
+                }}
+              />
+              {dateInfo && (
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-1 inline-block ${dateInfo.className}`}>
+                  {dateInfo.text}
+                </span>
+              )}
+            </div>
+
             {/* Owner */}
-            <MetaField icon={<IconUser size={14} />} label="Owner"
-              value={meta.owner ? <span style={{ color: '#2dd4bf', fontSize: 12, fontWeight: 600 }}>{meta.owner}</span> : null}
-              empty="Unassigned"
-            />
+            <div>
+              <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <IconUser size={14} color="#64748b" /> Owner
+              </div>
+              <input
+                value={meta.owner || ''}
+                onChange={e => onUpdate({ owner: e.target.value || undefined })}
+                placeholder="Assign owner..."
+                style={{
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none',
+                  width: '100%',
+                }}
+              />
+            </div>
+
             {/* Priority */}
             <div>
               <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -162,6 +179,7 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
                 ))}
               </div>
             </div>
+
             {/* Time Estimate */}
             <div>
               <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -181,29 +199,38 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
                   </button>
                 ))}
               </div>
+              {/* Actual time */}
+              {meta.actualTime && meta.actualTime > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  <span style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600 }}>
+                    Actual:{' '}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#2dd4bf' }}>
+                    {meta.actualTime >= 60 ? `${Math.floor(meta.actualTime / 60)}h ${meta.actualTime % 60}m` : `${meta.actualTime}m`}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
-{/* Recurring */}
-<div>
-  <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-    🔄 Recurring
-  </div>
-  <div style={{ display: 'flex', gap: 4 }}>
-    {(['daily', 'weekly', 'monthly'] as const).map(freq => (
-      <button key={freq} onClick={() => onUpdate({ recurring: meta.recurring === freq ? null : freq })}
-        style={{
-          padding: '3px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 10, fontWeight: 600,
-          border: 'none', textTransform: 'uppercase', letterSpacing: '0.06em',
-          background: meta.recurring === freq ? 'rgba(45,212,191,0.15)' : 'rgba(255,255,255,0.04)',
-          color: meta.recurring === freq ? '#2dd4bf' : '#475569',
-          boxShadow: meta.recurring === freq ? 'inset 0 0 0 1px rgba(45,212,191,0.3)' : 'none',
-        }}>
-        {freq}
-      </button>
-    ))}
-  </div>
-</div>
+          {/* Recurring */}
+          <Section label="🔄 Recurring">
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(['daily', 'weekly', 'monthly'] as const).map(freq => (
+                <button key={freq} onClick={() => onUpdate({ recurring: meta.recurring === freq ? null : freq })}
+                  style={{
+                    padding: '3px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 10, fontWeight: 600,
+                    border: 'none', textTransform: 'uppercase', letterSpacing: '0.06em',
+                    background: meta.recurring === freq ? 'rgba(45,212,191,0.15)' : 'rgba(255,255,255,0.04)',
+                    color: meta.recurring === freq ? '#2dd4bf' : '#475569',
+                    boxShadow: meta.recurring === freq ? 'inset 0 0 0 1px rgba(45,212,191,0.3)' : 'none',
+                  }}>
+                  {freq}
+                </button>
+              ))}
+            </div>
+          </Section>
+
           {/* Description */}
           <Section label="Notes / Description">
             <textarea ref={descRef} value={desc} onChange={e => setDesc(e.target.value)} onBlur={saveDesc}
@@ -306,17 +333,6 @@ function Section({ label, children }: { label: string; children: React.ReactNode
         {label}
       </div>
       {children}
-    </div>
-  )
-}
-
-function MetaField({ icon, label, value, empty }: { icon: React.ReactNode; label: string; value: React.ReactNode; empty: string }) {
-  return (
-    <div>
-      <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-        {icon} {label}
-      </div>
-      {value || <span style={{ fontSize: 11, color: '#334155' }}>{empty}</span>}
     </div>
   )
 }
