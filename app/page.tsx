@@ -174,9 +174,7 @@ const [showAnalytics, setShowAnalytics] = useState(false)
             }}>
               <TimeStatBadge label="Planned" value={fmtTime(timeStats.plannedMin)}
                 color={timeStats.overloaded ? '#fb7185' : '#818cf8'} />
-              <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
-              <TimeStatBadge label="Available" value={fmtTime(timeStats.availableMin)} color="#2dd4bf" />
-              <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
+             <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
               <TimeStatBadge label="Meetings" value={fmtTime(timeStats.meetingMin)} color="#fbbf24" />
               {timeStats.overloaded && (
                 <span style={{
