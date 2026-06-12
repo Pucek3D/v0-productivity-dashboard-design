@@ -10,14 +10,13 @@ import { ActiveProjectsCard } from '@/components/dashboard/active-projects-card'
 import { OtherTodoCard } from '@/components/dashboard/other-todo-card'
 import { LtGoalsCard } from '@/components/dashboard/lt-goals-card'
 import { TaskModal } from '@/components/dashboard/task-modal'
-import { QuickCapture } from '@/components/dashboard/quick-capture'
 import { FocusTimer } from '@/components/dashboard/focus-timer'
 import { DailyShutdown } from '@/components/dashboard/daily-shutdown'
-import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
-import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone, loadCapturedTasks, saveCapturedTasks } from '@/lib/task-meta'
-import { IconMoon, IconChartBar } from '@tabler/icons-react'
 import { WeeklyAnalytics } from '@/components/dashboard/weekly-analytics'
 import { PROJECTS, LT_GOALS, TOP_PRIO_TASKS, Project } from '@/lib/data'
+import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
+import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone } from '@/lib/task-meta'
+import { IconMoon, IconChartBar } from '@tabler/icons-react'
 
 export default function Dashboard() {
   /* ── Header date ── */
@@ -42,7 +41,6 @@ export default function Dashboard() {
   })
   useEffect(() => { const saved = loadProjectDone(); if (saved) setProjectDone(saved) }, [])
   useEffect(() => { saveProjectDone(projectDone) }, [projectDone])
-  
 
   const toggleProjectTask = useCallback((projectKey: string, taskType: 'task' | 'done', index: number) => {
     const key = taskType === 'done' ? `${projectKey}-done-${index}` : `${projectKey}-task-${index}`
@@ -74,17 +72,30 @@ export default function Dashboard() {
       .map(([, m]) => ({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8', hour: m.hour, minute: m.minute }))
   }, [taskMeta])
 
-  /* ── Quick capture (persisted) ── */
-  const [captured, setCaptured] = useState<string[]>([])
-  useEffect(() => { setCaptured(loadCapturedTasks()) }, [])
-  useEffect(() => { saveCapturedTasks(captured) }, [captured])
-  const addCapture = useCallback((text: string) => setCaptured(prev => [text, ...prev]), [])
-  const removeCapture = useCallback((idx: number) => setCaptured(prev => prev.filter((_, i) => i !== idx)), [])
+  /* ── Top Prio tasks (lifted state) ── */
+  const [prioTasks, setPrioTasks] = useState(TOP_PRIO_TASKS)
 
-  /* ── Task modal ── */
+  const addPrioTask = useCallback((text: string) => {
+    setPrioTasks(prev => {
+      const newTasks = [...prev]
+      const otherIdx = newTasks.findIndex(s => s.section === 'Other')
+      if (otherIdx >= 0) {
+        const section = { ...newTasks[otherIdx] }
+        section.tasks = [...section.tasks, { id: `q${Date.now()}`, text, done: false, priority: 'gray' as const }]
+        newTasks[otherIdx] = section
+      }
+      return newTasks
+    })
+  }, [])
+
+  /* ── Modals ── */
   const [modalTask, setModalTask] = useState<{ key: string; label: string } | null>(null)
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showShutdown, setShowShutdown] = useState(false)
+  const [showPlanned, setShowPlanned] = useState(false)
+  const [showMeetings, setShowMeetings] = useState(false)
+
   const openModal = useCallback((key: string, label: string) => setModalTask({ key, label }), [])
-const [showAnalytics, setShowAnalytics] = useState(false)
 
   /* ── Focus timer ── */
   const [focusTask, setFocusTask] = useState<{ key: string; label: string } | null>(null)
@@ -94,50 +105,60 @@ const [showAnalytics, setShowAnalytics] = useState(false)
   }, [])
 
   const stopFocus = useCallback((key: string, elapsedMinutes: number) => {
-  if (elapsedMinutes > 0) {
-    setTaskMeta(prev => {
-      const existing = prev[key] || {}
-      const prevActual = (existing as any).actualTime || 0
-      return { ...prev, [key]: { ...existing, actualTime: prevActual + elapsedMinutes } }
-    })
-  }
-}, [])
-
-  /* ── Daily shutdown ── */
-  const [showShutdown, setShowShutdown] = useState(false)
+    if (elapsedMinutes > 0) {
+      setTaskMeta(prev => {
+        const existing = prev[key] || {}
+        const prevActual = (existing as any).actualTime || 0
+        return { ...prev, [key]: { ...existing, actualTime: prevActual + elapsedMinutes } }
+      })
+    }
+  }, [])
 
   /* ── Time stats ── */
   const timeStats = useMemo(() => {
     let plannedMin = 0
     let totalTodayTasks = 0
     let doneTodayTasks = 0
+    const plannedTasks: { label: string; time: number }[] = []
+    const meetingEvents: { label: string; time: string }[] = []
+    let meetingMin = 0
 
-    // Count Top Prio tasks
-    TOP_PRIO_TASKS.forEach(section => {
+    const todayStr = new Date().toISOString().slice(0, 10)
+
+    // Top Prio tasks
+    prioTasks.forEach(section => {
       section.tasks.forEach(task => {
         totalTodayTasks++
         if (task.done) doneTodayTasks++
         const meta = taskMeta[`prio-${task.id}`]
-        if (meta?.timeEstimate) plannedMin += meta.timeEstimate
+        if (meta?.timeEstimate) {
+          plannedMin += meta.timeEstimate
+          plannedTasks.push({ label: task.text, time: meta.timeEstimate })
+        }
       })
     })
 
-    // Count tasks with today deadline
-    const todayStr = new Date().toISOString().slice(0, 10)
+    // Tasks with today deadline
     Object.entries(taskMeta).forEach(([key, m]) => {
       if (m.deadline === todayStr && !key.startsWith('prio-')) {
-        if (m.timeEstimate) plannedMin += m.timeEstimate
+        if (m.timeEstimate) {
+          plannedMin += m.timeEstimate
+          plannedTasks.push({ label: m.label || key, time: m.timeEstimate })
+        }
+        if (m.hour !== undefined) {
+          meetingMin += 60
+          meetingEvents.push({
+            label: m.label || key,
+            time: `${m.hour.toString().padStart(2, '0')}:${(m.minute ?? 0).toString().padStart(2, '0')}`,
+          })
+        }
       }
     })
 
-    // Meeting time from static events
-    let meetingMin = 300 // 5h meetings (adjust manually)
+    const overloaded = plannedMin > 480
 
-    const availableMin = 480 - meetingMin // 8h day minus meetings
-    const overloaded = plannedMin > availableMin
-
-    return { plannedMin, availableMin, meetingMin, overloaded, totalTodayTasks, doneTodayTasks }
-  }, [taskMeta])
+    return { plannedMin, meetingMin, overloaded, totalTodayTasks, doneTodayTasks, plannedTasks, meetingEvents }
+  }, [taskMeta, prioTasks])
 
   const fmtTime = (min: number) => {
     const h = Math.floor(min / 60)
@@ -148,6 +169,12 @@ const [showAnalytics, setShowAnalytics] = useState(false)
   /* ── Render ── */
   return (
     <div className="min-h-screen bg-background p-5 font-sans">
+      {/* Close dropdowns overlay */}
+      {(showPlanned || showMeetings) && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+          onClick={() => { setShowPlanned(false); setShowMeetings(false) }} />
+      )}
+
       {/* Focus Timer */}
       <FocusTimer task={focusTask} onStop={stopFocus} onClear={() => setFocusTask(null)} />
 
@@ -163,7 +190,7 @@ const [showAnalytics, setShowAnalytics] = useState(false)
             </p>
           </div>
 
-          {/* Right side: time stats + shutdown button */}
+          {/* Right side: time stats + buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {/* Time bar */}
             <div style={{
@@ -171,29 +198,94 @@ const [showAnalytics, setShowAnalytics] = useState(false)
               background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: 10,
             }}>
-              <TimeStatBadge label="Planned" value={fmtTime(timeStats.plannedMin)}
-                color={timeStats.overloaded ? '#fb7185' : '#818cf8'} />
-             <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
-              <TimeStatBadge label="Meetings" value={fmtTime(timeStats.meetingMin)} color="#fbbf24" />
+              {/* Planned */}
+              <div style={{ position: 'relative' }}>
+                <div onClick={() => { setShowPlanned(!showPlanned); setShowMeetings(false) }} style={{ cursor: 'pointer', textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: timeStats.overloaded ? '#fb7185' : '#818cf8', fontVariantNumeric: 'tabular-nums' }}>
+                    {fmtTime(timeStats.plannedMin)}
+                  </div>
+                  <div style={{ fontSize: 8, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600 }}>Planned</div>
+                </div>
+                {showPlanned && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                    marginTop: 8, width: 240, background: '#131c2e',
+                    border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 10,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)', zIndex: 100,
+                  }}>
+                    <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 6 }}>
+                      Planned tasks ({timeStats.plannedTasks.length})
+                    </div>
+                    {timeStats.plannedTasks.length === 0 && (
+                      <div style={{ fontSize: 11, color: '#334155', padding: '4px 0' }}>No time estimates set</div>
+                    )}
+                    {timeStats.plannedTasks.map((t, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: i < timeStats.plannedTasks.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                        <span style={{ fontSize: 11, color: '#e2e8f0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{t.label}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#818cf8', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                          {t.time >= 60 ? `${t.time / 60}h` : `${t.time}m`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
+
+              {/* Meetings */}
+              <div style={{ position: 'relative' }}>
+                <div onClick={() => { setShowMeetings(!showMeetings); setShowPlanned(false) }} style={{ cursor: 'pointer', textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24', fontVariantNumeric: 'tabular-nums' }}>
+                    {fmtTime(timeStats.meetingMin)}
+                  </div>
+                  <div style={{ fontSize: 8, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600 }}>Meetings</div>
+                </div>
+                {showMeetings && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                    marginTop: 8, width: 240, background: '#131c2e',
+                    border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 10,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)', zIndex: 100,
+                  }}>
+                    <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 6 }}>
+                      Today&apos;s events ({timeStats.meetingEvents.length})
+                    </div>
+                    {timeStats.meetingEvents.length === 0 && (
+                      <div style={{ fontSize: 11, color: '#334155', padding: '4px 0' }}>No timed events today</div>
+                    )}
+                    {timeStats.meetingEvents.map((t, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: i < timeStats.meetingEvents.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                        <span style={{ fontSize: 11, color: '#e2e8f0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{t.label}</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: '#fbbf24', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{t.time}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {timeStats.overloaded && (
-                <span style={{
-                  fontSize: 8, fontWeight: 700, color: '#fb7185', background: 'rgba(244,63,94,0.15)',
-                  padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.06em',
-                }}>
-                  Overloaded
-                </span>
+                <>
+                  <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
+                  <span style={{
+                    fontSize: 8, fontWeight: 700, color: '#fb7185', background: 'rgba(244,63,94,0.15)',
+                    padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>
+                    Overloaded
+                  </span>
+                </>
               )}
             </div>
 
             {/* Analytics button */}
-<button onClick={() => setShowAnalytics(true)} style={{
-  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
-  background: 'rgba(45,212,191,0.10)', border: '1px solid rgba(45,212,191,0.20)',
-  borderRadius: 10, cursor: 'pointer', color: '#2dd4bf', fontSize: 11, fontWeight: 600,
-  textTransform: 'uppercase', letterSpacing: '0.06em',
-}}>
-  <IconChartBar size={14} /> Weekly Review
-</button>
+            <button onClick={() => setShowAnalytics(true)} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+              background: 'rgba(45,212,191,0.10)', border: '1px solid rgba(45,212,191,0.20)',
+              borderRadius: 10, cursor: 'pointer', color: '#2dd4bf', fontSize: 11, fontWeight: 600,
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+            }}>
+              <IconChartBar size={14} /> Weekly Review
+            </button>
 
             {/* Shutdown button */}
             <button onClick={() => setShowShutdown(true)} style={{
@@ -207,13 +299,32 @@ const [showAnalytics, setShowAnalytics] = useState(false)
           </div>
         </div>
 
-
-        <QuickCapture captured={captured} onAdd={addCapture} onRemove={removeCapture} />
+        {/* Quick add to Top Prio */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 10, padding: '6px 12px',
+        }}>
+          <span style={{ color: '#64748b', fontSize: 14 }}>+</span>
+          <input
+            placeholder="Add task to Top Prio — press Enter"
+            onKeyDown={e => {
+              if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                addPrioTask((e.target as HTMLInputElement).value.trim());
+                (e.target as HTMLInputElement).value = ''
+              }
+            }}
+            style={{
+              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              fontSize: 12, color: '#e2e8f0', fontFamily: 'inherit',
+            }}
+          />
+        </div>
       </header>
 
       <div className="grid grid-cols-[196px_minmax(0,0.75fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="flex flex-col gap-3">
-          <TopPrioCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} />
+          <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} />
           <MessagesCard />
           <KpisCard />
         </div>
@@ -252,23 +363,15 @@ const [showAnalytics, setShowAnalytics] = useState(false)
         />
       )}
 
+      {/* Weekly Analytics */}
       {showAnalytics && (
-  <WeeklyAnalytics
-    onClose={() => setShowAnalytics(false)}
-    projectDone={projectDone}
-    taskMeta={taskMeta}
-    getProjectCompletion={getProjectCompletion}
-  />
-)}
-    </div>
-  )
-}
-
-function TimeStatBadge({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-      <div style={{ fontSize: 8, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600 }}>{label}</div>
+        <WeeklyAnalytics
+          onClose={() => setShowAnalytics(false)}
+          projectDone={projectDone}
+          taskMeta={taskMeta}
+          getProjectCompletion={getProjectCompletion}
+        />
+      )}
     </div>
   )
 }
