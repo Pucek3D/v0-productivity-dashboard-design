@@ -88,12 +88,23 @@ export default function Dashboard() {
   }, [])
 
   const starToPrio = useCallback((text: string, category: 'work' | 'home') => {
-    setPrioTasks(prev => {
-      const n = [...prev]; const sn = category === 'home' ? 'Home' : 'Work'; const idx = n.findIndex(s => s.section === sn)
-      if (idx >= 0) { const s = { ...n[idx] }; if (s.tasks.some(t => t.text === text)) return prev; s.tasks = [...s.tasks, { id: `s${Date.now()}`, text, done: false, priority: 'yellow' as const }]; n[idx] = s }
-      return n
-    })
-  }, [])
+  setPrioTasks(prev => {
+    const n = prev.map(s => ({ ...s, tasks: [...s.tasks] }))
+    const sn = category === 'home' ? 'Home' : 'Work'
+    const idx = n.findIndex(s => s.section === sn)
+    if (idx < 0) return prev
+
+    const existingIdx = n[idx].tasks.findIndex(t => t.text === text)
+    if (existingIdx >= 0) {
+      // Already starred → remove from Prio
+      n[idx].tasks.splice(existingIdx, 1)
+    } else {
+      // Not starred → add to Prio
+      n[idx].tasks.push({ id: `s${Date.now()}`, text, done: false, priority: 'yellow' as const })
+    }
+    return n
+  })
+}, [])
 
   const isTaskStarred = useCallback((text: string) => prioTasks.some(s => s.tasks.some(t => t.text === text)), [prioTasks])
 

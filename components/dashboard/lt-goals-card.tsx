@@ -121,7 +121,7 @@ function STI({ id, task, done, onClick, onOpen, onStar, isStarred, onDelete, tas
     <span className={`text-[12.5px] leading-[1.35] break-words min-w-0 ${done?'text-slate-500 line-through':'text-slate-200'}`}>{task}</span>
     <span className="inline-flex items-center gap-0.5 ml-auto flex-shrink-0" onClick={e=>e.stopPropagation()}>
       <TaskActions taskKey={taskKey} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
-      <button className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none" onClick={onStar}><IconStar size={11} className={isStarred?'text-amber-400':'text-slate-500 hover:text-amber-400'} fill={isStarred?'#fbbf24':'none'} /></button>
+      <button className={`${isStarred ? '' : 'icon-on-hover'} bg-transparent border-none cursor-pointer p-0 leading-none`} onClick={onStar}><IconStar size={11} className={isStarred?'text-amber-400':'text-slate-500 hover:text-amber-400'} fill={isStarred?'#fbbf24':'none'} /></button>
       <button className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none" onClick={onDelete}><IconTrash size={11} className="text-slate-500 hover:text-rose-400" /></button>
     </span>
   </div>
@@ -139,7 +139,7 @@ function TR({ task, done, onToggle, onOpen, onStar, isStarred, onDelete, taskKey
     <span className={`text-[12.5px] leading-[1.35] break-words min-w-0 ${done?'text-slate-500 line-through':'text-slate-200'}`}>{task}</span>
     <span className="inline-flex items-center gap-0.5 ml-auto flex-shrink-0" onClick={e=>e.stopPropagation()}>
       <TaskActions taskKey={taskKey} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
-      <button className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none" onClick={onStar}><IconStar size={11} className={isStarred?'text-amber-400':'text-slate-500 hover:text-amber-400'} fill={isStarred?'#fbbf24':'none'} /></button>
+      <button className={`${isStarred ? '' : 'icon-on-hover'} bg-transparent border-none cursor-pointer p-0 leading-none`} onClick={onStar}><IconStar size={11} className={isStarred?'text-amber-400':'text-slate-500 hover:text-amber-400'} fill={isStarred?'#fbbf24':'none'} /></button>
       <button className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none" onClick={onDelete}><IconTrash size={11} className="text-slate-500 hover:text-rose-400" /></button>
     </span>
   </div>
