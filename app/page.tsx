@@ -122,13 +122,15 @@ const dailyCleanup = useCallback(() => {
     Object.entries(taskMeta).filter(([,m]) => m.deadline).map(([,m]) => ({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8', hour: m.hour, minute: m.minute }))
   , [taskMeta])
 
-  const timeStats = useMemo(() => {
+const timeStats = useMemo(() => {
     let plannedMin = 0, totalTodayTasks = 0, doneTodayTasks = 0, meetingMin = 0
     const plannedTasks: {label:string;time:number}[] = [], meetingEvents: {label:string;time:string}[] = []
     const todayStr = new Date().toISOString().slice(0, 10)
     prioTasks.forEach(s => s.tasks.forEach(t => { totalTodayTasks++; if (t.done) doneTodayTasks++; const m = taskMeta[`prio-${t.id}`]; if (m?.timeEstimate) { plannedMin += m.timeEstimate; plannedTasks.push({label:t.text,time:m.timeEstimate}) } }))
     Object.entries(taskMeta).forEach(([k,m]) => { if (m.deadline === todayStr && !k.startsWith('prio-')) { if (m.timeEstimate) { plannedMin += m.timeEstimate; plannedTasks.push({label:m.label||k,time:m.timeEstimate}) }; if (m.hour !== undefined) { meetingMin += 60; meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`}) } } })
-    return { plannedMin, meetingMin, overloaded: plannedMin > 480, totalTodayTasks, doneTodayTasks, plannedTasks, meetingEvents }
+    let focusedMin = 0
+    Object.values(taskMeta).forEach(m => { if ((m as any).actualTime) focusedMin += (m as any).actualTime })
+    return { plannedMin, meetingMin, overloaded: plannedMin > 480, totalTodayTasks, doneTodayTasks, plannedTasks, meetingEvents, focusedMin }
   }, [taskMeta, prioTasks])
 
   const fmtTime = (m: number) => { const h = Math.floor(m/60); const mm = m%60; return mm > 0 ? `${h}h ${mm}m` : `${h}h` }
