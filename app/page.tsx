@@ -41,7 +41,6 @@ export default function Dashboard() {
     const workSection = imported.find(s => s.section === 'Work')
     const homeSection = imported.find(s => s.section === 'Home')
     const otherSection = imported.find(s => s.section === 'Other')
-
     return [
       workSection || { section: 'Work', color: '#818cf8', tasks: [] },
       homeSection || { section: 'Home', color: '#a78bfa', tasks: [] },
@@ -70,7 +69,6 @@ export default function Dashboard() {
     return Math.round((done / total) * 100)
   }, [projectDone])
 
-  // Cross-sync: project → prio
   const toggleProjectTask = useCallback((projectKey: string, taskType: 'task' | 'done', index: number) => {
     const key = taskType === 'done' ? `${projectKey}-done-${index}` : `${projectKey}-task-${index}`
     setProjectDone(prev => {
@@ -86,7 +84,6 @@ export default function Dashboard() {
     })
   }, [])
 
-  // Cross-sync: prio → project
   const onPrioTaskToggle = useCallback((text: string, done: boolean) => {
     ;[...PROJECTS, ...LT_GOALS].forEach(p => {
       p.tasks.forEach((t, i) => { if (t === text) setProjectDone(prev => ({ ...prev, [`${p.key}-task-${i}`]: done })) })
@@ -95,14 +92,8 @@ export default function Dashboard() {
 
   const addPrioTask = useCallback((text: string) => {
     setPrioTasks(prev => {
-      const n = [...prev]
-      // Add to "Other Work" by default (index 2)
-      const idx = n.findIndex(s => s.section === 'Other Work')
-      if (idx >= 0) {
-        const s = { ...n[idx] }
-        s.tasks = [...s.tasks, { id: `q${Date.now()}`, text, done: false, priority: 'gray' as const }]
-        n[idx] = s
-      }
+      const n = [...prev]; const idx = n.findIndex(s => s.section === 'Other Work')
+      if (idx >= 0) { const s = { ...n[idx] }; s.tasks = [...s.tasks, { id: `q${Date.now()}`, text, done: false }]; n[idx] = s }
       return n
     })
   }, [])
@@ -113,38 +104,54 @@ export default function Dashboard() {
       const sn = category === 'home' ? 'Home' : 'Work'
       const idx = n.findIndex(s => s.section === sn)
       if (idx < 0) return prev
-
       const existingIdx = n[idx].tasks.findIndex(t => t.text === text)
-      if (existingIdx >= 0) {
-        // Already starred → remove from Prio
-        n[idx].tasks.splice(existingIdx, 1)
-      } else {
-        // Not starred → add to Prio
-        n[idx].tasks.push({ id: `s${Date.now()}`, text, done: false, priority: 'yellow' as const })
-      }
+      if (existingIdx >= 0) { n[idx].tasks.splice(existingIdx, 1) }
+      else { n[idx].tasks.push({ id: `s${Date.now()}`, text, done: false }) }
       return n
     })
   }, [])
 
+  /* starToPrio for modal (defaults to work) */
+  const starToPrioFromModal = useCallback((text: string) => starToPrio(text, 'work'), [starToPrio])
+
   const isTaskStarred = useCallback((text: string) => prioTasks.some(s => s.tasks.some(t => t.text === text)), [prioTasks])
 
   const startFocus = useCallback((k: string, l: string) => setFocusTask({key:k,label:l}), [])
+
+  /* ─── Focus stop: save session with date + time ─── */
   const stopFocus = useCallback((k: string, mins: number) => {
-    if (mins > 0) setTaskMeta(p => { const e = p[k] || {}; return { ...p, [k]: { ...e, actualTime: ((e as any).actualTime || 0) + mins } } })
+    if (mins > 0) {
+      const now = new Date()
+      const dateStr = `${now.getDate()}/${now.getMonth()+1} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
+      setTaskMeta(p => {
+        const existing = p[k] || {}
+        const sessions: { date: string; minutes: number }[] = [...((existing as any).focusSessions || []), { date: dateStr, minutes: mins }]
+        return { ...p, [k]: { ...existing, actualTime: ((existing as any).actualTime || 0) + mins, focusSessions: sessions } }
+      })
+    }
   }, [])
 
   const dailyCleanup = useCallback(() => {
-    setPrioTasks(prev => prev.map(s => ({
-      ...s,
-      tasks: s.tasks.filter(t => !t.done)
-    })))
+    setPrioTasks(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => !t.done) })))
   }, [])
 
-  const deadlineEvents: DeadlineEvent[] = useMemo(() =>
-    Object.entries(taskMeta).filter(([,m]) => m.deadline).map(([,m]) => ({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8', hour: m.hour, minute: m.minute }))
-  , [taskMeta])
+  const deadlineEvents: DeadlineEvent[] = useMemo(() => {
+    const events: DeadlineEvent[] = []
+    // From task meta deadlines
+    Object.entries(taskMeta).filter(([,m]) => m.deadline).forEach(([,m]) => {
+      events.push({ date: m.deadline!, label: m.label || 'Task', color: '#818cf8', hour: m.hour, minute: m.minute })
+    })
+    // From subtask deadlines
+    Object.entries(taskMeta).forEach(([,m]) => {
+      (m.subtasks || []).forEach(st => {
+        if ((st as any).deadline) {
+          events.push({ date: (st as any).deadline, label: st.text, color: '#a78bfa' })
+        }
+      })
+    })
+    return events
+  }, [taskMeta])
 
-  /* ─── completed tasks set — for calendar auto-cleanup ─── */
   const completedTasks = useMemo(() => {
     const set = new Set<string>()
     prioTasks.forEach(s => s.tasks.forEach(t => { if (t.done) set.add(t.text) }))
@@ -154,14 +161,24 @@ export default function Dashboard() {
     return set
   }, [prioTasks, projectDone])
 
+  /* ─── Time stats — focused is now RED ─── */
   const timeStats = useMemo(() => {
     let plannedMin = 0, totalTodayTasks = 0, doneTodayTasks = 0, meetingMin = 0
     const plannedTasks: {label:string;time:number}[] = [], meetingEvents: {label:string;time:string}[] = []
     const todayStr = new Date().toISOString().slice(0, 10)
     prioTasks.forEach(s => s.tasks.forEach(t => { totalTodayTasks++; if (t.done) doneTodayTasks++; const m = taskMeta[`prio-${t.id}`]; if (m?.timeEstimate) { plannedMin += m.timeEstimate; plannedTasks.push({label:t.text,time:m.timeEstimate}) } }))
     Object.entries(taskMeta).forEach(([k,m]) => { if (m.deadline === todayStr && !k.startsWith('prio-')) { if (m.timeEstimate) { plannedMin += m.timeEstimate; plannedTasks.push({label:m.label||k,time:m.timeEstimate}) }; if (m.hour !== undefined) { meetingMin += 60; meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`}) } } })
+
+    // Focused: aggregate ALL focus sessions from today
     let focusedMin = 0
-    Object.values(taskMeta).forEach(m => { if ((m as any).actualTime) focusedMin += (m as any).actualTime })
+    const todayDate = new Date()
+    const todayPrefix = `${todayDate.getDate()}/${todayDate.getMonth()+1}`
+    Object.values(taskMeta).forEach(m => {
+      const sessions: { date: string; minutes: number }[] = (m as any).focusSessions || []
+      sessions.forEach(s => { if (s.date.startsWith(todayPrefix)) focusedMin += s.minutes })
+      // Also count legacy actualTime if no sessions
+      if (sessions.length === 0 && (m as any).actualTime) focusedMin += (m as any).actualTime
+    })
     return { plannedMin, meetingMin, overloaded: plannedMin > 480, totalTodayTasks, doneTodayTasks, plannedTasks, meetingEvents, focusedMin }
   }, [taskMeta, prioTasks])
 
@@ -182,6 +199,7 @@ export default function Dashboard() {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:12}}>
             <div style={{display:'flex',alignItems:'center',gap:16,padding:'6px 14px',background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:10}}>
+              {/* Planned */}
               <div style={{position:'relative'}}>
                 <div onClick={()=>{setShowPlanned(!showPlanned);setShowMeetings(false)}} style={{cursor:'pointer',textAlign:'center'}}>
                   <div style={{fontSize:14,fontWeight:700,color:timeStats.overloaded?'#fb7185':'#818cf8',fontVariantNumeric:'tabular-nums'}}>{fmtTime(timeStats.plannedMin)}</div>
@@ -194,6 +212,7 @@ export default function Dashboard() {
                 </div>}
               </div>
               <div style={{width:1,height:20,background:'rgba(255,255,255,0.06)'}} />
+              {/* Meetings */}
               <div style={{position:'relative'}}>
                 <div onClick={()=>{setShowMeetings(!showMeetings);setShowPlanned(false)}} style={{cursor:'pointer',textAlign:'center'}}>
                   <div style={{fontSize:14,fontWeight:700,color:'#fbbf24',fontVariantNumeric:'tabular-nums'}}>{fmtTime(timeStats.meetingMin)}</div>
@@ -206,8 +225,9 @@ export default function Dashboard() {
                 </div>}
               </div>
               <div style={{width:1,height:20,background:'rgba(255,255,255,0.06)'}} />
+              {/* Focused — RED */}
               <div style={{textAlign:'center'}}>
-                <div style={{fontSize:14,fontWeight:700,color:'#2dd4bf',fontVariantNumeric:'tabular-nums'}}>{fmtTime(timeStats.focusedMin)}</div>
+                <div style={{fontSize:14,fontWeight:700,color:'#fb7185',fontVariantNumeric:'tabular-nums'}}>{fmtTime(timeStats.focusedMin)}</div>
                 <div style={{fontSize:8,color:'#475569',textTransform:'uppercase',letterSpacing:'0.10em',fontWeight:600}}>Focused</div>
               </div>
               {timeStats.overloaded&&<><div style={{width:1,height:20,background:'rgba(255,255,255,0.06)'}} /><span style={{fontSize:8,fontWeight:700,color:'#fb7185',background:'rgba(244,63,94,0.15)',padding:'2px 6px',borderRadius:4,textTransform:'uppercase'}}>Overloaded</span></>}
@@ -222,36 +242,36 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* ─── RESTRUCTURED LAYOUT ───
-          Left:   Messages + KPIs (narrow sidebar)
-          Center: TopPrio (2×2) → EventCalendar → LtGoalsCalendar → ProgressOverview
-          Right:  ActiveProjects → OtherTodo → LtGoals
-      ─── */}
+      {/* ═══ LAYOUT ═══
+          Left:   Messages + KPIs
+          Center: TopPrio → EventCalendar → ProgressOverview → LtGoalsCalendar → LtGoals
+          Right:  ActiveProjects → OtherTodo
+      ═══ */}
       <div className="grid grid-cols-[196px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
 
-        {/* ── LEFT COLUMN: Messages + KPIs ── */}
+        {/* LEFT */}
         <div className="flex flex-col gap-3">
           <MessagesCard />
           <KpisCard />
         </div>
 
-        {/* ── CENTER COLUMN: TopPrio (2×2) + Calendar + LT Calendar + Progress ── */}
+        {/* CENTER */}
         <div className="flex flex-col gap-3">
           <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} />
           <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} />
-          <LtGoalsCalendar />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
+          <LtGoalsCalendar />
+          <LtGoalsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} />
         </div>
 
-        {/* ── RIGHT COLUMN: ActiveProjects + OtherTodo + LtGoals ── */}
+        {/* RIGHT */}
         <div className="flex flex-col gap-3">
           <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} />
-          <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} />
-          <LtGoalsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} />
+          <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} />
         </div>
       </div>
 
-      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,u)} onClose={()=>setModalTask(null)} onStartFocus={startFocus} />}
+      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,u)} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starToPrio={starToPrioFromModal} />}
       {showShutdown&&<DailyShutdown onClose={()=>setShowShutdown(false)} tasksCompleted={timeStats.doneTodayTasks} tasksTotal={timeStats.totalTodayTasks} onCleanup={dailyCleanup} />}
       {showAnalytics&&<WeeklyAnalytics onClose={()=>setShowAnalytics(false)} projectDone={projectDone} taskMeta={taskMeta} getProjectCompletion={getProjectCompletion} />}
     </div>
