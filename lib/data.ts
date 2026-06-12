@@ -169,7 +169,7 @@ export const TODAY_IDX = 1 // Tuesday (fallback — actual today computed at run
 
 export const KPI_CATEGORIES: KpiCategory[] = [
   { id: 'health', label: 'Health', color: '#059669', kpis: [
-    { id: 'sleep', label: 'Sleep 7h', icon: 'moon', type: 'num', val: '--', target: '7h', pct: 0, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'sleep', label: 'Sleep 7h', icon: 'moon', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
     { id: 'workout', label: 'Workout', icon: 'run', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
   ]},
   { id: 'work', label: 'Work', color: '#7c3aed', kpis: [
