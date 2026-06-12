@@ -144,10 +144,10 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio,
               {section.tasks.map(task => (
                 <div key={task.id} className="flex items-start gap-1.5 py-[3px] group">
                   <div onClick={() => toggleTask(section.id, task.id)}
-                    className={`w-3 h-3 rounded-[3px] border flex-shrink-0 flex items-center justify-center mt-[2px] cursor-pointer ${
+                    className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center mt-[2px] cursor-pointer ${
                       task.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'
                     }`}>
-                    {task.done && <span className="text-indigo-300 text-[7px] font-bold leading-none">✓</span>}
+                    {task.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}
                   </div>
                   <EditableText value={task.text} onChange={(t) => renameTask(section.id, task.id, t)}
                     className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${task.done ? 'text-slate-500 line-through' : 'text-slate-300'}`} />
