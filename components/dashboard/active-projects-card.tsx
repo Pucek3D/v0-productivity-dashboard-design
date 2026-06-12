@@ -114,7 +114,7 @@ function ProjectTile({
               style={{ background: style.text, boxShadow: `0 0 6px ${style.text}` }} />
             <span className="text-[9px] font-semibold uppercase tracking-[0.10em] truncate" style={{ color: style.text }}>
               {autoStatus}
-              {streak > 2 && (
+              {false && streak > 2 && (
                 <span style={{ fontSize: 8, fontWeight: 700, color: '#fbbf24', marginLeft: 4 }}>
                   🔥{streak}
                 </span>
