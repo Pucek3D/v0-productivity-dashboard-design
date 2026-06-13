@@ -202,7 +202,7 @@
 .estimate-num { color-scheme: dark; }
 .estimate-num::-webkit-inner-spin-button,
 .estimate-num::-webkit-outer-spin-button {
-  background: #0f1623;
+  background: transparent;
   border-radius: 0 4px 4px 0;
   opacity: 1;
   margin: 0;

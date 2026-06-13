@@ -3,16 +3,16 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { TopPrioCard } from '@/components/dashboard/top-prio-card'
 import { MessagesCard } from '@/components/dashboard/messages-card'
 
-type Message = { id: string; text: string; done: boolean }
+type Message = { id: string; text: string; done: boolean; category?: 'work' | 'home' }
 const INITIAL_MESSAGES: Message[] = [
-  { id:'m1',text:'Varun — respond today',done:false },
-  { id:'m2',text:'Surabhi — AI initiative (Jun 5)',done:false },
-  { id:'m3',text:'John — meeting doc needed',done:false },
-  { id:'m4',text:'Himadri — write meeting note',done:false },
-  { id:'m5',text:'Prashant — act on findings',done:false },
-  { id:'m6',text:'Anurag — skill status follow-up',done:false },
-  { id:'m7',text:'Konrad — PPK + workshop?',done:false },
-  { id:'m8',text:'Shratha — review case example',done:false },
+  { id:'m1',text:'Varun — respond today',done:false,category:'work' },
+  { id:'m2',text:'Surabhi — AI initiative (Jun 5)',done:false,category:'work' },
+  { id:'m3',text:'John — meeting doc needed',done:false,category:'work' },
+  { id:'m4',text:'Himadri — write meeting note',done:false,category:'work' },
+  { id:'m5',text:'Prashant — act on findings',done:false,category:'work' },
+  { id:'m6',text:'Anurag — skill status follow-up',done:false,category:'work' },
+  { id:'m7',text:'Konrad — PPK + workshop?',done:false,category:'work' },
+  { id:'m8',text:'Shratha — review case example',done:false,category:'home' },
 ]
 // Mirror of OtherTodoCard's INITIAL_SECTIONS so label-sync can reach those
 // static tasks (key format: todo-<sectionId>-<taskId>) before they're edited.
