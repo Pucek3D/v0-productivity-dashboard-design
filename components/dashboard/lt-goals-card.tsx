@@ -17,7 +17,7 @@ function MetaBadges({ meta }: { meta?: TaskMeta }) {
   if (meta.recurring) b.push(<span key="r" style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', background: 'rgba(45,212,191,0.15)', color: '#2dd4bf', border: '1px solid rgba(45,212,191,0.3)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{String(meta.recurring).slice(0, 3)}</span>)
   if ((meta as any).schedule?.ongoing) b.push(<span key="on" style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>ongoing</span>)
   if ((meta as any).schedule?.weeks?.length) b.push(<span key="w" style={{ fontSize: 8, fontWeight: 600, color: '#94a3b8', background: 'rgba(255,255,255,0.06)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>W{(meta as any).schedule.weeks[0]}-W{(meta as any).schedule.weeks[(meta as any).schedule.weeks.length - 1]}</span>)
-  if (meta.owner) b.push(<span key="o" style={{ fontSize: 8, fontWeight: 600, color: '#2dd4bf', background: 'rgba(45,212,191,0.12)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{meta.owner}</span>)
+  if (meta.timeEstimate) b.push(<span key="t" style={{ fontSize: 8, fontWeight: 600, color: '#94a3b8', background: 'rgba(255,255,255,0.06)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{meta.timeEstimate >= 60 ? `${meta.timeEstimate / 60}h` : `${meta.timeEstimate}m`}</span>)
   return b.length ? <span className="inline-flex items-center gap-0.5 flex-wrap">{b}</span> : null
 }
 

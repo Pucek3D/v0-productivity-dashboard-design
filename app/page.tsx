@@ -225,19 +225,33 @@ export default function Dashboard() {
     // starring a task (from Messages, Projects, Goals, Other To-Do) keeps its
     // details in Top Prio.
     if (newId) {
-      const srcMeta = linkRegistry.current
+      // Carry over ALL synced detail fields from the source task (Messages,
+      // Projects, Goals, Other To-Do) so a starred task keeps its owner,
+      // deadline/time, priority, recurring and time estimate in Top Prio.
+      const srcMetas = linkRegistry.current
         .filter(r => r.label === text && !r.key.startsWith('prio-'))
         .map(r => taskMeta[r.key])
-        .find(m => m && (m.owner !== undefined || m.deadline !== undefined))
+        .filter(Boolean) as TaskMeta[]
       const carried: Partial<TaskMeta> = { label: text }
-      if (srcMeta?.owner !== undefined) carried.owner = srcMeta.owner
-      if (srcMeta?.deadline !== undefined) carried.deadline = srcMeta.deadline
-      if (srcMeta?.hour !== undefined) carried.hour = srcMeta.hour
-      if (srcMeta?.minute !== undefined) carried.minute = srcMeta.minute
+      const CARRY_FIELDS = ['owner','deadline','hour','minute','priority','recurring','timeEstimate'] as const
+      CARRY_FIELDS.forEach(f => {
+        const src = srcMetas.find(m => (m as any)[f] !== undefined)
+        if (src) (carried as any)[f] = (src as any)[f]
+      })
       setTaskMeta(p => ({ ...p, [`prio-${newId}`]: { ...p[`prio-${newId}`], ...carried } }))
     }
   }, [taskMeta])
-  const starSubtaskToPrio = useCallback((text:string)=>starToPrio(text,'work'), [starToPrio])
+  // Star a subtask into Top Prio. Carries the subtask's own details
+  // (owner / deadline / time estimate) so they show up + count in Planned.
+  const starSubtaskToPrio = useCallback((text:string, details?:Partial<TaskMeta>)=>{
+    let newId: string | null = null
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const idx=n.findIndex(s=>s.section==='Work');if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false})};return n})
+    if (newId && details) {
+      const carried: Partial<TaskMeta> = { label: text }
+      ;(['owner','deadline','timeEstimate'] as const).forEach(f => { if ((details as any)[f] !== undefined) (carried as any)[f] = (details as any)[f] })
+      setTaskMeta(p => ({ ...p, [`prio-${newId}`]: { ...p[`prio-${newId}`], ...carried } }))
+    }
+  }, [])
   const isTaskStarred = useCallback((text:string)=>prioTasks.some(s=>s.tasks.some(t=>t.text===text)), [prioTasks])
   const startFocus = useCallback((k:string,l:string)=>setFocusTask({key:k,label:l}), [])
   const stopFocus = useCallback((k:string,mins:number)=>{
@@ -389,7 +403,9 @@ export default function Dashboard() {
   const timeStats = useMemo(()=>{
     let plannedMin=0,totalTodayTasks=0,doneTodayTasks=0,meetingMin=0;const plannedTasks:{label:string;time:number}[]=[],meetingEvents:{label:string;time:string}[]=[];const todayStr=new Date().toISOString().slice(0,10)
     prioTasks.forEach(s=>s.tasks.forEach(t=>{totalTodayTasks++;if(t.done)doneTodayTasks++;const m=taskMeta[`prio-${t.id}`];if(m?.timeEstimate){plannedMin+=m.timeEstimate;plannedTasks.push({label:t.text,time:m.timeEstimate})}}))
-    Object.entries(taskMeta).forEach(([k,m])=>{if(m.deadline===todayStr&&!k.startsWith('prio-')){if(m.timeEstimate){plannedMin+=m.timeEstimate;plannedTasks.push({label:m.label||k,time:m.timeEstimate})};if(m.hour!==undefined){meetingMin+=60;meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`})}}})
+    // Planned time is computed ONLY from Top Prio Today. Non-prio tasks with a
+    // today deadline still contribute their meeting time, but NOT planned time.
+    Object.entries(taskMeta).forEach(([k,m])=>{if(m.deadline===todayStr&&!k.startsWith('prio-')){if(m.hour!==undefined){meetingMin+=60;meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`})}}})
     let focusedMin=0;const td=new Date();const tp=`${td.getDate()}/${td.getMonth()+1}`
     Object.values(taskMeta).forEach(m=>{((m as any).focusSessions||[]).forEach((s:any)=>{if(s.date?.startsWith(tp))focusedMin+=s.minutes})})
     return{plannedMin,meetingMin,overloaded:plannedMin>480,totalTodayTasks,doneTodayTasks,plannedTasks,meetingEvents,focusedMin}
@@ -444,7 +460,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── FIX #1 continued: modal onUpdate ALWAYS passes label ── */}
-      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,{...u, label: modalTask.label})} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} onRenameTask={(name)=>renameTask(modalTask.key, name)} />}
+      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,{...u, label: modalTask.label})} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} isTaskStarred={isTaskStarred} onRenameTask={(name)=>renameTask(modalTask.key, name)} />}
       {showShutdown&&<DailyShutdown onClose={()=>setShowShutdown(false)} tasksCompleted={timeStats.doneTodayTasks} tasksTotal={timeStats.totalTodayTasks} focusedMin={timeStats.focusedMin} messagesAnswered={messagesAnswered} onCleanup={dailyCleanup} />}
       {showAnalytics&&<WeeklyAnalytics onClose={()=>setShowAnalytics(false)} projectDone={projectDone} taskMeta={taskMeta} getProjectCompletion={getProjectCompletion} />}
     </div>

@@ -9,7 +9,7 @@ export interface TaskMeta {
   actualTime?: number    // ← dodaj
   priority?: 'high' | 'medium' | 'low'
   links?: string[]
-  subtasks?: { id: string; text: string; done: boolean }[]
+  subtasks?: { id: string; text: string; done: boolean; owner?: string; deadline?: string; timeEstimate?: number }[]
   recurring?: 'daily' | 'weekly' | 'monthly' | null
 }
 

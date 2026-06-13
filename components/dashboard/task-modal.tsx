@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconPlus, IconTrash, IconPlayerPlay, IconPlayerStop, IconStar } from '@tabler/icons-react'
 import { type TaskMeta, getDateLabel } from '@/lib/task-meta'
 
-interface TaskModalProps { taskKey: string; taskLabel: string; meta: TaskMeta; onUpdate: (u: Partial<TaskMeta>) => void; onClose: () => void; onStartFocus?: (k: string, l: string) => void; starSubtaskToPrio?: (text: string) => void; onRenameTask?: (newName: string) => void }
+interface TaskModalProps { taskKey: string; taskLabel: string; meta: TaskMeta; onUpdate: (u: Partial<TaskMeta>) => void; onClose: () => void; onStartFocus?: (k: string, l: string) => void; starSubtaskToPrio?: (text: string, details?: Partial<TaskMeta>) => void; isTaskStarred?: (text: string) => boolean; onRenameTask?: (newName: string) => void }
 const PRIOS = [{ value: 'high', label: 'High', color: '#fb7185' }, { value: 'medium', label: 'Medium', color: '#fbbf24' }, { value: 'low', label: 'Low', color: '#64748b' }]
 const TIMES = [15, 30, 45, 60, 90, 120, 180, 240]
 
@@ -29,7 +29,7 @@ function getMondayOfISOWeek(weekNum: number, year: number): Date {
   return result
 }
 
-export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStartFocus, starSubtaskToPrio, onRenameTask }: TaskModalProps) {
+export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStartFocus, starSubtaskToPrio, isTaskStarred, onRenameTask }: TaskModalProps) {
   const [desc, setDesc] = useState(meta.description || '')
   const [newLink, setNewLink] = useState('')
   const [newSub, setNewSub] = useState('')
@@ -60,6 +60,7 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   const removeSub = (id: string) => { const u = (meta.subtasks || []).filter(s => s.id !== id); onUpdate({ subtasks: u.length ? u : undefined }) }
   const updateSubOwner = (id: string, owner: string) => { onUpdate({ subtasks: (meta.subtasks || []).map(s => s.id === id ? { ...s, owner: owner || undefined } : s) }) }
   const updateSubDeadline = (id: string, deadline: string) => { onUpdate({ subtasks: (meta.subtasks || []).map(s => s.id === id ? { ...s, deadline: deadline || undefined } : s) }) }
+  const updateSubEstimate = (id: string, timeEstimate: number | undefined) => { onUpdate({ subtasks: (meta.subtasks || []).map(s => s.id === id ? { ...s, timeEstimate } : s) }) }
   const saveName = () => { setEditingName(false); if (nameDraft.trim() && nameDraft !== taskLabel && onRenameTask) onRenameTask(nameDraft.trim()) }
 
   const dateInfo = meta.deadline ? getDateLabel(meta.deadline) : null
@@ -127,7 +128,7 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
 
         <Sec label={`Checklist${sTotal > 0 ? ` (${sDone}/${sTotal})` : ''}`}>
           {sTotal > 0 && <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2, marginBottom: 10, overflow: 'hidden' }}><div style={{ height: '100%', width: `${(sDone / sTotal) * 100}%`, background: '#6366f1', borderRadius: 2, transition: 'width 0.3s' }} /></div>}
-          {(meta.subtasks || []).map(st => { const dl = (st as any).deadline; const dlInfo = dl ? getDateLabel(dl) : null; return <div key={st.id} style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><button onClick={() => toggleSub(st.id)} style={{ width: 18, height: 18, borderRadius: 4, border: 'none', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: st.done ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.05)', boxShadow: st.done ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.12)' }}>{st.done && <span style={{ color: '#a5b4fc', fontSize: 11, fontWeight: 700 }}>✓</span>}</button><span style={{ fontSize: 14, color: st.done ? '#475569' : '#e2e8f0', textDecoration: st.done ? 'line-through' : 'none', flex: 1 }}>{st.text}</span>{starSubtaskToPrio && <button onClick={() => starSubtaskToPrio(st.text)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><IconStar size={13} className="text-slate-500 hover:text-amber-400" /></button>}<button onClick={() => removeSub(st.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.4 }}><IconTrash size={14} color="#64748b" /></button></div><div style={{ display: 'flex', gap: 6, marginLeft: 26, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}><input value={(st as any).owner || ''} onChange={e => updateSubOwner(st.id, e.target.value)} placeholder="Owner" style={{ width: 90, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 5, padding: '2px 6px', fontSize: 10, color: '#94a3b8', outline: 'none' }} /><input type="date" value={dl || ''} onChange={e => updateSubDeadline(st.id, e.target.value)} style={{ width: 120, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 5, padding: '2px 6px', fontSize: 10, color: '#94a3b8', outline: 'none', colorScheme: 'dark' }} />{dlInfo && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3 }} className={dlInfo.className}>{dlInfo.text}</span>}</div></div> })}
+          {(meta.subtasks || []).map(st => { const dl = (st as any).deadline; const dlInfo = dl ? getDateLabel(dl) : null; const starred = isTaskStarred ? isTaskStarred(st.text) : false; return <div key={st.id} style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><button onClick={() => toggleSub(st.id)} style={{ width: 18, height: 18, borderRadius: 4, border: 'none', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: st.done ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.05)', boxShadow: st.done ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.12)' }}>{st.done && <span style={{ color: '#a5b4fc', fontSize: 11, fontWeight: 700 }}>✓</span>}</button><span style={{ fontSize: 14, color: st.done ? '#475569' : '#e2e8f0', textDecoration: st.done ? 'line-through' : 'none', flex: 1 }}>{st.text}</span>{starSubtaskToPrio && <button onClick={() => starSubtaskToPrio(st.text, { owner: (st as any).owner, deadline: (st as any).deadline, timeEstimate: (st as any).timeEstimate })} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }} title={starred ? 'Starred to Top Prio' : 'Star to Top Prio'}><IconStar size={13} className={starred ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'} /></button>}<button onClick={() => removeSub(st.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.4 }}><IconTrash size={14} color="#64748b" /></button></div><div style={{ display: 'flex', gap: 6, marginLeft: 26, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}><input value={(st as any).owner || ''} onChange={e => updateSubOwner(st.id, e.target.value)} placeholder="Owner" style={{ width: 90, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 5, padding: '2px 6px', fontSize: 10, color: '#94a3b8', outline: 'none' }} /><input type="date" value={dl || ''} onChange={e => updateSubDeadline(st.id, e.target.value)} style={{ width: 120, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 5, padding: '2px 6px', fontSize: 10, color: '#94a3b8', outline: 'none', colorScheme: 'dark' }} />{dlInfo && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3 }} className={dlInfo.className}>{dlInfo.text}</span>}<SubEstimateInput value={(st as any).timeEstimate} onChange={(v) => updateSubEstimate(st.id, v)} /></div></div> })}
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}><input value={newSub} onChange={e => setNewSub(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addSub() }} placeholder="Add subtask..." style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 10px', fontSize: 13, color: '#fff', outline: 'none' }} /><button onClick={addSub} style={{ background: 'rgba(99,102,241,0.15)', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}><IconPlus size={14} color="#818cf8" /></button></div>
         </Sec>
 
@@ -142,6 +143,28 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
 
 function Sec({ label, children }: { label: string; children: React.ReactNode }) {
   return <div style={{ marginBottom: 22 }}><div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 10 }}>{label}</div>{children}</div>
+}
+
+/* Per-subtask time estimate: manual number + unit (min / h) */
+function SubEstimateInput({ value, onChange }: { value?: number; onChange: (v: number | undefined) => void }) {
+  const isHour = value !== undefined && value % 60 === 0 && value >= 60
+  const [unit, setUnit] = useState<'min' | 'h'>(isHour ? 'h' : 'min')
+  const display = value === undefined ? '' : String(unit === 'h' ? value / 60 : value)
+  const commit = (raw: string, u: 'min' | 'h') => {
+    const num = parseFloat(raw)
+    if (!raw || isNaN(num) || num <= 0) { onChange(undefined); return }
+    onChange(Math.round(u === 'h' ? num * 60 : num))
+  }
+  const inputStyle: React.CSSProperties = { width: 44, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 5, padding: '2px 6px', fontSize: 10, color: '#94a3b8', outline: 'none' }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+      <IconClock size={11} color="#475569" />
+      <input type="number" min={0} step="any" value={display} onChange={e => commit(e.target.value, unit)} placeholder="0" style={inputStyle} />
+      {(['min', 'h'] as const).map(u => (
+        <button key={u} onClick={() => { setUnit(u); if (value !== undefined) commit(display || '0', u) }} style={{ padding: '2px 6px', borderRadius: 4, cursor: 'pointer', fontSize: 10, fontWeight: 600, border: 'none', background: unit === u ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)', color: unit === u ? '#818cf8' : '#475569' }}>{u}</button>
+      ))}
+    </span>
+  )
 }
 
 /* ── FIX #7: 6-month week picker — now uses ISO 8601 weeks (Monday-start) ── */

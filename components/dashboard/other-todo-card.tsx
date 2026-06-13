@@ -17,7 +17,7 @@ function EditableText({ value, onChange, className, style }: any) {
 function MetaBadges({ meta }: { meta?: TaskMeta }) {
   if (!meta) return null; const b: React.ReactNode[] = []
   if (meta.priority) { const c = meta.priority === 'high' ? '#fb7185' : meta.priority === 'medium' ? '#fbbf24' : '#94a3b8'; b.push(<span key="p" style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', background: `${c}22`, color: c, border: `1px solid ${c}44`, borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{meta.priority.slice(0, 3)}</span>) }
-  if (meta.owner) b.push(<span key="o" style={{ fontSize: 8, fontWeight: 600, color: '#2dd4bf', background: 'rgba(45,212,191,0.12)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{meta.owner}</span>)
+  if (meta.timeEstimate) b.push(<span key="t" style={{ fontSize: 8, fontWeight: 600, color: '#94a3b8', background: 'rgba(255,255,255,0.06)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{meta.timeEstimate >= 60 ? `${meta.timeEstimate / 60}h` : `${meta.timeEstimate}m`}</span>)
   return b.length ? <span className="inline-flex items-center gap-0.5 flex-wrap">{b}</span> : null
 }
 
