@@ -303,6 +303,7 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
                   onChange={(v) => { setNewMeetingLocation(v); setNewMeetingCoords(null) }}
                   onSelect={(name, lat, lon) => { setNewMeetingLocation(name); setNewMeetingCoords({ lat, lon }) }}
                   hasCoords={!!newMeetingCoords}
+                  coords={newMeetingCoords}
                 />
               </div>
             </div>
@@ -871,11 +872,12 @@ function shortAddress(r: NominatimResult): string {
   return [streetLine, city].filter(Boolean).join(', ') || r.display_name.split(',').slice(0, 2).join(',').trim()
 }
 
-function LocationAutocomplete({ value, onChange, onSelect, hasCoords }: {
+function LocationAutocomplete({ value, onChange, onSelect, hasCoords, coords }: {
   value: string
   onChange: (v: string) => void
   onSelect: (name: string, lat: number, lon: number) => void
   hasCoords: boolean
+  coords: { lat: number; lon: number } | null
 }) {
   const [results, setResults] = useState<NominatimResult[]>([])
   const [open, setOpen] = useState(false)
@@ -938,6 +940,18 @@ function LocationAutocomplete({ value, onChange, onSelect, hasCoords }: {
           placeholder="Search location…"
           style={{ flex: 1, background: 'transparent', border: 'none', padding: '5px 0', fontSize: 10, color: '#fff', outline: 'none' }} />
         {loading && <span style={{ fontSize: 8, color: '#64748b' }}>…</span>}
+        {hasCoords && !loading && (
+          <a
+            href={coords
+              ? `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lon}`
+              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{ fontSize: 8, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em', textDecoration: 'none' }}>
+            Map
+          </a>
+        )}
       </div>
       {open && results.length > 0 && (
         <div style={{
