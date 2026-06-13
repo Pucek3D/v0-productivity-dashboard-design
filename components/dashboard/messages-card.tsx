@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { IconTrash, IconPlus, IconGripVertical, IconStar } from '@tabler/icons-react'
+import { IconTrash, IconPlus, IconGripVertical, IconStar, IconBookmark } from '@tabler/icons-react'
 import { TaskActions } from './task-actions'
 import { EditableLabel } from './editable-label'
 import type { TaskMeta } from '@/lib/task-meta'
@@ -14,6 +14,8 @@ interface Props {
   taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
   starToPrio?: (text: string, category: 'work' | 'home') => void
   isTaskStarred?: (text: string) => boolean
+  bookmarkToOther?: (text: string, category: 'work' | 'home') => void
+  isTaskBookmarked?: (text: string) => boolean
   onRename?: (key: string, newName: string) => void
 }
 
@@ -31,7 +33,7 @@ function MetaBadges({ meta }: { meta?: TaskMeta }) {
   return b.length ? <span className="inline-flex items-center gap-0.5 flex-wrap">{b}</span> : null
 }
 
-export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, onRename }: Props) {
+export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename }: Props) {
   const [newMsg, setNewMsg] = useState('')
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const toggle = (id: string) => setMessages(p => p.map(m => m.id === id ? { ...m, done: !m.done } : m))
@@ -46,7 +48,7 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, 
       <div className="px-3 py-3">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sorted.map(m => m.id)} strategy={verticalListSortingStrategy}>
-            {sorted.map(msg => <SortableMsg key={msg.id} msg={msg} toggle={toggle} remove={remove} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} onRename={onRename} />)}
+            {sorted.map(msg => <SortableMsg key={msg.id} msg={msg} toggle={toggle} remove={remove} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={onRename} />)}
           </SortableContext>
         </DndContext>
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
@@ -58,9 +60,10 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, 
   )
 }
 
-function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, onRename }: any) {
+function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: msg.id })
   const starred = isTaskStarred?.(msg.text)
+  const bookmarked = isTaskBookmarked?.(msg.text)
   const meta = taskMeta[`msg-${msg.id}`]
 
   return (
@@ -80,6 +83,18 @@ function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio
                 size={11}
                 className={starred ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'}
                 style={starred ? { filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.5))' } : {}}
+              />
+            </button>
+          )}
+          {bookmarkToOther && (
+            <button
+              onClick={() => bookmarkToOther(msg.text, 'work')}
+              className={`bg-transparent border-none cursor-pointer p-0 leading-none ${bookmarked ? '' : 'icon-on-hover'}`}
+              title={bookmarked ? 'Added to Other to-dos' : 'Add to Other to-dos'}
+            >
+              <IconBookmark
+                size={11}
+                className={bookmarked ? 'fill-indigo-400 text-indigo-400' : 'text-slate-500 hover:text-indigo-300'}
               />
             </button>
           )}

@@ -1,8 +1,9 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { IconTrash, IconStar, IconPlus, IconGripVertical } from '@tabler/icons-react'
+import { IconTrash, IconStar, IconBookmark, IconPlus, IconGripVertical } from '@tabler/icons-react'
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
+import { SubtaskPreview } from './subtask-preview'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -31,9 +32,9 @@ const INITIAL_SECTIONS: OtherSection[] = [
   { id: 'personal', name: 'Personal', color: '#ec4899', tasks: [{ id: 'os7', text: 'Faisal — respond', done: false }, { id: 'os8', text: 'Inga — celebrate her promotion!', done: false }] },
 ]
 
-interface Props { taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; starToPrio?: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean; nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void }
+interface Props { taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; starToPrio?: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean; bookmarkToOther?: (t: string, c: 'work' | 'home') => void; isTaskBookmarked?: (t: string) => boolean; starSubtaskToPrio?: (t: string, d?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (t: string, d?: Partial<TaskMeta>) => void; nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void }
 
-export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, nameOverrides, onRename }: Props) {
+export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename }: Props) {
   const [sections, setSections] = useState<OtherSection[]>(INITIAL_SECTIONS)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
@@ -78,7 +79,7 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio,
                     return <SortableTodoTask key={task.id} task={{ ...task, text: label }} taskKey={taskKey} meta={meta} firstSub={firstSub}
                       onToggle={() => toggleTask(section.id, task.id)} onDelete={() => deleteTask(section.id, task.id)}
                       onRename={(t: string) => renameTask(section.id, task.id, t)} openModal={openModal}
-                      taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} />
+                      taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} />
                   })}
                 </SortableContext>
               </DndContext>
@@ -91,7 +92,7 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio,
   )
 }
 
-function SortableTodoTask({ task, taskKey, meta, firstSub, onToggle, onDelete, onRename, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred }: any) {
+function SortableTodoTask({ task, taskKey, meta, firstSub, onToggle, onDelete, onRename, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
@@ -102,11 +103,12 @@ function SortableTodoTask({ task, taskKey, meta, firstSub, onToggle, onDelete, o
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={taskKey} taskLabel={task.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
           {starToPrio && <button onClick={() => starToPrio(task.text, 'work')} className="bg-transparent border-none cursor-pointer p-0 leading-none"><IconStar size={11} className={isTaskStarred?.(task.text) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>}
+          {bookmarkToOther && <button onClick={() => bookmarkToOther(task.text, 'work')} className="bg-transparent border-none cursor-pointer p-0 leading-none" title={isTaskBookmarked?.(task.text) ? 'Added to Other to-dos' : 'Add to Other to-dos'}><IconBookmark size={11} className={isTaskBookmarked?.(task.text) ? 'fill-indigo-400 text-indigo-400' : 'icon-on-hover text-slate-500 hover:text-indigo-300'} /></button>}
           <button onClick={(e: any) => { e.stopPropagation(); onDelete() }} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconTrash size={11} className="text-slate-500 hover:text-rose-400" /></button>
         </span>
       </div>
       {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}
-      {firstSub && <div className="flex items-center gap-1.5 pl-[28px] pb-0.5 -mt-0.5"><span className="text-[11px] text-slate-600">→</span><div className="w-3 h-3 rounded-[3px] border border-slate-600 bg-white/5 flex-shrink-0 cursor-pointer hover:border-slate-400" onClick={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(taskKey, { subtasks: subs }) }} /><span className="text-[11px] text-slate-500 truncate">{firstSub.text}</span></div>}
+      {firstSub && <SubtaskPreview sub={firstSub} onToggleDone={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(taskKey, { subtasks: subs }) }} isTaskStarred={isTaskStarred} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} />}
     </div>
   )
 }

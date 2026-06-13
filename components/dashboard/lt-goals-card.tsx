@@ -3,8 +3,9 @@ import { useState, useRef, useEffect } from 'react'
 import { LT_GOALS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
 import { EditableLabel } from './editable-label'
-import { IconStar, IconGripVertical, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconStar, IconBookmark, IconGripVertical, IconPlus, IconTrash } from '@tabler/icons-react'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
+import { SubtaskPreview } from './subtask-preview'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -33,11 +34,13 @@ interface Props {
   getProjectCompletion: (p: Project) => number; taskMeta: Record<string, TaskMeta>
   updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void
   starToPrio: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean
+  bookmarkToOther?: (t: string, c: 'work' | 'home') => void; isTaskBookmarked?: (t: string) => boolean
+  starSubtaskToPrio?: (t: string, d?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (t: string, d?: Partial<TaskMeta>) => void
   hideTask?: (k: string) => void; hiddenTasks?: Set<string>
   nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void
 }
 
-export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, nameOverrides, onRename }: Props) {
+export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename }: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [extraGoals, setExtraGoals] = useState<Project[]>([])
@@ -62,7 +65,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                 projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
                 isExpanded={!!expanded[goal.key]} toggleExpand={k => setExpanded(p => ({ ...p, [k]: !p[k] }))}
                 taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal}
-                starToPrio={starToPrio} isTaskStarred={isTaskStarred}
+                starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther}
                 onDelete={() => setDeletedGoals(p => new Set([...p, goal.key]))}
                 onRename={(n: string) => setGoalNames(p => ({ ...p, [goal.key]: n }))}
                 taskOrders={taskOrders}
@@ -81,7 +84,7 @@ function SortableGoal(props: any) {
   return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}><GoalTile {...props} dragHandleProps={{ ...attributes, ...listeners }} /></div>
 }
 
-function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, onDelete, onRename, dragHandleProps, taskOrders, reorderTasks, nameOverrides, onRenameTask }: any) {
+function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, onDelete, onRename, dragHandleProps, taskOrders, reorderTasks, nameOverrides, onRenameTask }: any) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const pct = getProjectCompletion(goal)
   const autoStatus = computeStatus(goal, projectDone, taskMeta, 'proj')
@@ -122,7 +125,7 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
                 const label = nameOverrides?.[tk] ?? (meta as any)?.label ?? t.task
                 return <SortableGoalTask key={t.originalIdx} id={t.originalIdx} task={label} done={t.done} tk={tk} meta={meta} firstSub={firstSub}
                   onToggle={() => toggleProjectTask(goal.key, 'task', t.originalIdx)} openModal={openModal}
-                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} onRename={(n: string) => onRenameTask?.(tk, n)} />
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} onRename={(n: string) => onRenameTask?.(tk, n)} />
               })}
             </SortableContext>
           </DndContext>
@@ -133,7 +136,7 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
   )
 }
 
-function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, onRename }: any) {
+function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, onRename }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
@@ -144,10 +147,11 @@ function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openMo
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={tk} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
           <button className="bg-transparent border-none cursor-pointer p-0" onClick={() => starToPrio(task, 'work')}><IconStar size={11} className={isTaskStarred?.(task) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>
+          {bookmarkToOther && <button className="bg-transparent border-none cursor-pointer p-0" onClick={() => bookmarkToOther(task, 'work')} title={isTaskBookmarked?.(task) ? 'Added to Other to-dos' : 'Add to Other to-dos'}><IconBookmark size={11} className={isTaskBookmarked?.(task) ? 'fill-indigo-400 text-indigo-400' : 'icon-on-hover text-slate-500 hover:text-indigo-300'} /></button>}
         </span>
       </div>
       {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}
-      {firstSub && <div className="flex items-center gap-1.5 pl-[28px] pb-0.5 -mt-0.5"><span className="text-[11px] text-slate-600">→</span><div className="w-3 h-3 rounded-[3px] border border-slate-600 bg-white/5 flex-shrink-0 cursor-pointer hover:border-slate-400" onClick={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(tk, { subtasks: subs }) }} /><span className="text-[11px] text-slate-500 truncate">{firstSub.text}</span></div>}
+      {firstSub && <SubtaskPreview sub={firstSub} onToggleDone={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(tk, { subtasks: subs }) }} isTaskStarred={isTaskStarred} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} />}
     </div>
   )
 }
