@@ -21,6 +21,8 @@ export interface DeadlineEvent {
   minute?: number
   /** taskMeta keys that contribute to this (deduped) event — used for deletion. */
   keys?: string[]
+  /** stable per-occurrence id (date + identity) — used to hide from calendar only. */
+  eventId?: string
 }
 
 // ──────────────────────────────────────────────────────────────────

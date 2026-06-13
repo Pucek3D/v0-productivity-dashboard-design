@@ -55,6 +55,18 @@ export default function Dashboard() {
   useEffect(()=>{setTaskMeta(loadTaskMeta())}, [])
   useEffect(()=>{saveTaskMeta(taskMeta)}, [taskMeta])
 
+  // ──────────────────────────────────────────────────────────────────
+  // Unified rename system
+  // `nameOverrides` is the single source of truth for renamed labels of
+  // tasks whose base text lives in static data (Projects / Goals / Other
+  // To-Do). Every card resolves its display text as:
+  //     nameOverrides[taskKey] ?? baseText
+  // Renames (double-click inline OR from the modal) all flow through
+  // `renameTask`, which also propagates the new name to any synced surface
+  // sharing the same current label (e.g. a Top Prio copy of a project task).
+  // ──────────────────────────────────────────────────────────────────
+  const [nameOverrides, setNameOverrides] = useState<Record<string,string>>({})
+
   // Registry of Message + Top Prio task labels keyed by their meta key.
   // Kept in a ref (updated each render) so name-based sync can target
   // tasks even when they don't have a taskMeta entry yet.
@@ -142,6 +154,10 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES)
 
   const [hiddenTasks,setHiddenTasks] = useState<Set<string>>(new Set())
+  // Calendar-only "deleted" events. Deleting an event in the calendar simply
+  // hides that occurrence from ALL calendar views — it does NOT touch the
+  // task's deadline/time anywhere else in the dashboard.
+  const [hiddenCalendarEvents,setHiddenCalendarEvents] = useState<Set<string>>(new Set())
   const [modalTask,setModalTask] = useState<{key:string;label:string}|null>(null)
   const [showAnalytics,setShowAnalytics] = useState(false)
   const [showShutdown,setShowShutdown] = useState(false)
@@ -240,29 +256,49 @@ export default function Dashboard() {
   }, [])
 
   // ──────────────────────────────────────────────────────────────────
-  // FIX #3: Rename propagation — update everywhere
-  // Now also updates messages, and syncs label across all taskMeta
-  // entries that shared the old name.
+  // Unified rename — used by BOTH inline double-click edits (every card)
+  // and the modal title edit. Given the task key + new name it:
+  //   1. records an override for the key (covers Projects / Goals / Other
+  //      To-Do / custom tasks whose base text comes from static data)
+  //   2. updates the lifted Messages + Top Prio stores by matching text
+  //   3. rewrites taskMeta labels that matched the old name
+  //   4. propagates the new name to every other surface sharing the old
+  //      label (so a synced Top Prio copy renames together with its source)
+  //   5. keeps the open modal title in sync
+  // It NEVER touches deadlines/times, so timelines are preserved.
   // ──────────────────────────────────────────────────────────────────
-  const renameTaskFromModal = useCallback((newName: string) => {
-    if (!modalTask) return
-    const old = modalTask.label
-    // Update prio tasks
-    setPrioTasks(prev => prev.map(s => ({...s,tasks:s.tasks.map(t => t.text===old?{...t,text:newName}:t)})))
-    // Update messages
-    setMessages(prev => prev.map(m => m.text===old?{...m,text:newName}:m))
-    // Update all taskMeta labels that match old name
+  const renameTask = useCallback((key: string, newName: string) => {
+    const trimmed = newName.trim()
+    if (!trimmed) return
+    const old = nameOverrides[key]
+      || linkRegistry.current.find(r => r.key === key)?.label
+      || (taskMeta[key] as any)?.label
+      || ''
+
+    // 1 + 4: override this key and every surface sharing the old label
+    setNameOverrides(prev => {
+      const np = { ...prev, [key]: trimmed }
+      if (old) linkRegistry.current.forEach(r => { if (r.label === old) np[r.key] = trimmed })
+      return np
+    })
+
+    // 2: lifted stores keyed by their own text
+    if (old) {
+      setPrioTasks(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(t => t.text === old ? { ...t, text: trimmed } : t) })))
+      setMessages(prev => prev.map(m => m.text === old ? { ...m, text: trimmed } : m))
+    }
+
+    // 3: taskMeta labels
     setTaskMeta(prev => {
-      const updated = {...prev}
-      Object.keys(updated).forEach(k => {
-        if ((updated[k] as any)?.label === old) {
-          updated[k] = { ...updated[k], label: newName } as any
-        }
-      })
+      const updated = { ...prev }
+      updated[key] = { ...updated[key], label: trimmed } as any
+      if (old) Object.keys(updated).forEach(k => { if ((updated[k] as any)?.label === old) updated[k] = { ...updated[k], label: trimmed } as any })
       return updated
     })
-    setModalTask(prev => prev ? {...prev,label:newName} : null)
-  }, [modalTask])
+
+    // 5: open modal title
+    setModalTask(prev => prev && prev.key === key ? { ...prev, label: trimmed } : prev)
+  }, [nameOverrides, taskMeta])
 
   // ──────────────────────────────────────────────────────────────────
   // FIX #4: Recurring events in calendar
@@ -317,23 +353,19 @@ export default function Dashboard() {
     })
     // Subtask deadlines
     Object.entries(taskMeta).forEach(([key,m])=>{(m.subtasks||[]).forEach((st:any)=>{if(st.deadline)add({date:st.deadline,label:st.text,color:'#a78bfa'}, key)})})
-    return Array.from(byId.values())
-  }, [taskMeta])
+    // Attach a stable per-occurrence id and drop any occurrence the user
+    // deleted directly in the calendar (this never affects the task itself).
+    return Array.from(byId.entries())
+      .map(([id, ev]) => ({ ...ev, eventId: id }))
+      .filter(ev => !hiddenCalendarEvents.has(ev.eventId!))
+  }, [taskMeta, hiddenCalendarEvents])
 
-  // Delete a calendar event: clear the deadline/time from every taskMeta key
-  // that contributed to the (deduped) event so it disappears from all views.
+  // Delete a calendar event = hide just this occurrence from the calendar.
+  // It does NOT remove the deadline/time from taskMeta, so every other part of
+  // the dashboard (Top Prio, Projects, Goals, status, planned time) is intact.
   const deleteDeadlineEvent = useCallback((ev: DeadlineEvent)=>{
-    const keys = ev.keys && ev.keys.length ? ev.keys : []
-    if (!keys.length) return
-    setTaskMeta(p=>{
-      const next = { ...p }
-      keys.forEach(k=>{
-        if (!next[k]) return
-        const { deadline, hour, minute, recurring, ...rest } = next[k] as any
-        next[k] = rest
-      })
-      return next
-    })
+    if (!ev.eventId) return
+    setHiddenCalendarEvents(p => new Set([...p, ev.eventId!]))
   }, [])
 
   const completedTasks = useMemo(()=>{const set=new Set<string>();prioTasks.forEach(s=>s.tasks.forEach(t=>{if(t.done)set.add(t.text)}));[...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(projectDone[`${p.key}-task-${i}`])set.add(t)})});return set}, [prioTasks,projectDone])

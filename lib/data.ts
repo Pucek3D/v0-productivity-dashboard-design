@@ -191,29 +191,12 @@ export interface CalendarEvent {
   time?: string
 }
 
-export const MONTH_EVENTS: Record<string, Record<number, CalendarEvent[]>> = {
-  '2026-4': {
-    26: [{ color: '#dc2626', label: 'PPK email Christine' }, { color: '#2563eb', label: 'Respond Varun' }],
-    27: [{ color: '#374151', label: 'John meeting' }, { color: '#2563eb', label: 'Leadership onboarding' }],
-    29: [{ color: '#059669', label: 'Sustainability training' }, { color: '#9ca3af', label: 'Cohort connect (opt)' }],
-    30: [{ color: '#7c3aed', label: 'Trainings TL block (SID)' }],
-  },
-  '2026-5': {
-    5: [{ color: '#dc2626', label: 'Surabhi email DEADLINE' }],
-    9: [{ color: '#2563eb', label: 'Foundational Leadership' }],
-    15: [{ color: '#d97706', label: 'Trading review' }],
-    26: [{ color: '#7c3aed', label: 'Monthly check-in' }],
-  },
-}
+// Hardcoded sample events removed — the calendar now only shows real task
+// deadlines (driven by taskMeta) and user-created meetings, all of which are
+// deletable. Kept as empty objects so existing imports keep working.
+export const MONTH_EVENTS: Record<string, Record<number, CalendarEvent[]>> = {}
 
-export const WEEK_EVENTS: Record<number, { time: string; label: string; color: string }[]> = {
-  25: [{ time: '09:00', label: 'Plan the week', color: '#9ca3af' }],
-  26: [{ time: '11:00', label: 'Respond Varun', color: '#2563eb' }, { time: '14:30', label: 'PPK email Christine', color: '#dc2626' }],
-  27: [{ time: '09:00', label: 'John meeting', color: '#374151' }, { time: '14:00', label: 'Leadership onboarding', color: '#2563eb' }],
-  28: [],
-  29: [{ time: '10:00', label: 'Sustainability training', color: '#059669' }, { time: '14:00', label: 'Cohort connect (opt)', color: '#9ca3af' }],
-  30: [{ time: '09:00', label: 'Trainings TL block', color: '#7c3aed' }],
-}
+export const WEEK_EVENTS: Record<number, { time: string; label: string; color: string }[]> = {}
 
 export const DAY_EVENTS: { label: string; color: string; hour: number; end: number }[] = []
 
