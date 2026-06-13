@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { IconTrash, IconPlus, IconGripVertical } from '@tabler/icons-react'
+import { IconTrash, IconPlus, IconGripVertical, IconStar } from '@tabler/icons-react'
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
@@ -8,9 +8,14 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 
 interface Message { id: string; text: string; done: boolean }
-interface Props { messages: Message[]; setMessages: React.Dispatch<React.SetStateAction<Message[]>>; taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void }
+interface Props {
+  messages: Message[]; setMessages: React.Dispatch<React.SetStateAction<Message[]>>
+  taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
+  starToPrio?: (text: string, category: 'work' | 'home') => void
+  isTaskStarred?: (text: string) => boolean
+}
 
-export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta }: Props) {
+export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, starToPrio, isTaskStarred }: Props) {
   const [newMsg, setNewMsg] = useState('')
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const toggle = (id: string) => setMessages(p => p.map(m => m.id === id ? { ...m, done: !m.done } : m))
@@ -22,10 +27,10 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta }
   return (
     <div className="card-base halo-stone">
       <div className="section-header header-stone px-4 py-3"><span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Messages</span></div>
-      <div className="px-3.5 py-3">
+      <div className="px-3 py-3">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sorted.map(m => m.id)} strategy={verticalListSortingStrategy}>
-            {sorted.map(msg => <SortableMsg key={msg.id} msg={msg} toggle={toggle} remove={remove} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />)}
+            {sorted.map(msg => <SortableMsg key={msg.id} msg={msg} toggle={toggle} remove={remove} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} />)}
           </SortableContext>
         </DndContext>
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
@@ -37,8 +42,9 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta }
   )
 }
 
-function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta }: any) {
+function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio, isTaskStarred }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: msg.id })
+  const starred = isTaskStarred?.(msg.text)
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }} className="flex items-center gap-1.5 py-[3px] group">
       <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab"><IconGripVertical size={10} className="text-slate-600" /></span>
@@ -46,6 +52,9 @@ function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta }: any) {
       <span className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${msg.done ? 'text-slate-500 line-through' : 'text-slate-300'}`}>{msg.text}</span>
       <span className="inline-flex items-center gap-0.5 flex-shrink-0">
         <TaskActions taskKey={`msg-${msg.id}`} taskLabel={msg.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
+        {starToPrio && <button onClick={() => starToPrio(msg.text, 'work')} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none">
+          <IconStar size={11} className={starred ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'} style={starred ? { filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.5))' } : {}} />
+        </button>}
         <button onClick={() => remove(msg.id)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconTrash size={12} className="text-slate-500 hover:text-rose-400" /></button>
       </span>
     </div>
