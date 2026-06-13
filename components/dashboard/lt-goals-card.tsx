@@ -143,7 +143,7 @@ function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openMo
         <EditableLabel value={task} onRename={(n: string) => onRename?.(n)} className={`text-[12px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={tk} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
-          <button className="icon-on-hover bg-transparent border-none cursor-pointer p-0" onClick={() => starToPrio(task, 'work')}><IconStar size={11} className={isTaskStarred?.(task) ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'} /></button>
+          <button className="bg-transparent border-none cursor-pointer p-0" onClick={() => starToPrio(task, 'work')}><IconStar size={11} className={isTaskStarred?.(task) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>
         </span>
       </div>
       {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}

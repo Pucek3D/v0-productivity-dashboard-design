@@ -101,7 +101,7 @@ function SortableTodoTask({ task, taskKey, meta, firstSub, onToggle, onDelete, o
         <EditableText value={task.text} onChange={onRename} className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${task.done ? 'text-slate-500 line-through' : 'text-slate-300'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={taskKey} taskLabel={task.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
-          {starToPrio && <button onClick={() => starToPrio(task.text, 'work')} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconStar size={11} className={isTaskStarred?.(task.text) ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'} /></button>}
+          {starToPrio && <button onClick={() => starToPrio(task.text, 'work')} className="bg-transparent border-none cursor-pointer p-0 leading-none"><IconStar size={11} className={isTaskStarred?.(task.text) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>}
           <button onClick={(e: any) => { e.stopPropagation(); onDelete() }} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconTrash size={11} className="text-slate-500 hover:text-rose-400" /></button>
         </span>
       </div>

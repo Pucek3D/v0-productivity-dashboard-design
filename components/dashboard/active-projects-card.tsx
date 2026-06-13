@@ -208,7 +208,7 @@ function SortableCustomTask({ ct, ctk, cmeta, category, onToggle, onDelete, open
         <EditableLabel value={ct.text} onRename={(n: string) => onRename?.(n)} className={`text-[12.5px] leading-[1.35] flex-1 min-w-0 truncate ${ct.done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={ctk} taskLabel={ct.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
-          <button onClick={() => starToPrio(ct.text, category)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconStar size={11} className={isTaskStarred?.(ct.text) ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'} /></button>
+          <button onClick={() => starToPrio(ct.text, category)} className="bg-transparent border-none cursor-pointer p-0 leading-none"><IconStar size={11} className={isTaskStarred?.(ct.text) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>
           <button onClick={(e: any) => { e.stopPropagation(); onDelete() }} className="icon-on-hover bg-transparent border-none cursor-pointer p-0"><IconTrash size={10} className="text-slate-500 hover:text-rose-400" /></button>
         </span>
       </div>

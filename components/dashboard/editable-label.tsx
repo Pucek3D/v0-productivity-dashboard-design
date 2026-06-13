@@ -57,7 +57,9 @@ export function EditableLabel({
           borderRadius: 4,
           padding: '1px 4px',
           outline: 'none',
-          font: 'inherit',
+          fontFamily: 'inherit',
+          fontWeight: 'inherit',
+          lineHeight: 'inherit',
           color: 'inherit',
           width: '100%',
           minWidth: 0,
@@ -71,7 +73,7 @@ export function EditableLabel({
     <Tag
       className={className}
       style={style}
-      title={title ?? 'Double-click to rename'}
+      title={title}
       onDoubleClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditing(true) }}
     >
       {value}
