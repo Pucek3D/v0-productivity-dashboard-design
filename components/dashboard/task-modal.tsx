@@ -55,9 +55,11 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
 
   const dateInfo = meta.deadline ? getDateLabel(meta.deadline) : null
   const sDone = (meta.subtasks || []).filter(s => s.done).length; const sTotal = (meta.subtasks || []).length
-  const focusSessions: { date: string; minutes: number }[] = (meta as any).focusSessions || []
-  const totalFocusMin = focusSessions.reduce((sum, s) => sum + s.minutes, 0)
-  const fmtMin = (m: number) => m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`
+  const focusSessions: { date: string; seconds?: number; minutes?: number }[] = (meta as any).focusSessions || []
+  const secsOf = (s: { seconds?: number; minutes?: number }) => s.seconds ?? (s.minutes ? s.minutes * 60 : 0)
+  const totalFocusSec = focusSessions.reduce((sum, s) => sum + secsOf(s), 0)
+  // Smart duration: seconds under 1 min, minutes under 1 hr, else h + m.
+  const fmtDur = (sec: number) => { if (sec < 60) return `${sec}s`; const m = Math.round(sec / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m` }
 
   const S: React.CSSProperties = { fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }
 
@@ -80,9 +82,9 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
           {onStartFocus && <div style={{ marginTop: 8 }}>
             <button onClick={() => { onStartFocus(taskKey, taskLabel); onClose() }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)', borderRadius: 6, padding: '3px 9px', cursor: 'pointer', fontSize: 10, fontWeight: 600, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.05em' }}><IconPlayerPlay size={11} /> Start Focus</button>
           </div>}
-          {totalFocusMin > 0 && <div style={{ marginTop: 8, padding: '5px 8px', background: 'rgba(244,63,94,0.08)', borderRadius: 6, border: '1px solid rgba(244,63,94,0.15)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: focusSessions.length > 0 ? 4 : 0 }}><IconClock size={11} color="#fb7185" /><span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185' }}>{fmtMin(totalFocusMin)}</span><span style={{ fontSize: 9, color: '#64748b' }}>total</span></div>
-            {focusSessions.length > 0 && <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 3 }}>{focusSessions.slice(-5).map((s, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0', fontSize: 9 }}><span style={{ color: '#94a3b8' }}>{s.date}</span><span style={{ fontWeight: 700, color: '#fb7185' }}>{fmtMin(s.minutes)}</span></div>)}</div>}
+          {totalFocusSec > 0 && <div style={{ marginTop: 8, padding: '5px 8px', background: 'rgba(244,63,94,0.08)', borderRadius: 6, border: '1px solid rgba(244,63,94,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: focusSessions.length > 0 ? 4 : 0 }}><IconClock size={11} color="#fb7185" /><span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185' }}>{fmtDur(totalFocusSec)}</span><span style={{ fontSize: 9, color: '#64748b' }}>total</span></div>
+            {focusSessions.length > 0 && <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 3 }}>{focusSessions.slice(-5).map((s, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0', fontSize: 9 }}><span style={{ color: '#94a3b8' }}>{s.date}</span><span style={{ fontWeight: 700, color: '#fb7185' }}>{fmtDur(secsOf(s))}</span></div>)}</div>}
           </div>}
         </div>
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, alignSelf: 'flex-start' }}><IconX size={20} color="#64748b" /></button>

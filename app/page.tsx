@@ -375,8 +375,10 @@ export default function Dashboard() {
   // Standard rounding: < 30s is discarded (not worth logging), otherwise
   // round to the nearest whole minute.
   const stopFocus = useCallback((k:string,secs:number)=>{
-    if(secs<30)return;const mins=Math.round(secs/60)||1;const now=new Date();const ds=`${now.getDate()}/${now.getMonth()+1} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
-    setTaskMeta(p=>{const ex=p[k]||{};return{...p,[k]:{...ex,focusSessions:[...((ex as any).focusSessions||[]),{date:ds,minutes:mins}]} as any}})
+    // Record every session (rounded to whole seconds). Sub-minute focuses are
+    // kept and shown in seconds; only a literal 0s session is ignored.
+    if(secs<1)return;const now=new Date();const ds=`${now.getDate()}/${now.getMonth()+1} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
+    setTaskMeta(p=>{const ex=p[k]||{};return{...p,[k]:{...ex,focusSessions:[...((ex as any).focusSessions||[]),{date:ds,seconds:secs}]} as any}})
   }, [])
 
   const toggleGantt = useCallback((pk:string)=>{setGanttProjects(prev=>{const next=new Set(prev);if(next.has(pk))next.delete(pk);else next.add(pk);return next})}, [])
@@ -527,7 +529,7 @@ export default function Dashboard() {
     // today deadline still contribute their meeting time, but NOT planned time.
     Object.entries(taskMeta).forEach(([k,m])=>{if(m.deadline===todayStr&&!k.startsWith('prio-')){if(m.hour!==undefined){meetingMin+=60;meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`})}}})
     let focusedMin=0;const td=new Date();const tp=`${td.getDate()}/${td.getMonth()+1}`
-    Object.values(taskMeta).forEach(m=>{((m as any).focusSessions||[]).forEach((s:any)=>{if(s.date?.startsWith(tp))focusedMin+=s.minutes})})
+    Object.values(taskMeta).forEach(m=>{((m as any).focusSessions||[]).forEach((s:any)=>{if(s.date?.startsWith(tp))focusedMin+=(s.seconds!==undefined?s.seconds/60:(s.minutes||0))})})
     return{plannedMin,meetingMin,overloaded:plannedMin>480,totalTodayTasks,doneTodayTasks,plannedTasks,meetingEvents,focusedMin}
   }, [taskMeta,prioTasks])
 
