@@ -263,9 +263,9 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               onClose={() => setShowTimePicker(false)}
             />
           )}
-          {/* Duration picker */}
+          {/* Duration picker + location */}
           <div className="mt-1.5">
-            <div style={{ fontSize: 8, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Duration</div>
+            <div style={{ fontSize: 8, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Duration & location</div>
             <div className="flex items-center gap-1 flex-wrap">
               {DURATION_PRESETS.map(p => {
                 const active = newMeetingDuration === p.value && customDur === ''
@@ -297,16 +297,18 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
                   {fmtTimeRange(parseInt(newMeetingTime.split(':')[0]), parseInt(newMeetingTime.split(':')[1] || '0'), newMeetingDuration)}
                 </span>
               )}
+              <div style={{ flex: '1 1 150px', minWidth: 150 }}>
+                <LocationAutocomplete
+                  value={newMeetingLocation}
+                  onChange={(v) => { setNewMeetingLocation(v); setNewMeetingCoords(null) }}
+                  onSelect={(name, lat, lon) => { setNewMeetingLocation(name); setNewMeetingCoords({ lat, lon }) }}
+                  hasCoords={!!newMeetingCoords}
+                />
+              </div>
             </div>
           </div>
-          {/* Location / link / notes / files */}
+          {/* Link / notes / files */}
           <div className="mt-2 flex flex-col gap-1.5">
-            <LocationAutocomplete
-              value={newMeetingLocation}
-              onChange={(v) => { setNewMeetingLocation(v); setNewMeetingCoords(null) }}
-              onSelect={(name, lat, lon) => { setNewMeetingLocation(name); setNewMeetingCoords({ lat, lon }) }}
-              hasCoords={!!newMeetingCoords}
-            />
             <div className="flex items-center gap-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '0 8px' }}>
               <IconLink size={12} color="#64748b" />
               <input value={newMeetingLink} onChange={e => setNewMeetingLink(e.target.value)}
@@ -842,11 +844,31 @@ function MeetingDetail({ meeting, monthName, onClose }: {
 }
 
 /* ── Location autocomplete (OpenStreetMap / Nominatim — free, no API key) ── */
+interface NominatimAddress {
+  road?: string
+  house_number?: string
+  pedestrian?: string
+  city?: string
+  town?: string
+  village?: string
+  municipality?: string
+  suburb?: string
+}
 interface NominatimResult {
   display_name: string
   lat: string
   lon: string
   place_id: number
+  address?: NominatimAddress
+}
+
+function shortAddress(r: NominatimResult): string {
+  const a = r.address
+  if (!a) return r.display_name.split(',').slice(0, 2).join(',').trim()
+  const street = a.road || a.pedestrian || a.suburb || ''
+  const streetLine = street ? `${street}${a.house_number ? ' ' + a.house_number : ''}` : ''
+  const city = a.city || a.town || a.village || a.municipality || ''
+  return [streetLine, city].filter(Boolean).join(', ') || r.display_name.split(',').slice(0, 2).join(',').trim()
 }
 
 function LocationAutocomplete({ value, onChange, onSelect, hasCoords }: {
@@ -870,7 +892,7 @@ function LocationAutocomplete({ value, onChange, onSelect, hasCoords }: {
     const t = setTimeout(async () => {
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=5&q=${encodeURIComponent(q)}`,
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`,
           { signal: ctrl.signal, headers: { 'Accept-Language': 'en' } }
         )
         const data: NominatimResult[] = await res.json()
@@ -895,7 +917,7 @@ function LocationAutocomplete({ value, onChange, onSelect, hasCoords }: {
 
   const pick = (r: NominatimResult) => {
     skipRef.current = true
-    onSelect(r.display_name, parseFloat(r.lat), parseFloat(r.lon))
+    onSelect(shortAddress(r), parseFloat(r.lat), parseFloat(r.lon))
     setOpen(false)
     setResults([])
   }
@@ -926,14 +948,20 @@ function LocationAutocomplete({ value, onChange, onSelect, hasCoords }: {
           background: '#0f1726', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
           boxShadow: '0 12px 32px rgba(0,0,0,0.5)', overflow: 'hidden', maxHeight: 180, overflowY: 'auto',
         }}>
-          {results.map(r => (
-            <button key={r.place_id} onClick={() => pick(r)}
-              className="flex items-start gap-2 w-full text-left"
-              style={{ padding: '7px 9px', background: 'transparent', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-              <IconMapPin size={12} color="#64748b" style={{ flexShrink: 0, marginTop: 1 }} />
-              <span style={{ fontSize: 10, color: '#cbd5e1', lineHeight: 1.35 }}>{r.display_name}</span>
-            </button>
-          ))}
+          {results.map(r => {
+            const short = shortAddress(r)
+            return (
+              <button key={r.place_id} onClick={() => pick(r)}
+                className="flex items-start gap-2 w-full text-left"
+                style={{ padding: '7px 9px', background: 'transparent', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <IconMapPin size={12} color="#64748b" style={{ flexShrink: 0, marginTop: 2 }} />
+                <span className="flex flex-col" style={{ minWidth: 0 }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: '#e2e8f0', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{short}</span>
+                  <span style={{ fontSize: 8.5, color: '#64748b', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.display_name}</span>
+                </span>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
