@@ -62,8 +62,12 @@ export default function Dashboard() {
     setTaskMeta(p=>{
       const updated = {...p,[k]:{...p[k],...u}}
 
-      // Resolve the label — prefer what was just passed, fall back to stored
-      const label = u.label || (updated[k] as any)?.label
+      // Resolve the label — prefer what was just passed, fall back to stored,
+      // then fall back to the live registry (handles owner-only edits from the
+      // modal that don't pass a label for tasks with no stored meta yet).
+      const label = u.label
+        || (updated[k] as any)?.label
+        || linkRegistry.current.find(r => r.key === k)?.label
       if (!label) return updated // no label → no sync possible
 
       // Ensure label is persisted on this key
@@ -181,8 +185,21 @@ export default function Dashboard() {
   const addPrioTask = useCallback((text:string)=>{setPrioTasks(prev=>prev.map(s=>s.section==='Other Work'?{...s,tasks:[...s.tasks,{id:`q${Date.now()}`,text,done:false}]}:s))}, [])
 
   const starToPrio = useCallback((text:string,category:'work'|'home')=>{
-    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Home':'Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else n[idx].tasks.push({id:`s${Date.now()}`,text,done:false});return n})
-  }, [])
+    let newId: string | null = null
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Home':'Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false})};return n})
+    // FIX: carry over the source's owner/deadline onto the new prio task so
+    // starring a message keeps its details in Top Prio.
+    if (newId) {
+      const src = linkRegistry.current.find(r => r.label === text && r.key.startsWith('msg-'))
+      const srcMeta = src ? taskMeta[src.key] : undefined
+      const carried: Partial<TaskMeta> = { label: text }
+      if (srcMeta?.owner !== undefined) carried.owner = srcMeta.owner
+      if (srcMeta?.deadline !== undefined) carried.deadline = srcMeta.deadline
+      if (srcMeta?.hour !== undefined) carried.hour = srcMeta.hour
+      if (srcMeta?.minute !== undefined) carried.minute = srcMeta.minute
+      setTaskMeta(p => ({ ...p, [`prio-${newId}`]: { ...p[`prio-${newId}`], ...carried } }))
+    }
+  }, [taskMeta])
   const starSubtaskToPrio = useCallback((text:string)=>starToPrio(text,'work'), [starToPrio])
   const isTaskStarred = useCallback((text:string)=>prioTasks.some(s=>s.tasks.some(t=>t.text===text)), [prioTasks])
   const startFocus = useCallback((k:string,l:string)=>setFocusTask({key:k,label:l}), [])
