@@ -28,7 +28,7 @@ import { WeeklyAnalytics } from '@/components/dashboard/weekly-analytics'
 import { ProjectGantt } from '@/components/dashboard/project-gantt'
 import { PROJECTS, LT_GOALS, TOP_PRIO_TASKS, Project } from '@/lib/data'
 import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
-import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone, sharePerson } from '@/lib/task-meta'
+import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone, sharePerson, extractPeople } from '@/lib/task-meta'
 import { IconMoon, IconChartBar } from '@tabler/icons-react'
 
 export default function Dashboard() {
@@ -73,15 +73,16 @@ export default function Dashboard() {
       // Ensure label is persisted on this key
       if (!updated[k].label) (updated[k] as any).label = label
 
-      // Sync shared fields when any of them changed
-      const syncable = u.priority !== undefined || u.recurring !== undefined
-        || u.owner !== undefined || u.timeEstimate !== undefined
-      if (syncable && label) {
+      // Sync shared fields across all keys that have the SAME label text.
+      // This keeps Top Prio in sync with Active Projects, Other To-Do and
+      // Long-Term Goals (which share identical task text with prio tasks).
+      // Uses `'field' in u` presence checks so CLEARING a value (e.g. the
+      // "All day" button sending hour:undefined) also propagates.
+      const SHARED_FIELDS = ['priority','recurring','owner','timeEstimate','deadline','hour','minute'] as const
+      const changedShared = SHARED_FIELDS.filter(f => f in u)
+      if (changedShared.length) {
         const syncFields: Partial<TaskMeta> = {}
-        if (u.priority !== undefined) syncFields.priority = u.priority
-        if (u.recurring !== undefined) syncFields.recurring = u.recurring
-        if (u.owner !== undefined) syncFields.owner = u.owner
-        if (u.timeEstimate !== undefined) syncFields.timeEstimate = u.timeEstimate
+        changedShared.forEach(f => { (syncFields as any)[f] = (u as any)[f] })
         Object.keys(updated).forEach(otherKey => {
           if (otherKey !== k && (updated[otherKey] as any)?.label === label) {
             updated[otherKey] = { ...updated[otherKey], ...syncFields }
@@ -91,14 +92,11 @@ export default function Dashboard() {
 
       // ── Name/keyword link: Messages ↔ Top Prio (owner + deadline only) ──
       const isLinkable = k.startsWith('msg-') || k.startsWith('prio-')
-      const ownerOrDeadlineChanged = u.owner !== undefined
-        || u.deadline !== undefined || u.hour !== undefined || u.minute !== undefined
-      if (isLinkable && ownerOrDeadlineChanged) {
+      const LINK_FIELDS = ['owner','deadline','hour','minute'] as const
+      const changedLink = LINK_FIELDS.filter(f => f in u)
+      if (isLinkable && changedLink.length) {
         const linkFields: Partial<TaskMeta> = {}
-        if (u.owner !== undefined) linkFields.owner = u.owner
-        if (u.deadline !== undefined) linkFields.deadline = u.deadline
-        if (u.hour !== undefined) linkFields.hour = u.hour
-        if (u.minute !== undefined) linkFields.minute = u.minute
+        changedLink.forEach(f => { (linkFields as any)[f] = (u as any)[f] })
 
         linkRegistry.current.forEach(({ key: otherKey, label: otherLabel }) => {
           if (otherKey === k) return
@@ -252,8 +250,23 @@ export default function Dashboard() {
     const ev:DeadlineEvent[]=[]
     const limit = new Date(); limit.setDate(limit.getDate() + 90)
 
+    // Dedupe linked tasks so the SAME task isn't drawn twice (e.g. a message
+    // and its linked Top Prio task, or identical task text shared across
+    // Top Prio / Projects / Other To-Do / Goals). Identity = date + time +
+    // (shared person if any, else normalized label).
+    const seen = new Set<string>()
+    const identity = (label:string, date:string, hour?:number, minute?:number) => {
+      const people = extractPeople(label)
+      const who = people.length ? people.map(p=>p.toLowerCase()).sort().join('+') : label.trim().toLowerCase()
+      return `${date}|${hour ?? '-'}|${minute ?? '-'}|${who}`
+    }
+
     Object.entries(taskMeta).filter(([,m])=>m.deadline).forEach(([k,m])=>{
-      ev.push({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute})
+      const id = identity(m.label||'Task', m.deadline!, m.hour, m.minute)
+      if (!seen.has(id)) {
+        seen.add(id)
+        ev.push({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute})
+      }
 
       // Generate recurring instances for the next 90 days
       if (m.recurring && m.deadline) {
@@ -265,6 +278,9 @@ export default function Dashboard() {
           else { next = new Date(next); next.setMonth(next.getMonth() + 1) }
           if (next > limit) break
           const ds = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`
+          const rid = identity(`🔄 ${m.label || 'Task'}`, ds, m.hour, m.minute)
+          if (seen.has(rid)) continue
+          seen.add(rid)
           ev.push({ date: ds, label: `🔄 ${m.label || 'Task'}`, color: '#2dd4bf', hour: m.hour, minute: m.minute })
         }
       }
