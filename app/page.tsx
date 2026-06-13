@@ -42,7 +42,26 @@ export default function Dashboard() {
   const [taskMeta, setTaskMeta] = useState<Record<string,TaskMeta>>({})
   useEffect(()=>{setTaskMeta(loadTaskMeta())}, [])
   useEffect(()=>{saveTaskMeta(taskMeta)}, [taskMeta])
-  const updateTaskMeta = useCallback((k:string,u:Partial<TaskMeta>)=>{setTaskMeta(p=>({...p,[k]:{...p[k],...u}}))}, [])
+  const updateTaskMeta = useCallback((k:string,u:Partial<TaskMeta>)=>{
+    setTaskMeta(p=>{
+      const updated = {...p,[k]:{...p[k],...u}}
+      // Cross-sync: if label matches other keys, sync priority/recurring/owner/timeEstimate
+      const label = (updated[k] as any)?.label || u.label
+      if (label && (u.priority !== undefined || u.recurring !== undefined || u.owner !== undefined || u.timeEstimate !== undefined)) {
+        const syncFields: any = {}
+        if (u.priority !== undefined) syncFields.priority = u.priority
+        if (u.recurring !== undefined) syncFields.recurring = u.recurring
+        if (u.owner !== undefined) syncFields.owner = u.owner
+        if (u.timeEstimate !== undefined) syncFields.timeEstimate = u.timeEstimate
+        Object.keys(updated).forEach(otherKey => {
+          if (otherKey !== k && (updated[otherKey] as any)?.label === label) {
+            updated[otherKey] = { ...updated[otherKey], ...syncFields }
+          }
+        })
+      }
+      return updated
+    })
+  }, [])
 
   const [prioTasks, setPrioTasks] = useState(()=>{
     const imp=TOP_PRIO_TASKS;const w=imp.find(s=>s.section==='Work');const h=imp.find(s=>s.section==='Home');const o=imp.find(s=>s.section==='Other')
@@ -65,10 +84,25 @@ export default function Dashboard() {
   const hideTask = useCallback((k:string)=>{setHiddenTasks(p=>new Set([...p,k]))}, [])
   const getProjectCompletion = useCallback((project:Project)=>{const total=project.tasks.length+project.doneTasks.length;if(!total)return 0;let done=0;project.tasks.forEach((_,i)=>{if(projectDone[`${project.key}-task-${i}`])done++});project.doneTasks.forEach((_,i)=>{if(projectDone[`${project.key}-done-${i}`]!==false)done++});return Math.round((done/total)*100)}, [projectDone])
 
+  /* Recurring auto-deadline: when task checked + has recurring, set next deadline */
+  const handleRecurringAfterToggle = useCallback((taskKey: string, nowDone: boolean) => {
+    if (!nowDone) return
+    const m = taskMeta[taskKey] as any
+    if (!m?.recurring || !m?.deadline) return
+    const cur = new Date(m.deadline + 'T00:00')
+    let next: Date
+    if (m.recurring === 'daily') { next = new Date(cur); next.setDate(next.getDate() + 1) }
+    else if (m.recurring === 'weekly') { next = new Date(cur); next.setDate(next.getDate() + 7) }
+    else { next = new Date(cur); next.setMonth(next.getMonth() + 1) }
+    const ns = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`
+    setTimeout(() => { setTaskMeta(prev => ({...prev,[taskKey]:{...prev[taskKey],deadline:ns}})) }, 1200)
+  }, [taskMeta])
+
   const toggleProjectTask = useCallback((pk:string,tt:'task'|'done',idx:number)=>{
     const key=tt==='done'?`${pk}-done-${idx}`:`${pk}-task-${idx}`
-    setProjectDone(prev=>{const nd=!prev[key];if(tt==='task'){const proj=[...PROJECTS,...LT_GOALS].find(p=>p.key===pk);if(proj?.tasks[idx]){const txt=proj.tasks[idx];setPrioTasks(pt=>pt.map(s=>({...s,tasks:s.tasks.map(t=>t.text===txt?{...t,done:nd}:t)})))}}return{...prev,[key]:nd}})
-  }, [])
+    const metaKey = `proj-${pk}-${idx}`
+    setProjectDone(prev=>{const nd=!prev[key];if(tt==='task'){const proj=[...PROJECTS,...LT_GOALS].find(p=>p.key===pk);if(proj?.tasks[idx]){const txt=proj.tasks[idx];setPrioTasks(pt=>pt.map(s=>({...s,tasks:s.tasks.map(t=>t.text===txt?{...t,done:nd}:t)})))};if(nd) handleRecurringAfterToggle(metaKey,true)}return{...prev,[key]:nd}})
+  }, [handleRecurringAfterToggle])
   const onPrioTaskToggle = useCallback((text:string,done:boolean)=>{[...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(t===text)setProjectDone(prev=>({...prev,[`${p.key}-task-${i}`]:done}))})})}, [])
   const addPrioTask = useCallback((text:string)=>{setPrioTasks(prev=>prev.map(s=>s.section==='Other Work'?{...s,tasks:[...s.tasks,{id:`q${Date.now()}`,text,done:false}]}:s))}, [])
 
@@ -92,20 +126,6 @@ export default function Dashboard() {
     const td=new Date();const tp=`${td.getDate()}/${td.getMonth()+1}`
     setTaskMeta(prev=>{const n={...prev};Object.keys(n).forEach(k=>{const m=n[k];if((m as any).focusSessions?.length){n[k]={...m,focusSessions:((m as any).focusSessions||[]).filter((s:any)=>!s.date?.startsWith(tp))} as any}});return n})
   }, [])
-
-  /* Recurring auto-deadline: when task checked + has recurring, set next deadline */
-  const handleRecurringAfterToggle = useCallback((taskKey: string, nowDone: boolean) => {
-    if (!nowDone) return
-    const m = taskMeta[taskKey] as any
-    if (!m?.recurring || !m?.deadline) return
-    const cur = new Date(m.deadline + 'T00:00')
-    let next: Date
-    if (m.recurring === 'daily') { next = new Date(cur); next.setDate(next.getDate() + 1) }
-    else if (m.recurring === 'weekly') { next = new Date(cur); next.setDate(next.getDate() + 7) }
-    else { next = new Date(cur); next.setMonth(next.getMonth() + 1) }
-    const ns = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`
-    setTimeout(() => { setTaskMeta(prev => ({...prev,[taskKey]:{...prev[taskKey],deadline:ns}})) }, 1200)
-  }, [taskMeta])
 
   /* Rename from modal */
   const renameTaskFromModal = useCallback((newName: string) => {
