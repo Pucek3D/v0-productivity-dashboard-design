@@ -1,164 +1,149 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
-import { LT_GOALS } from '@/lib/data'
-import type { TaskMeta } from '@/lib/task-meta'
+import { useState, useRef, useEffect } from 'react'
+import { LT_GOALS, statusStyle, Project } from '@/lib/data'
+import { TaskActions } from './task-actions'
+import { IconStar, IconGripVertical, IconPlus, IconTrash } from '@tabler/icons-react'
+import { computeStatus, type TaskMeta } from '@/lib/task-meta'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
-const DISPLAY_FONT: React.CSSProperties = { fontFamily: 'var(--font-geist-sans), system-ui, sans-serif', fontWeight: 700, letterSpacing: '-0.025em' }
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const COLORS = ['#10b981', '#f59e0b', '#06b6d4', '#a78bfa', '#f472b6', '#fb7185', '#818cf8', '#34d399']
 
-// ── FIX #7: Same ISO week function as task-modal ──
-function getISOWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+function MetaBadges({ meta }: { meta?: TaskMeta }) {
+  if (!meta) return null; const b: React.ReactNode[] = []
+  if (meta.priority) { const c = meta.priority === 'high' ? '#fb7185' : meta.priority === 'medium' ? '#fbbf24' : '#94a3b8'; b.push(<span key="p" style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', background: `${c}22`, color: c, border: `1px solid ${c}44`, borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{meta.priority.slice(0, 3)}</span>) }
+  if (meta.recurring) b.push(<span key="r" style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', background: 'rgba(45,212,191,0.15)', color: '#2dd4bf', border: '1px solid rgba(45,212,191,0.3)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{String(meta.recurring).slice(0, 3)}</span>)
+  if ((meta as any).schedule?.ongoing) b.push(<span key="on" style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>ongoing</span>)
+  if ((meta as any).schedule?.weeks?.length) b.push(<span key="w" style={{ fontSize: 8, fontWeight: 600, color: '#94a3b8', background: 'rgba(255,255,255,0.06)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>W{(meta as any).schedule.weeks[0]}-W{(meta as any).schedule.weeks[(meta as any).schedule.weeks.length - 1]}</span>)
+  if (meta.owner) b.push(<span key="o" style={{ fontSize: 8, fontWeight: 600, color: '#2dd4bf', background: 'rgba(45,212,191,0.12)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{meta.owner}</span>)
+  return b.length ? <span className="inline-flex items-center gap-0.5 flex-wrap">{b}</span> : null
+}
+
+function EditableText({ value, onChange, className, style }: any) {
+  const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(value); const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => { if (editing) ref.current?.focus() }, [editing]); useEffect(() => { setDraft(value) }, [value])
+  if (editing) return <input ref={ref} value={draft} onChange={(e: any) => setDraft(e.target.value)} onBlur={() => { setEditing(false); if (draft.trim() && draft !== value) onChange(draft.trim()) }} onKeyDown={(e: any) => { if (e.key === 'Enter') { setEditing(false); if (draft.trim()) onChange(draft.trim()) } if (e.key === 'Escape') { setEditing(false); setDraft(value) } }} className={className} style={{ ...style, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 4, padding: '0 4px', outline: 'none', width: '100%' }} onClick={(e: any) => e.stopPropagation()} />
+  return <span className={className} style={{ ...style, cursor: 'text' }} onDoubleClick={(e: any) => { e.stopPropagation(); setEditing(true) }}>{value}</span>
 }
 
 interface Props {
-  taskMeta?: Record<string, TaskMeta>
+  projectDone: Record<string, boolean>; toggleProjectTask: (k: string, t: 'task' | 'done', i: number) => void
+  getProjectCompletion: (p: Project) => number; taskMeta: Record<string, TaskMeta>
+  updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void
+  starToPrio: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean
+  hideTask?: (k: string) => void; hiddenTasks?: Set<string>
 }
 
-export function LtGoalsCalendar({ taskMeta = {} }: Props) {
-  const [view, setView] = useState<'gantt' | 'month'>('gantt')
-  const [today, setToday] = useState({ m: 5, y: 2026 })
-  useEffect(() => { const n = new Date(); setToday({ m: n.getMonth(), y: n.getFullYear() }) }, [])
+export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred }: Props) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [extraGoals, setExtraGoals] = useState<Project[]>([])
+  const [deletedGoals, setDeletedGoals] = useState<Set<string>>(new Set())
+  const [goalOrder, setGoalOrder] = useState<string[]>([])
+  const [goalNames, setGoalNames] = useState<Record<string, string>>({})
+  const [taskOrders, setTaskOrders] = useState<Record<string, number[]>>({})
 
-  // ── FIX: ISO week calculation ──
-  const currentWeek = getISOWeekNumber(new Date())
+  const allGoals = [...LT_GOALS, ...extraGoals].filter(g => !deletedGoals.has(g.key))
+  const orderedGoals = (() => { if (!goalOrder.length) return allGoals; const o: Project[] = []; goalOrder.forEach(k => { const g = allGoals.find(p => p.key === k); if (g) o.push(g) }); allGoals.forEach(g => { if (!goalOrder.includes(g.key)) o.push(g) }); return o })()
 
-  // Get the ISO weeks visible in current month
-  const weeksInView = useMemo(() => {
-    const firstDay = new Date(today.y, today.m, 1)
-    const lastDay = new Date(today.y, today.m + 1, 0)
-    const weeks: number[] = []
-    const seen = new Set<number>()
-
-    // Walk Mondays that overlap this month
-    let current = new Date(firstDay)
-    const dayOfWeek = current.getDay() || 7
-    current.setDate(current.getDate() - (dayOfWeek - 1)) // back to Monday
-
-    while (current <= lastDay && weeks.length < 6) {
-      const weekEnd = new Date(current)
-      weekEnd.setDate(weekEnd.getDate() + 6)
-
-      if (weekEnd >= firstDay && current <= lastDay) {
-        const wn = getISOWeekNumber(current)
-        if (!seen.has(wn)) { seen.add(wn); weeks.push(wn) }
-      }
-      current.setDate(current.getDate() + 7)
-    }
-    return weeks
-  }, [today])
-
-  // Build goal schedule data from taskMeta
-  const goalSchedules = useMemo(() => {
-    return LT_GOALS.map(goal => {
-      const allWeeks = new Set<number>()
-      let hasOngoing = false
-
-      goal.tasks.forEach((_, i) => {
-        const tk = `proj-${goal.key}-task-${i}`
-        const meta = taskMeta[tk]
-        if (!meta) return
-        const sched = (meta as any).schedule
-        if (sched?.ongoing) hasOngoing = true
-        if (sched?.weeks) sched.weeks.forEach((w: number) => allWeeks.add(w))
-      })
-
-      return { key: goal.key, name: goal.name, color: goal.color, weeks: [...allWeeks].sort((a, b) => a - b), ongoing: hasOngoing }
-    })
-  }, [taskMeta])
-
-  const toggleBtn = (active: boolean): React.CSSProperties => ({
-    background: active ? 'rgba(255,255,255,0.10)' : 'transparent',
-    color: active ? '#fff' : 'rgba(255,255,255,0.55)',
-    boxShadow: active ? 'inset 0 0 0 1px rgba(255,255,255,0.10)' : 'none',
-    border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '10px',
-    textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 8px',
-  })
+  const handleGoalDragEnd = (e: DragEndEvent) => { const { active, over } = e; if (!over || active.id === over.id) return; const keys = orderedGoals.map(g => g.key); const oi = keys.indexOf(String(active.id)); const ni = keys.indexOf(String(over.id)); if (oi >= 0 && ni >= 0) setGoalOrder(arrayMove(keys, oi, ni)) }
 
   return (
     <div className="card-base halo-teal">
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1.5px', background: 'linear-gradient(90deg, transparent 0%, #14b8a6 25%, #14b8a6 75%, transparent 100%)', boxShadow: '0 0 12px rgba(20,184,166,0.6)', zIndex: 2 }} />
-      <div style={{ background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '12px 16px' }}>
-        <div className="flex justify-between items-center">
-          <span style={{ color: 'rgba(255,255,255,0.92)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>Long-Term Goals Calendar</span>
-          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 6, overflow: 'hidden', display: 'flex' }}>
-            <button onClick={() => setView('gantt')} style={toggleBtn(view === 'gantt')}>Gantt</button>
-            <button onClick={() => setView('month')} style={toggleBtn(view === 'month')}>Month</button>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-3.5 py-3">
-        <div className="mb-2.5">
-          <span style={{ ...DISPLAY_FONT, fontSize: 20, color: '#fff' }}>{MONTH_NAMES[today.m]} </span>
-          <span style={{ ...DISPLAY_FONT, fontSize: 20, color: '#64748b' }}>{today.y}</span>
-        </div>
-
-        {view === 'gantt' ? (
-          <>
-            {/* Week headers */}
-            <div style={{ display: 'flex', marginBottom: 6, paddingLeft: 80 }}>
-              {weeksInView.map(w => (
-                <div key={w} style={{ flex: 1, textAlign: 'center', fontSize: 9, fontWeight: 600, color: w === currentWeek ? '#fb7185' : '#475569', textTransform: 'uppercase' }}>
-                  W{w}
-                </div>
-              ))}
+      <div className="section-header header-teal px-4 py-3"><div className="flex items-center justify-between"><span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Long-Term Goals</span><button onClick={() => setExtraGoals(p => [...p, { key: `ltg-${Date.now()}`, name: 'New Goal', color: COLORS[Math.floor(Math.random() * COLORS.length)], status: 'planning', next: '', tasks: [], doneTasks: [] }])} className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/5"><IconPlus size={13} /></button></div></div>
+      <div className="p-3">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGoalDragEnd}>
+          <SortableContext items={orderedGoals.map(g => g.key)} strategy={verticalListSortingStrategy}>
+            <div className="grid grid-cols-2 gap-2.5">
+              {orderedGoals.map(goal => <SortableGoal key={goal.key} goal={goal} displayName={goalNames[goal.key] || goal.name}
+                projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion}
+                isExpanded={!!expanded[goal.key]} toggleExpand={k => setExpanded(p => ({ ...p, [k]: !p[k] }))}
+                taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal}
+                starToPrio={starToPrio} isTaskStarred={isTaskStarred}
+                onDelete={() => setDeletedGoals(p => new Set([...p, goal.key]))}
+                onRename={(n: string) => setGoalNames(p => ({ ...p, [goal.key]: n }))}
+                taskOrders={taskOrders}
+                reorderTasks={(gk: string, oi: number, ni: number, tl: any[]) => setTaskOrders(p => ({ ...p, [gk]: arrayMove(tl.map((t: any) => t.originalIdx), oi, ni) }))} />)}
             </div>
-
-            {/* Goal bars */}
-            {goalSchedules.map(goal => (
-              <div key={goal.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <span style={{ width: 72, fontSize: 10, fontWeight: 700, color: goal.color, textTransform: 'uppercase', textAlign: 'right', flexShrink: 0 }}>{goal.name}</span>
-                <div style={{ flex: 1, display: 'flex', gap: 2 }}>
-                  {weeksInView.map(w => {
-                    const isActive = goal.ongoing || goal.weeks.includes(w)
-                    const isCurrent = w === currentWeek
-                    return (
-                      <div key={w} style={{
-                        flex: 1, height: 16, borderRadius: 4,
-                        background: isActive ? `${goal.color}40` : 'rgba(255,255,255,0.03)',
-                        border: isActive ? `1px solid ${goal.color}60` : '1px solid rgba(255,255,255,0.04)',
-                        boxShadow: isActive ? `0 0 6px ${goal.color}30` : 'none',
-                        position: 'relative',
-                      }}>
-                        {isCurrent && <div style={{ position: 'absolute', left: '50%', top: -2, bottom: -2, width: 2, background: '#fb7185', borderRadius: 1 }} />}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-
-            {/* Legend */}
-            <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingLeft: 80 }}>
-              <span style={{ fontSize: 8, color: '#475569', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: 'rgba(129,140,248,0.4)', border: '1px solid rgba(129,140,248,0.6)' }} /> Scheduled
-              </span>
-              <span style={{ fontSize: 8, color: '#475569', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }} /> Not set
-              </span>
-              <span style={{ fontSize: 8, color: '#475569', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <div style={{ width: 2, height: 8, background: '#fb7185', borderRadius: 1 }} /> Today
-              </span>
-            </div>
-          </>
-        ) : (
-          /* Month view — shows which goals are active each week */
-          <div>
-            {goalSchedules.map(goal => (
-              <div key={goal.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                <span style={{ width: 72, fontSize: 10, fontWeight: 700, color: goal.color, textTransform: 'uppercase', textAlign: 'right', flexShrink: 0 }}>{goal.name}</span>
-                <div style={{ flex: 1, height: 16, borderRadius: 4, background: goal.ongoing ? `${goal.color}30` : goal.weeks.length > 0 ? `${goal.color}20` : 'rgba(255,255,255,0.03)', border: goal.ongoing || goal.weeks.length > 0 ? `1px solid ${goal.color}40` : '1px solid rgba(255,255,255,0.04)' }}>
-                  {goal.ongoing && <div style={{ height: '100%', borderRadius: 3, background: `${goal.color}40` }} />}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          </SortableContext>
+        </DndContext>
       </div>
+    </div>
+  )
+}
+
+function SortableGoal(props: any) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.goal.key })
+  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}><GoalTile {...props} dragHandleProps={{ ...attributes, ...listeners }} /></div>
+}
+
+function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, onDelete, onRename, dragHandleProps, taskOrders, reorderTasks }: any) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const pct = getProjectCompletion(goal)
+  const autoStatus = computeStatus(goal, projectDone, taskMeta, 'proj')
+  const style = statusStyle(autoStatus, goal.color)
+
+  const indexedTasks = goal.tasks.map((task: string, i: number) => ({ task, originalIdx: i, done: !!projectDone[`${goal.key}-task-${i}`] }))
+  const customOrder = taskOrders[goal.key]
+  let ordered = customOrder ? customOrder.map((idx: number) => indexedTasks.find((t: any) => t.originalIdx === idx)).filter(Boolean) : [...indexedTasks].sort((a: any, b: any) => Number(a.done) - Number(b.done))
+  if (customOrder) indexedTasks.forEach((t: any) => { if (!customOrder.includes(t.originalIdx)) ordered.push(t) })
+  const visible = isExpanded ? ordered : ordered.slice(0, 3)
+  const hiddenCount = ordered.length - 3 + goal.doneTasks.length
+
+  const handleTaskDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e; if (!over || active.id === over.id) return
+    const oi = visible.findIndex((t: any) => t.originalIdx === Number(active.id))
+    const ni = visible.findIndex((t: any) => t.originalIdx === Number(over.id))
+    if (oi >= 0 && ni >= 0) reorderTasks(goal.key, oi, ni, visible)
+  }
+
+  return (
+    <div className="tile-base relative">
+      <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg, ${goal.color} 0%, ${goal.color}60 55%, transparent 100%)`, boxShadow: `0 0 8px ${goal.color}80` }} />
+      <div className="p-2.5">
+        <div className="flex items-center gap-1 mb-1">
+          {dragHandleProps && <span {...dragHandleProps} className="flex-shrink-0 cursor-grab opacity-40 hover:opacity-100"><IconGripVertical size={11} className="text-slate-600" /></span>}
+          <EditableText value={displayName} onChange={onRename} className="font-display text-[14px] text-white whitespace-nowrap overflow-hidden text-ellipsis leading-tight flex-1 min-w-0" />
+          <button onClick={onDelete} className="flex-shrink-0 p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-white/5"><IconTrash size={13} /></button>
+        </div>
+        <div className="flex items-center justify-between mb-1.5 gap-2">
+          <span className="flex items-center gap-1.5"><span className="w-[5px] h-[5px] rounded-full" style={{ background: style.text }} /><span className="text-[9px] font-semibold uppercase tracking-[0.10em]" style={{ color: style.text }}>{autoStatus}</span></span>
+          <span className="font-display text-[18px] tabular leading-none" style={{ color: goal.color }}>{pct}%</span>
+        </div>
+        <div className="border-t border-white/5 pt-1 mt-1">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
+            <SortableContext items={visible.map((t: any) => t.originalIdx)} strategy={verticalListSortingStrategy}>
+              {visible.map((t: any) => {
+                const tk = `proj-${goal.key}-${t.originalIdx}`; const meta = taskMeta[tk]; const firstSub = meta?.subtasks?.find((s: any) => !s.done)
+                return <SortableGoalTask key={t.originalIdx} id={t.originalIdx} task={t.task} done={t.done} tk={tk} meta={meta} firstSub={firstSub}
+                  onToggle={() => toggleProjectTask(goal.key, 'task', t.originalIdx)} openModal={openModal}
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} />
+              })}
+            </SortableContext>
+          </DndContext>
+        </div>
+        {hiddenCount > 0 && <div className="flex items-center gap-1 mt-1 cursor-pointer text-slate-500 hover:text-[#14b8a6] transition-colors" onClick={() => toggleExpand(goal.key)}><span className="text-[9px] font-semibold uppercase tracking-[0.10em]">{isExpanded ? 'Less' : `+${hiddenCount} more`}</span><span className={`text-[9px] transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span></div>}
+      </div>
+    </div>
+  )
+}
+
+function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
+      <div className="flex items-center gap-1.5 py-0.5 cursor-pointer select-none group" onClick={() => openModal(tk, task)}>
+        <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
+        <div onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
+        <span className={`text-[12px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{task}</span>
+        <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
+          <TaskActions taskKey={tk} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
+          <button className="icon-on-hover bg-transparent border-none cursor-pointer p-0" onClick={() => starToPrio(task, 'work')}><IconStar size={11} className={isTaskStarred?.(task) ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'} /></button>
+        </span>
+      </div>
+      {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}
+      {firstSub && <div className="flex items-center gap-1.5 pl-[28px] pb-0.5"><span className="text-[11px] text-slate-600">→</span><div className="w-3 h-3 rounded-[3px] border border-slate-600 bg-white/5 flex-shrink-0 cursor-pointer hover:border-slate-400" onClick={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(tk, { subtasks: subs }) }} /><span className="text-[11px] text-slate-500 truncate">{firstSub.text}</span></div>}
     </div>
   )
 }

@@ -6,6 +6,14 @@ import type { TaskMeta } from '@/lib/task-meta'
 const DISPLAY_FONT: React.CSSProperties = { fontFamily: 'var(--font-geist-sans), system-ui, sans-serif', fontWeight: 700, letterSpacing: '-0.025em' }
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
+// ── FIX #7: Same ISO week function as task-modal ──
+function getISOWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+}
+
 interface Props {
   taskMeta?: Record<string, TaskMeta>
 }
@@ -15,14 +23,33 @@ export function LtGoalsCalendar({ taskMeta = {} }: Props) {
   const [today, setToday] = useState({ m: 5, y: 2026 })
   useEffect(() => { const n = new Date(); setToday({ m: n.getMonth(), y: n.getFullYear() }) }, [])
 
-  // Calculate current week of year
-  const now = new Date()
-  const startOfYear = new Date(now.getFullYear(), 0, 1)
-  const currentWeek = Math.ceil(((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
+  // ── FIX: ISO week calculation ──
+  const currentWeek = getISOWeekNumber(new Date())
 
-  // Get the weeks visible in current month (approximately)
-  const monthStartWeek = Math.ceil(((new Date(today.y, today.m, 1).getTime() - startOfYear.getTime()) / 86400000 + 1) / 7)
-  const weeksInView = [monthStartWeek, monthStartWeek + 1, monthStartWeek + 2, monthStartWeek + 3]
+  // Get the ISO weeks visible in current month
+  const weeksInView = useMemo(() => {
+    const firstDay = new Date(today.y, today.m, 1)
+    const lastDay = new Date(today.y, today.m + 1, 0)
+    const weeks: number[] = []
+    const seen = new Set<number>()
+
+    // Walk Mondays that overlap this month
+    let current = new Date(firstDay)
+    const dayOfWeek = current.getDay() || 7
+    current.setDate(current.getDate() - (dayOfWeek - 1)) // back to Monday
+
+    while (current <= lastDay && weeks.length < 6) {
+      const weekEnd = new Date(current)
+      weekEnd.setDate(weekEnd.getDate() + 6)
+
+      if (weekEnd >= firstDay && current <= lastDay) {
+        const wn = getISOWeekNumber(current)
+        if (!seen.has(wn)) { seen.add(wn); weeks.push(wn) }
+      }
+      current.setDate(current.getDate() + 7)
+    }
+    return weeks
+  }, [today])
 
   // Build goal schedule data from taskMeta
   const goalSchedules = useMemo(() => {
