@@ -1,6 +1,6 @@
 'use client'
 import { useMemo } from 'react'
-import { IconX, IconUser } from '@tabler/icons-react'
+import { IconX } from '@tabler/icons-react'
 import { Project } from '@/lib/data'
 import type { TaskMeta } from '@/lib/task-meta'
 
@@ -19,6 +19,7 @@ interface GanttRow {
   done: boolean
   isSubtask?: boolean
   color: string
+  hasDeadline: boolean
 }
 
 export function ProjectGantt({ project, projectDone, taskMeta, onClose }: ProjectGanttProps) {
@@ -36,10 +37,11 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
       result.push({
         label: task,
         owner: meta?.owner,
-        start: deadline ? new Date(deadline.getTime() - 7 * 86400000) : undefined, // assume 7 days before deadline
+        start: deadline ? new Date(deadline.getTime() - 7 * 86400000) : undefined,
         end: deadline,
         done,
         color: project.color,
+        hasDeadline: !!deadline,
       })
       // Subtask rows
       if (meta?.subtasks) {
@@ -53,6 +55,7 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
             done: st.done,
             isSubtask: true,
             color: `${project.color}99`,
+            hasDeadline: !!stDeadline,
           })
         })
       }
@@ -60,15 +63,16 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
     return result
   }, [project, projectDone, taskMeta])
 
-  // Calculate date range
+  // ── FIX #5: Better date range calculation ──
+  // Ensure minimum 21-day span, and add enough padding so labels don't clip.
   const { minDate, maxDate, totalDays } = useMemo(() => {
     const dates = rows.filter(r => r.start || r.end).flatMap(r => [r.start, r.end].filter(Boolean) as Date[])
     dates.push(today)
-    dates.push(new Date(today.getTime() + 14 * 86400000)) // at least 2 weeks ahead
-    const min = new Date(Math.min(...dates.map(d => d.getTime())) - 3 * 86400000)
-    const max = new Date(Math.max(...dates.map(d => d.getTime())) + 3 * 86400000)
+    dates.push(new Date(today.getTime() + 21 * 86400000)) // at least 3 weeks ahead
+    const min = new Date(Math.min(...dates.map(d => d.getTime())) - 5 * 86400000)
+    const max = new Date(Math.max(...dates.map(d => d.getTime())) + 5 * 86400000)
     const days = Math.ceil((max.getTime() - min.getTime()) / 86400000)
-    return { minDate: min, maxDate: max, totalDays: Math.max(days, 14) }
+    return { minDate: min, maxDate: max, totalDays: Math.max(days, 21) }
   }, [rows, today])
 
   const dayToPercent = (date: Date) => {
@@ -78,23 +82,31 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
 
   const todayPct = dayToPercent(today)
 
-  // Generate week labels
+  // ── FIX #5: Week labels with minimum spacing — skip if too close ──
   const weekLabels = useMemo(() => {
     const labels: { label: string; pct: number }[] = []
     const d = new Date(minDate)
     d.setDate(d.getDate() - d.getDay() + 1) // start from Monday
+    const MIN_GAP_PCT = 8 // minimum 8% gap between labels
+    let lastPct = -100
+
     while (d <= maxDate) {
       if (d >= minDate) {
-        labels.push({
-          label: `${d.getDate()}/${d.getMonth() + 1}`,
-          pct: dayToPercent(d),
-        })
+        const pct = dayToPercent(d)
+        if (pct - lastPct >= MIN_GAP_PCT) {
+          labels.push({
+            label: `${d.getDate()}/${d.getMonth() + 1}`,
+            pct,
+          })
+          lastPct = pct
+        }
       }
       d.setDate(d.getDate() + 7)
     }
     return labels
   }, [minDate, maxDate, totalDays])
 
+  const LABEL_W = 180
   const ROW_H = 28
 
   return (
@@ -118,7 +130,16 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
             {/* Week headers */}
             <div style={{ height: 20, position: 'relative', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: 4 }}>
               {weekLabels.map((w, i) => (
-                <span key={i} style={{ position: 'absolute', left: `${w.pct}%`, fontSize: 9, color: '#64748b', fontWeight: 600, fontVariantNumeric: 'tabular-nums', transform: 'translateX(-50%)' }}>{w.label}</span>
+                <span key={i} style={{
+                  position: 'absolute',
+                  left: `${w.pct}%`,
+                  fontSize: 9,
+                  color: '#64748b',
+                  fontWeight: 600,
+                  fontVariantNumeric: 'tabular-nums',
+                  transform: 'translateX(-50%)',
+                  whiteSpace: 'nowrap',
+                }}>{w.label}</span>
               ))}
             </div>
 
@@ -137,7 +158,7 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', height: ROW_H, borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
                   {/* Label */}
-                  <div style={{ width: 180, flexShrink: 0, paddingRight: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: LABEL_W, flexShrink: 0, paddingRight: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
                     {row.isSubtask && <span style={{ color: '#475569', fontSize: 10, marginLeft: 8 }}>↳</span>}
                     <div className={`w-2 h-2 rounded-sm flex-shrink-0 ${row.done ? 'bg-indigo-500/50' : ''}`}
                       style={row.done ? {} : { border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.03)' }} />
@@ -149,7 +170,7 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
 
                   {/* Bar area */}
                   <div style={{ flex: 1, position: 'relative', height: '100%' }}>
-                    {hasBar && (
+                    {hasBar ? (
                       <div style={{
                         position: 'absolute',
                         left: `${startPct}%`,
@@ -169,9 +190,24 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
                         {/* Deadline marker */}
                         <div style={{ position: 'absolute', right: -1, top: -2, bottom: -2, width: 3, borderRadius: 2, background: row.color }} />
                       </div>
-                    )}
-                    {!hasBar && (
-                      <div style={{ position: 'absolute', left: `${todayPct}%`, top: '50%', transform: 'translate(-50%, -50%)', width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }} title="No deadline set" />
+                    ) : (
+                      /* ── FIX #5: Tasks without deadlines get a dashed placeholder bar at today ── */
+                      <div style={{
+                        position: 'absolute',
+                        left: `${Math.max(todayPct - 4, 0)}%`,
+                        width: `${Math.min(8, 100 - todayPct + 4)}%`,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        height: row.isSubtask ? 6 : 10,
+                        borderRadius: 3,
+                        border: '1px dashed rgba(255,255,255,0.12)',
+                        background: 'rgba(255,255,255,0.02)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <span style={{ fontSize: 7, color: '#475569', fontWeight: 600, letterSpacing: '0.05em' }}>NO DATE</span>
+                      </div>
                     )}
                   </div>
                 </div>
