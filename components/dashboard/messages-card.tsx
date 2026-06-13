@@ -20,11 +20,12 @@ interface Props {
   onToggleDone?: (text: string, done: boolean) => void
 }
 
-/* Small W (work, blue) / H (home, green) tag shown before a message's text. */
+/* Plain colored letter — W (work) / H (home) — matching the Top Prio section
+   colors exactly (WORK #818cf8, HOME #2dd4bf). No box, slightly larger than
+   the message text so it stays compact width-wise. */
 function CatTag({ category }: { category?: 'work' | 'home' }) {
   const home = category === 'home'
-  const c = home ? { bg: 'rgba(16,185,129,0.15)', fg: '#34d399', bd: 'rgba(52,211,153,0.45)' } : { bg: 'rgba(59,130,246,0.15)', fg: '#60a5fa', bd: 'rgba(96,165,250,0.45)' }
-  return <span style={{ fontSize: 8, fontWeight: 800, background: c.bg, color: c.fg, border: `1px solid ${c.bd}`, borderRadius: 3, padding: '0 4px', lineHeight: '14px', flexShrink: 0 }}>{home ? 'H' : 'W'}</span>
+  return <span style={{ fontSize: 13, fontWeight: 800, color: home ? '#2dd4bf' : '#818cf8', lineHeight: 1, flexShrink: 0 }}>{home ? 'H' : 'W'}</span>
 }
 
 /* MetaBadges — skips owner + deadline (already shown by TaskActions inline) */
@@ -65,8 +66,8 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, 
           <span className="text-slate-600"><IconPlus size={12} /></span>
           {/* Work / Home selector for the new message */}
           <div className="flex items-center gap-0.5 flex-shrink-0">
-            <button onClick={() => setNewCat('work')} title="Work" style={{ fontSize: 8, fontWeight: 800, cursor: 'pointer', borderRadius: 3, padding: '1px 5px', lineHeight: '14px', border: `1px solid ${newCat === 'work' ? 'rgba(96,165,250,0.5)' : 'rgba(255,255,255,0.08)'}`, background: newCat === 'work' ? 'rgba(59,130,246,0.18)' : 'transparent', color: newCat === 'work' ? '#60a5fa' : '#475569' }}>W</button>
-            <button onClick={() => setNewCat('home')} title="Home" style={{ fontSize: 8, fontWeight: 800, cursor: 'pointer', borderRadius: 3, padding: '1px 5px', lineHeight: '14px', border: `1px solid ${newCat === 'home' ? 'rgba(52,211,153,0.5)' : 'rgba(255,255,255,0.08)'}`, background: newCat === 'home' ? 'rgba(16,185,129,0.18)' : 'transparent', color: newCat === 'home' ? '#34d399' : '#475569' }}>H</button>
+            <button onClick={() => setNewCat('work')} title="Work" style={{ fontSize: 13, fontWeight: 800, cursor: 'pointer', border: 'none', background: 'transparent', lineHeight: 1, padding: '0 2px', color: newCat === 'work' ? '#818cf8' : '#475569' }}>W</button>
+            <button onClick={() => setNewCat('home')} title="Home" style={{ fontSize: 13, fontWeight: 800, cursor: 'pointer', border: 'none', background: 'transparent', lineHeight: 1, padding: '0 2px', color: newCat === 'home' ? '#2dd4bf' : '#475569' }}>H</button>
           </div>
           <input value={newMsg} onChange={e => setNewMsg(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add() }} placeholder="Add message..." style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 11, color: '#e2e8f0', fontFamily: 'inherit' }} />
         </div>
