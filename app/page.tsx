@@ -42,13 +42,29 @@ export default function Dashboard() {
   const [taskMeta, setTaskMeta] = useState<Record<string,TaskMeta>>({})
   useEffect(()=>{setTaskMeta(loadTaskMeta())}, [])
   useEffect(()=>{saveTaskMeta(taskMeta)}, [taskMeta])
+
+  // ──────────────────────────────────────────────────────────────────
+  // FIX #1: Cross-sync taskMeta by label
+  // Always syncs priority/recurring/owner/timeEstimate across all keys
+  // that share the same label text.  Now also ensures `label` is stored
+  // on every update so the matching can actually fire.
+  // ──────────────────────────────────────────────────────────────────
   const updateTaskMeta = useCallback((k:string,u:Partial<TaskMeta>)=>{
     setTaskMeta(p=>{
       const updated = {...p,[k]:{...p[k],...u}}
-      // Cross-sync: if label matches other keys, sync priority/recurring/owner/timeEstimate
-      const label = (updated[k] as any)?.label || u.label
-      if (label && (u.priority !== undefined || u.recurring !== undefined || u.owner !== undefined || u.timeEstimate !== undefined)) {
-        const syncFields: any = {}
+
+      // Resolve the label — prefer what was just passed, fall back to stored
+      const label = u.label || (updated[k] as any)?.label
+      if (!label) return updated // no label → no sync possible
+
+      // Ensure label is persisted on this key
+      if (!updated[k].label) (updated[k] as any).label = label
+
+      // Sync shared fields when any of them changed
+      const syncable = u.priority !== undefined || u.recurring !== undefined
+        || u.owner !== undefined || u.timeEstimate !== undefined
+      if (syncable && label) {
+        const syncFields: Partial<TaskMeta> = {}
         if (u.priority !== undefined) syncFields.priority = u.priority
         if (u.recurring !== undefined) syncFields.recurring = u.recurring
         if (u.owner !== undefined) syncFields.owner = u.owner
@@ -103,7 +119,33 @@ export default function Dashboard() {
     const metaKey = `proj-${pk}-${idx}`
     setProjectDone(prev=>{const nd=!prev[key];if(tt==='task'){const proj=[...PROJECTS,...LT_GOALS].find(p=>p.key===pk);if(proj?.tasks[idx]){const txt=proj.tasks[idx];setPrioTasks(pt=>pt.map(s=>({...s,tasks:s.tasks.map(t=>t.text===txt?{...t,done:nd}:t)})))};if(nd) handleRecurringAfterToggle(metaKey,true)}return{...prev,[key]:nd}})
   }, [handleRecurringAfterToggle])
-  const onPrioTaskToggle = useCallback((text:string,done:boolean)=>{[...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(t===text)setProjectDone(prev=>({...prev,[`${p.key}-task-${i}`]:done}))})})}, [])
+
+  // ──────────────────────────────────────────────────────────────────
+  // FIX #2: Recurring in prio toggle
+  // When a prio task is toggled done, also fire handleRecurringAfterToggle
+  // on matching project meta keys AND the prio meta key itself.
+  // ──────────────────────────────────────────────────────────────────
+  const onPrioTaskToggle = useCallback((text:string,done:boolean)=>{
+    // Sync done state to matching project tasks
+    ;[...PROJECTS,...LT_GOALS].forEach(p=>{
+      p.tasks.forEach((t,i)=>{
+        if(t===text){
+          setProjectDone(prev=>({...prev,[`${p.key}-task-${i}`]:done}))
+          // Trigger recurring deadline shift on the project meta key
+          if(done) handleRecurringAfterToggle(`proj-${p.key}-${i}`, true)
+        }
+      })
+    })
+    // Also check prio-specific meta keys for recurring
+    if (done) {
+      Object.keys(taskMeta).forEach(k => {
+        if (k.startsWith('prio-') && (taskMeta[k] as any)?.label === text) {
+          handleRecurringAfterToggle(k, true)
+        }
+      })
+    }
+  }, [handleRecurringAfterToggle, taskMeta])
+
   const addPrioTask = useCallback((text:string)=>{setPrioTasks(prev=>prev.map(s=>s.section==='Other Work'?{...s,tasks:[...s.tasks,{id:`q${Date.now()}`,text,done:false}]}:s))}, [])
 
   const starToPrio = useCallback((text:string,category:'work'|'home')=>{
@@ -127,17 +169,58 @@ export default function Dashboard() {
     setTaskMeta(prev=>{const n={...prev};Object.keys(n).forEach(k=>{const m=n[k];if((m as any).focusSessions?.length){n[k]={...m,focusSessions:((m as any).focusSessions||[]).filter((s:any)=>!s.date?.startsWith(tp))} as any}});return n})
   }, [])
 
-  /* Rename from modal */
+  // ──────────────────────────────────────────────────────────────────
+  // FIX #3: Rename propagation — update everywhere
+  // Now also updates messages, and syncs label across all taskMeta
+  // entries that shared the old name.
+  // ──────────────────────────────────────────────────────────────────
   const renameTaskFromModal = useCallback((newName: string) => {
     if (!modalTask) return
     const old = modalTask.label
+    // Update prio tasks
     setPrioTasks(prev => prev.map(s => ({...s,tasks:s.tasks.map(t => t.text===old?{...t,text:newName}:t)})))
+    // Update messages
+    setMessages(prev => prev.map(m => m.text===old?{...m,text:newName}:m))
+    // Update all taskMeta labels that match old name
+    setTaskMeta(prev => {
+      const updated = {...prev}
+      Object.keys(updated).forEach(k => {
+        if ((updated[k] as any)?.label === old) {
+          updated[k] = { ...updated[k], label: newName } as any
+        }
+      })
+      return updated
+    })
     setModalTask(prev => prev ? {...prev,label:newName} : null)
   }, [modalTask])
 
+  // ──────────────────────────────────────────────────────────────────
+  // FIX #4: Recurring events in calendar
+  // Generates future instances (up to 90 days) for tasks with recurring
+  // set, so they appear in the EventCalendar automatically.
+  // ──────────────────────────────────────────────────────────────────
   const deadlineEvents: DeadlineEvent[] = useMemo(()=>{
     const ev:DeadlineEvent[]=[]
-    Object.entries(taskMeta).filter(([,m])=>m.deadline).forEach(([,m])=>{ev.push({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute})})
+    const limit = new Date(); limit.setDate(limit.getDate() + 90)
+
+    Object.entries(taskMeta).filter(([,m])=>m.deadline).forEach(([k,m])=>{
+      ev.push({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute})
+
+      // Generate recurring instances for the next 90 days
+      if (m.recurring && m.deadline) {
+        const start = new Date(m.deadline + 'T00:00')
+        let next = new Date(start)
+        for (let i = 0; i < 60; i++) {
+          if (m.recurring === 'daily') next = new Date(next.getTime() + 86400000)
+          else if (m.recurring === 'weekly') next = new Date(next.getTime() + 7 * 86400000)
+          else { next = new Date(next); next.setMonth(next.getMonth() + 1) }
+          if (next > limit) break
+          const ds = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`
+          ev.push({ date: ds, label: `🔄 ${m.label || 'Task'}`, color: '#2dd4bf', hour: m.hour, minute: m.minute })
+        }
+      }
+    })
+    // Subtask deadlines
     Object.entries(taskMeta).forEach(([,m])=>{(m.subtasks||[]).forEach(st=>{if((st as any).deadline)ev.push({date:(st as any).deadline,label:st.text,color:'#a78bfa'})})})
     return ev
   }, [taskMeta])
@@ -204,7 +287,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,u)} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} onRenameTask={renameTaskFromModal} />}
+      {/* ── FIX #1 continued: modal onUpdate ALWAYS passes label ── */}
+      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,{...u, label: modalTask.label})} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} onRenameTask={renameTaskFromModal} />}
       {showShutdown&&<DailyShutdown onClose={()=>setShowShutdown(false)} tasksCompleted={timeStats.doneTodayTasks} tasksTotal={timeStats.totalTodayTasks} focusedMin={timeStats.focusedMin} messagesAnswered={messagesAnswered} onCleanup={dailyCleanup} />}
       {showAnalytics&&<WeeklyAnalytics onClose={()=>setShowAnalytics(false)} projectDone={projectDone} taskMeta={taskMeta} getProjectCompletion={getProjectCompletion} />}
     </div>
