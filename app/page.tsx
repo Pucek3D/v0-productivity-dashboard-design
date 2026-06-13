@@ -93,6 +93,28 @@ export default function Dashboard() {
     setTaskMeta(prev=>{const n={...prev};Object.keys(n).forEach(k=>{const m=n[k];if((m as any).focusSessions?.length){n[k]={...m,focusSessions:((m as any).focusSessions||[]).filter((s:any)=>!s.date?.startsWith(tp))} as any}});return n})
   }, [])
 
+  /* Recurring auto-deadline: when task checked + has recurring, set next deadline */
+  const handleRecurringAfterToggle = useCallback((taskKey: string, nowDone: boolean) => {
+    if (!nowDone) return
+    const m = taskMeta[taskKey] as any
+    if (!m?.recurring || !m?.deadline) return
+    const cur = new Date(m.deadline + 'T00:00')
+    let next: Date
+    if (m.recurring === 'daily') { next = new Date(cur); next.setDate(next.getDate() + 1) }
+    else if (m.recurring === 'weekly') { next = new Date(cur); next.setDate(next.getDate() + 7) }
+    else { next = new Date(cur); next.setMonth(next.getMonth() + 1) }
+    const ns = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`
+    setTimeout(() => { setTaskMeta(prev => ({...prev,[taskKey]:{...prev[taskKey],deadline:ns}})) }, 1200)
+  }, [taskMeta])
+
+  /* Rename from modal */
+  const renameTaskFromModal = useCallback((newName: string) => {
+    if (!modalTask) return
+    const old = modalTask.label
+    setPrioTasks(prev => prev.map(s => ({...s,tasks:s.tasks.map(t => t.text===old?{...t,text:newName}:t)})))
+    setModalTask(prev => prev ? {...prev,label:newName} : null)
+  }, [modalTask])
+
   const deadlineEvents: DeadlineEvent[] = useMemo(()=>{
     const ev:DeadlineEvent[]=[]
     Object.entries(taskMeta).filter(([,m])=>m.deadline).forEach(([,m])=>{ev.push({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute})})
@@ -162,35 +184,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      /* Recurring auto-deadline: when task checked + has recurring, set next deadline */
-  const handleRecurringAfterToggle = useCallback((taskKey: string, nowDone: boolean) => {
-    if (!nowDone) return
-    const meta = taskMeta[taskKey] as any
-    if (!meta?.recurring || !meta?.deadline) return
-    const current = new Date(meta.deadline + 'T00:00')
-    let next: Date
-    if (meta.recurring === 'daily') { next = new Date(current); next.setDate(next.getDate() + 1) }
-    else if (meta.recurring === 'weekly') { next = new Date(current); next.setDate(next.getDate() + 7) }
-    else { next = new Date(current); next.setMonth(next.getMonth() + 1) }
-    const nextStr = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
-    // After 1 second, uncheck and set new deadline
-    setTimeout(() => {
-      setProjectDone(prev => ({ ...prev, [taskKey.replace('proj-', '').replace(/-task-(\d+)$/, '-task-$1')]: false }))
-      setTaskMeta(prev => ({ ...prev, [taskKey]: { ...prev[taskKey], deadline: nextStr } }))
-    }, 1200)
-  }, [taskMeta])
-
-  /* Rename task from modal */
-  const renameTaskFromModal = useCallback((newName: string) => {
-    if (!modalTask) return
-    const oldName = modalTask.label
-    // Rename in prio tasks
-    setPrioTasks(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(t => t.text === oldName ? { ...t, text: newName } : t) })))
-    // Update modal reference
-    setModalTask(prev => prev ? { ...prev, label: newName } : null)
-  }, [modalTask])
-
-  {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,u)} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} onRenameTask={renameTaskFromModal} />}
+      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,u)} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} onRenameTask={renameTaskFromModal} />}
       {showShutdown&&<DailyShutdown onClose={()=>setShowShutdown(false)} tasksCompleted={timeStats.doneTodayTasks} tasksTotal={timeStats.totalTodayTasks} focusedMin={timeStats.focusedMin} messagesAnswered={messagesAnswered} onCleanup={dailyCleanup} />}
       {showAnalytics&&<WeeklyAnalytics onClose={()=>setShowAnalytics(false)} projectDone={projectDone} taskMeta={taskMeta} getProjectCompletion={getProjectCompletion} />}
     </div>
