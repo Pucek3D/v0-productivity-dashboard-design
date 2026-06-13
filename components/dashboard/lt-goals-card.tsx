@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { LT_GOALS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
+import { EditableLabel } from './editable-label'
 import { IconStar, IconGripVertical, IconPlus, IconTrash } from '@tabler/icons-react'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
@@ -33,9 +34,10 @@ interface Props {
   updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void
   starToPrio: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean
   hideTask?: (k: string) => void; hiddenTasks?: Set<string>
+  nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void
 }
 
-export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred }: Props) {
+export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, nameOverrides, onRename }: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [extraGoals, setExtraGoals] = useState<Project[]>([])
@@ -64,6 +66,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                 onDelete={() => setDeletedGoals(p => new Set([...p, goal.key]))}
                 onRename={(n: string) => setGoalNames(p => ({ ...p, [goal.key]: n }))}
                 taskOrders={taskOrders}
+                nameOverrides={nameOverrides} onRenameTask={onRename}
                 reorderTasks={(gk: string, oi: number, ni: number, tl: any[]) => setTaskOrders(p => ({ ...p, [gk]: arrayMove(tl.map((t: any) => t.originalIdx), oi, ni) }))} />)}
             </div>
           </SortableContext>
@@ -78,7 +81,7 @@ function SortableGoal(props: any) {
   return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}><GoalTile {...props} dragHandleProps={{ ...attributes, ...listeners }} /></div>
 }
 
-function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, onDelete, onRename, dragHandleProps, taskOrders, reorderTasks }: any) {
+function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, onDelete, onRename, dragHandleProps, taskOrders, reorderTasks, nameOverrides, onRenameTask }: any) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const pct = getProjectCompletion(goal)
   const autoStatus = computeStatus(goal, projectDone, taskMeta, 'proj')
@@ -116,9 +119,10 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
             <SortableContext items={visible.map((t: any) => t.originalIdx)} strategy={verticalListSortingStrategy}>
               {visible.map((t: any) => {
                 const tk = `proj-${goal.key}-${t.originalIdx}`; const meta = taskMeta[tk]; const firstSub = meta?.subtasks?.find((s: any) => !s.done)
-                return <SortableGoalTask key={t.originalIdx} id={t.originalIdx} task={t.task} done={t.done} tk={tk} meta={meta} firstSub={firstSub}
+                const label = nameOverrides?.[tk] ?? (meta as any)?.label ?? t.task
+                return <SortableGoalTask key={t.originalIdx} id={t.originalIdx} task={label} done={t.done} tk={tk} meta={meta} firstSub={firstSub}
                   onToggle={() => toggleProjectTask(goal.key, 'task', t.originalIdx)} openModal={openModal}
-                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} />
+                  taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} onRename={(n: string) => onRenameTask?.(tk, n)} />
               })}
             </SortableContext>
           </DndContext>
@@ -129,14 +133,14 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
   )
 }
 
-function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred }: any) {
+function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, onRename }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
       <div className="flex items-center gap-1.5 py-0.5 cursor-pointer select-none group" onClick={() => openModal(tk, task)}>
         <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
-        <span className={`text-[12px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{task}</span>
+        <EditableLabel value={task} onRename={(n: string) => onRename?.(n)} className={`text-[12px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={tk} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
           <button className="icon-on-hover bg-transparent border-none cursor-pointer p-0" onClick={() => starToPrio(task, 'work')}><IconStar size={11} className={isTaskStarred?.(task) ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'} /></button>

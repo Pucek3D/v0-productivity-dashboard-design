@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { PROJECTS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
+import { EditableLabel } from './editable-label'
 import { IconStar, IconGripVertical, IconPlus, IconTrash, IconChartBar } from '@tabler/icons-react'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
@@ -36,9 +37,10 @@ interface Props {
   starToPrio: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean
   hideTask?: (k: string) => void; hiddenTasks?: Set<string>
   onToggleGantt?: (pk: string) => void; activeGanttProjects?: Set<string>
+  nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void
 }
 
-export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, hideTask, hiddenTasks, onToggleGantt, activeGanttProjects }: Props) {
+export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, hideTask, hiddenTasks, onToggleGantt, activeGanttProjects, nameOverrides, onRename }: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [taskOrders, setTaskOrders] = useState<Record<string, number[]>>({})
@@ -71,6 +73,12 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
     setCustomTasks(p => ({ ...p, [projectKey]: (p[projectKey] || []).map(t => t.id === taskId ? { ...t, done: !t.done } : t) }))
   }
 
+  const renameCustomTask = (projectKey: string, taskId: string, text: string) => {
+    setCustomTasks(p => ({ ...p, [projectKey]: (p[projectKey] || []).map(t => t.id === taskId ? { ...t, text } : t) }))
+    // Propagate to any synced surface (e.g. a starred Top Prio copy)
+    onRename?.(`proj-${projectKey}-custom-${taskId}`, text)
+  }
+
   const reorderCustomTasks = (projectKey: string, e: DragEndEvent) => {
     const { active, over } = e; if (!over || active.id === over.id) return
     setCustomTasks(p => {
@@ -91,7 +99,7 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDrag}>
         <SortableContext items={projects.map(p => p.key)} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-2 gap-2.5">
-            {projects.map(project => <SortableProjectWrap key={project.key} project={project} projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} isExpanded={!!expanded[project.key]} toggleExpand={k => setExpanded(p => ({ ...p, [k]: !p[k] }))} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} taskOrders={taskOrders} reorderTasks={(pk: string, o: number, n: number, tl: any[]) => { setTaskOrders(p => ({ ...p, [pk]: arrayMove(tl.map((t: any) => t.originalIdx), o, n) })) }} onDelete={() => setDeletedProjects(p => new Set([...p, project.key]))} onRename={(n: string) => setProjectNames(p => ({ ...p, [project.key]: n }))} displayName={projectNames[project.key] || project.name} customTasks={customTasks[project.key] || []} onAddCustomTask={() => addCustomTask(project.key)} onDeleteCustomTask={(tid: string) => deleteCustomTask(project.key, tid)} onToggleCustomTask={(tid: string) => toggleCustomTask(project.key, tid)} onReorderCustomTasks={(e: DragEndEvent) => reorderCustomTasks(project.key, e)} onToggleGantt={onToggleGantt} isGanttActive={activeGanttProjects?.has(project.key) || false} />)}
+            {projects.map(project => <SortableProjectWrap key={project.key} project={project} projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} isExpanded={!!expanded[project.key]} toggleExpand={k => setExpanded(p => ({ ...p, [k]: !p[k] }))} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} taskOrders={taskOrders} reorderTasks={(pk: string, o: number, n: number, tl: any[]) => { setTaskOrders(p => ({ ...p, [pk]: arrayMove(tl.map((t: any) => t.originalIdx), o, n) })) }} onDelete={() => setDeletedProjects(p => new Set([...p, project.key]))} onRename={(n: string) => setProjectNames(p => ({ ...p, [project.key]: n }))} displayName={projectNames[project.key] || project.name} customTasks={customTasks[project.key] || []} onAddCustomTask={() => addCustomTask(project.key)} onDeleteCustomTask={(tid: string) => deleteCustomTask(project.key, tid)} onToggleCustomTask={(tid: string) => toggleCustomTask(project.key, tid)} onReorderCustomTasks={(e: DragEndEvent) => reorderCustomTasks(project.key, e)} onRenameCustomTask={(tid: string, n: string) => renameCustomTask(project.key, tid, n)} onToggleGantt={onToggleGantt} isGanttActive={activeGanttProjects?.has(project.key) || false} nameOverrides={nameOverrides} onRenameTask={onRename} />)}
           </div>
         </SortableContext>
       </DndContext>
@@ -116,7 +124,7 @@ function SortableProjectWrap(props: any) {
   return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}><ProjectTile {...props} dragHandleProps={{ ...attributes, ...listeners }} /></div>
 }
 
-function ProjectTile({ project, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, hideTask, hiddenTasks, taskOrders, reorderTasks, onDelete, onRename, displayName, customTasks, onAddCustomTask, onDeleteCustomTask, onToggleCustomTask, onReorderCustomTasks, dragHandleProps, onToggleGantt, isGanttActive }: any) {
+function ProjectTile({ project, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, hideTask, hiddenTasks, taskOrders, reorderTasks, onDelete, onRename, displayName, customTasks, onAddCustomTask, onDeleteCustomTask, onToggleCustomTask, onReorderCustomTasks, dragHandleProps, onToggleGantt, isGanttActive, nameOverrides, onRenameTask, onRenameCustomTask }: any) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const pct = getProjectCompletion(project)
   const autoStatus = computeStatus(project, projectDone, taskMeta, 'proj')
@@ -152,8 +160,9 @@ function ProjectTile({ project, projectDone, toggleProjectTask, getProjectComple
             <SortableContext items={visible.map((t: any) => t.originalIdx)} strategy={verticalListSortingStrategy}>
               {visible.map((t: any) => {
                 const tk = `proj-${project.key}-${t.originalIdx}`; const meta = taskMeta[tk]; const firstSub = meta?.subtasks?.find((s: any) => !s.done)
+                const label = nameOverrides?.[tk] ?? (meta as any)?.label ?? t.task
                 return <div key={t.originalIdx}>
-                  <TaskRow id={t.originalIdx} task={t.task} done={t.done} onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)} onOpen={() => openModal(tk, t.task)} onStar={() => starToPrio(t.task, category)} isStarred={isTaskStarred ? isTaskStarred(t.task) : false} taskKey={tk} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} onDelete={() => hideTask?.(tk)} meta={meta} />
+                  <TaskRow id={t.originalIdx} task={label} done={t.done} onClick={() => toggleProjectTask(project.key, 'task', t.originalIdx)} onOpen={() => openModal(tk, label)} onStar={() => starToPrio(label, category)} isStarred={isTaskStarred ? isTaskStarred(label) : false} taskKey={tk} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} onDelete={() => hideTask?.(tk)} meta={meta} onRename={(n: string) => onRenameTask?.(tk, n)} />
                   {firstSub && <div className="flex items-center gap-1.5 pl-[24px] pb-0.5"><span className="text-[11px] text-slate-600">→</span><div className="w-3 h-3 rounded-[3px] border border-slate-600 bg-white/5 flex-shrink-0 cursor-pointer hover:border-slate-400" onClick={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(tk, { subtasks: subs }) }} /><span className="text-[11px] text-slate-500 truncate">{firstSub.text}</span></div>}
                 </div>
               })}
@@ -170,7 +179,7 @@ function ProjectTile({ project, projectDone, toggleProjectTask, getProjectComple
                     <SortableCustomTask ct={ct} ctk={ctk} cmeta={cmeta} category={category}
                       onToggle={() => onToggleCustomTask(ct.id)} onDelete={() => onDeleteCustomTask(ct.id)}
                       openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta}
-                      starToPrio={starToPrio} isTaskStarred={isTaskStarred} />
+                      starToPrio={starToPrio} isTaskStarred={isTaskStarred} onRename={(n: string) => onRenameCustomTask?.(ct.id, n)} />
                     {cSub && <div className="flex items-center gap-1.5 pl-[24px] pb-0.5"><span className="text-[11px] text-slate-600">→</span><div className="w-3 h-3 rounded-[3px] border border-slate-600 bg-white/5 flex-shrink-0 cursor-pointer hover:border-slate-400" onClick={() => { const subs = (cmeta?.subtasks || []).map((s: any) => s.id === cSub.id ? { ...s, done: true } : s); updateTaskMeta(ctk, { subtasks: subs }) }} /><span className="text-[11px] text-slate-500 truncate">{cSub.text}</span></div>}
                   </div>
                 })}
@@ -188,7 +197,7 @@ function ProjectTile({ project, projectDone, toggleProjectTask, getProjectComple
 }
 
 /* Sortable custom task */
-function SortableCustomTask({ ct, ctk, cmeta, category, onToggle, onDelete, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred }: any) {
+function SortableCustomTask({ ct, ctk, cmeta, category, onToggle, onDelete, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, onRename }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ct.id })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
@@ -196,7 +205,7 @@ function SortableCustomTask({ ct, ctk, cmeta, category, onToggle, onDelete, open
       <div className="flex items-center gap-1.5">
         <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${ct.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{ct.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
-        <span className={`text-[12.5px] leading-[1.35] flex-1 min-w-0 truncate ${ct.done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{ct.text}</span>
+        <EditableLabel value={ct.text} onRename={(n: string) => onRename?.(n)} className={`text-[12.5px] leading-[1.35] flex-1 min-w-0 truncate ${ct.done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={ctk} taskLabel={ct.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
           <button onClick={() => starToPrio(ct.text, category)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconStar size={11} className={isTaskStarred?.(ct.text) ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'} /></button>
@@ -209,14 +218,14 @@ function SortableCustomTask({ ct, ctk, cmeta, category, onToggle, onDelete, open
 }
 
 /* Regular task row */
-function TaskRow({ id, task, done, onClick, onOpen, onStar, isStarred, taskKey, taskMeta, updateTaskMeta, onDelete, meta }: any) {
+function TaskRow({ id, task, done, onClick, onOpen, onStar, isStarred, taskKey, taskMeta, updateTaskMeta, onDelete, meta, onRename }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }} className="py-0.5 cursor-pointer select-none group" onClick={onOpen}>
       <div className="flex items-center gap-1.5">
         <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={(e: any) => { e.stopPropagation(); onClick() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
-        <span className={`text-[12.5px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{task}</span>
+        <EditableLabel value={task} onRename={(n: string) => onRename?.(n)} className={`text-[12.5px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <button className="flex-shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none" onClick={(e: any) => { e.stopPropagation(); onStar() }}><IconStar size={12} className={isStarred ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>
       </div>
       <div className="flex items-center gap-1 pl-[28px] mt-0.5 flex-wrap" onClick={(e: any) => e.stopPropagation()}>

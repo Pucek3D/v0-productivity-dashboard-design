@@ -31,9 +31,9 @@ const INITIAL_SECTIONS: OtherSection[] = [
   { id: 'personal', name: 'Personal', color: '#ec4899', tasks: [{ id: 'os7', text: 'Faisal — respond', done: false }, { id: 'os8', text: 'Inga — celebrate her promotion!', done: false }] },
 ]
 
-interface Props { taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; starToPrio?: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean }
+interface Props { taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; starToPrio?: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean; nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void }
 
-export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred }: Props) {
+export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, nameOverrides, onRename }: Props) {
   const [sections, setSections] = useState<OtherSection[]>(INITIAL_SECTIONS)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
@@ -42,7 +42,11 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio,
   const addTask = (sid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, tasks: [...s.tasks, { id: `ot${Date.now()}`, text: 'New task', done: false }] } : s))
   const deleteSection = (sid: string) => setSections(p => p.filter(s => s.id !== sid))
   const renameSection = (sid: string, name: string) => setSections(p => p.map(s => s.id === sid ? { ...s, name } : s))
-  const renameTask = (sid: string, tid: string, text: string) => setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.map(t => t.id === tid ? { ...t, text } : t) } : s))
+  const renameTask = (sid: string, tid: string, text: string) => {
+    setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.map(t => t.id === tid ? { ...t, text } : t) } : s))
+    // Propagate to synced surfaces (e.g. a starred Top Prio copy)
+    onRename?.(`todo-${sid}-${tid}`, text)
+  }
   const addSection = () => setSections(p => [...p, { id: `sec-${Date.now()}`, name: 'New Section', color: SECTION_COLORS[Math.floor(Math.random() * SECTION_COLORS.length)], tasks: [] }])
 
   const handleDragEnd = (sid: string) => (e: DragEndEvent) => {
@@ -70,7 +74,8 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio,
                 <SortableContext items={section.tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                   {section.tasks.map(task => {
                     const taskKey = `todo-${section.id}-${task.id}`; const meta = taskMeta[taskKey]; const firstSub = meta?.subtasks?.find(s => !s.done)
-                    return <SortableTodoTask key={task.id} task={task} taskKey={taskKey} meta={meta} firstSub={firstSub}
+                    const label = nameOverrides?.[taskKey] ?? (meta as any)?.label ?? task.text
+                    return <SortableTodoTask key={task.id} task={{ ...task, text: label }} taskKey={taskKey} meta={meta} firstSub={firstSub}
                       onToggle={() => toggleTask(section.id, task.id)} onDelete={() => deleteTask(section.id, task.id)}
                       onRename={(t: string) => renameTask(section.id, task.id, t)} openModal={openModal}
                       taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} />

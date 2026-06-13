@@ -9,7 +9,7 @@ import { CSS } from '@dnd-kit/utilities'
 
 type PrioTask = { id: string; text: string; done: boolean; priority?: string }
 type PrioSection = { section: string; color: string; tasks: PrioTask[] }
-interface TopPrioCardProps { tasks: PrioSection[]; setTasks: React.Dispatch<React.SetStateAction<PrioSection[]>>; taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; onTaskToggle?: (text: string, done: boolean) => void }
+interface TopPrioCardProps { tasks: PrioSection[]; setTasks: React.Dispatch<React.SetStateAction<PrioSection[]>>; taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; onTaskToggle?: (text: string, done: boolean) => void; onRename?: (key: string, newName: string) => void }
 
 function MetaBadges({ meta }: { meta?: TaskMeta }) {
   if (!meta) return null; const b: React.ReactNode[] = []
@@ -26,7 +26,7 @@ function EditableText({ value, onChange, className, style }: any) {
   return <span className={className} style={style} onDoubleClick={(e:any)=>{e.stopPropagation();setEditing(true)}}>{value}</span>
 }
 
-export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openModal, onTaskToggle }: TopPrioCardProps) {
+export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openModal, onTaskToggle, onRename }: TopPrioCardProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [activeTask, setActiveTask] = useState<PrioTask | null>(null)
 
@@ -41,7 +41,11 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
   }
   const deleteTask = (sk: string, taskId: string) => { setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s)) }
   const addTask = (sk: string) => { setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: [...s.tasks, { id: `q${Date.now()}`, text: 'New task', done: false }] } : s)) }
-  const renameTask = (sk: string, taskId: string, text: string) => { setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: s.tasks.map(t => t.id === taskId ? { ...t, text } : t) } : s)) }
+  const renameTask = (sk: string, taskId: string, text: string) => {
+    setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: s.tasks.map(t => t.id === taskId ? { ...t, text } : t) } : s))
+    // Propagate to synced surfaces (Messages, Projects, Goals, Other To-Do)
+    onRename?.(`prio-${taskId}`, text)
+  }
 
   const handleDragStart = (e: DragStartEvent) => { for (const s of tasks) { const f = s.tasks.find(t => t.id === e.active.id); if (f) { setActiveTask(f); break } } }
   const handleDragEnd = (e: DragEndEvent) => {

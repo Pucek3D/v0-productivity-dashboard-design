@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { IconTrash, IconPlus, IconGripVertical, IconStar } from '@tabler/icons-react'
 import { TaskActions } from './task-actions'
+import { EditableLabel } from './editable-label'
 import type { TaskMeta } from '@/lib/task-meta'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -13,6 +14,7 @@ interface Props {
   taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
   starToPrio?: (text: string, category: 'work' | 'home') => void
   isTaskStarred?: (text: string) => boolean
+  onRename?: (key: string, newName: string) => void
 }
 
 /* MetaBadges — skips owner + deadline (already shown by TaskActions inline) */
@@ -29,7 +31,7 @@ function MetaBadges({ meta }: { meta?: TaskMeta }) {
   return b.length ? <span className="inline-flex items-center gap-0.5 flex-wrap">{b}</span> : null
 }
 
-export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, starToPrio, isTaskStarred }: Props) {
+export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, onRename }: Props) {
   const [newMsg, setNewMsg] = useState('')
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const toggle = (id: string) => setMessages(p => p.map(m => m.id === id ? { ...m, done: !m.done } : m))
@@ -44,7 +46,7 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, 
       <div className="px-3 py-3">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sorted.map(m => m.id)} strategy={verticalListSortingStrategy}>
-            {sorted.map(msg => <SortableMsg key={msg.id} msg={msg} toggle={toggle} remove={remove} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} />)}
+            {sorted.map(msg => <SortableMsg key={msg.id} msg={msg} toggle={toggle} remove={remove} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} onRename={onRename} />)}
           </SortableContext>
         </DndContext>
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
@@ -56,7 +58,7 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, 
   )
 }
 
-function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio, isTaskStarred }: any) {
+function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, onRename }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: msg.id })
   const starred = isTaskStarred?.(msg.text)
   const meta = taskMeta[`msg-${msg.id}`]
@@ -66,7 +68,7 @@ function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio
       <div className="flex items-center gap-1.5 py-[3px] group">
         <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab"><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={() => toggle(msg.id)} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${msg.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{msg.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
-        <span className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${msg.done ? 'text-slate-500 line-through' : 'text-slate-300'}`}>{msg.text}</span>
+        <EditableLabel value={msg.text} onRename={(name) => onRename?.(`msg-${msg.id}`, name)} className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${msg.done ? 'text-slate-500 line-through' : 'text-slate-300'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0">
           <TaskActions taskKey={`msg-${msg.id}`} taskLabel={msg.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
           {starToPrio && (
