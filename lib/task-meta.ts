@@ -2,6 +2,7 @@ export interface TaskMeta {
   deadline?: string
   hour?: number
   minute?: number
+  durationMin?: number   // meeting length in minutes (for timed events)
   owner?: string
   label?: string
   description?: string
@@ -19,6 +20,7 @@ export interface DeadlineEvent {
   color: string
   hour?: number
   minute?: number
+  durationMin?: number
   /** taskMeta keys that contribute to this (deduped) event — used for deletion. */
   keys?: string[]
   /** stable per-occurrence id (date + identity) — used to hide from calendar only. */

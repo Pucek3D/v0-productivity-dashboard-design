@@ -83,44 +83,57 @@ function SortableMsg({ msg, toggle, remove, setCat, taskMeta, updateTaskMeta, st
   const bookmarked = isTaskBookmarked?.(msg.text)
   const meta = taskMeta[`msg-${msg.id}`]
   const category: 'work' | 'home' = msg.category === 'home' ? 'home' : 'work'
+  // Once a date or owner is set, the star/bookmark/trash icons drop to a line
+  // below so the date/owner badges keep their place on the side without
+  // crowding the message text.
+  const hasMeta = !!(meta?.deadline || meta?.owner)
+
+  const iconButtons = (
+    <>
+      {starToPrio && (
+        <button
+          onClick={() => starToPrio(msg.text, category, 'message')}
+          className={`bg-transparent border-none cursor-pointer p-0 leading-none ${starred ? '' : 'icon-on-hover'}`}
+        >
+          <IconStar
+            size={11}
+            className={starred ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'}
+            style={starred ? { filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.5))' } : {}}
+          />
+        </button>
+      )}
+      {bookmarkToOther && (
+        <button
+          onClick={() => bookmarkToOther(msg.text, category, 'message')}
+          className={`bg-transparent border-none cursor-pointer p-0 leading-none ${bookmarked ? '' : 'icon-on-hover'}`}
+          title={bookmarked ? 'Added to Other to-dos' : 'Add to Other to-dos'}
+        >
+          <IconBookmark
+            size={11}
+            className={bookmarked ? 'fill-indigo-400 text-indigo-400' : 'text-slate-500 hover:text-indigo-300'}
+          />
+        </button>
+      )}
+      <button onClick={() => remove(msg.id)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconTrash size={12} className="text-slate-500 hover:text-rose-400" /></button>
+    </>
+  )
 
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
-      <div className="flex items-center gap-1.5 py-[3px] group">
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }} className="py-[3px] group">
+      <div className="flex items-center gap-1.5">
         <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab"><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={() => toggle(msg.id)} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${msg.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{msg.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         {/* Click the W/H tag to flip the message between Work and Home */}
         <button onClick={() => setCat(msg.id, category === 'home' ? 'work' : 'home')} className="bg-transparent border-none cursor-pointer p-0 leading-none flex-shrink-0" title="Toggle Work / Home"><CatTag category={category} /></button>
         <EditableLabel value={msg.text} onRename={(name) => onRename?.(`msg-${msg.id}`, name)} className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${msg.done ? 'text-slate-500 line-through' : 'text-slate-300'}`} />
+        {/* Date + owner always sit on the side. Star/bookmark/trash stay inline only while no date/owner is set. */}
         <span className="inline-flex items-center gap-0.5 flex-shrink-0">
           <TaskActions taskKey={`msg-${msg.id}`} taskLabel={msg.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
-          {starToPrio && (
-            <button
-              onClick={() => starToPrio(msg.text, category, 'message')}
-              className={`bg-transparent border-none cursor-pointer p-0 leading-none ${starred ? '' : 'icon-on-hover'}`}
-            >
-              <IconStar
-                size={11}
-                className={starred ? 'fill-yellow-500 text-yellow-500' : 'text-slate-500 hover:text-amber-400'}
-                style={starred ? { filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.5))' } : {}}
-              />
-            </button>
-          )}
-          {bookmarkToOther && (
-            <button
-              onClick={() => bookmarkToOther(msg.text, category, 'message')}
-              className={`bg-transparent border-none cursor-pointer p-0 leading-none ${bookmarked ? '' : 'icon-on-hover'}`}
-              title={bookmarked ? 'Added to Other to-dos' : 'Add to Other to-dos'}
-            >
-              <IconBookmark
-                size={11}
-                className={bookmarked ? 'fill-indigo-400 text-indigo-400' : 'text-slate-500 hover:text-indigo-300'}
-              />
-            </button>
-          )}
-          <button onClick={() => remove(msg.id)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconTrash size={12} className="text-slate-500 hover:text-rose-400" /></button>
+          {!hasMeta && iconButtons}
         </span>
       </div>
+      {/* Pushed-down icon row once a date/owner is set */}
+      {hasMeta && <div className="flex items-center justify-end gap-0.5 mt-0.5">{iconButtons}</div>}
       {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}
     </div>
   )
