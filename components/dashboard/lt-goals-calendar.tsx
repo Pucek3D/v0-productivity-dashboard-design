@@ -1,189 +1,137 @@
 'use client'
-import { useState, useEffect } from 'react'
-import {
-  GANTT_DATA, LT_MONTH_EVENTS, LT_LEGEND,
-  MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth, pastel
-} from '@/lib/data'
+import { useState, useEffect, useMemo } from 'react'
+import { LT_GOALS } from '@/lib/data'
+import type { TaskMeta } from '@/lib/task-meta'
 
-export function LtGoalsCalendar() {
+const DISPLAY_FONT: React.CSSProperties = { fontFamily: 'var(--font-geist-sans), system-ui, sans-serif', fontWeight: 700, letterSpacing: '-0.025em' }
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+interface Props {
+  taskMeta?: Record<string, TaskMeta>
+}
+
+export function LtGoalsCalendar({ taskMeta = {} }: Props) {
   const [view, setView] = useState<'gantt' | 'month'>('gantt')
+  const [today, setToday] = useState({ m: 5, y: 2026 })
+  useEffect(() => { const n = new Date(); setToday({ m: n.getMonth(), y: n.getFullYear() }) }, [])
 
-  const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
-  const [month, setMonth] = useState(4)
-  const [year, setYear] = useState(2026)
+  // Calculate current week of year
+  const now = new Date()
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
+  const currentWeek = Math.ceil(((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
 
-  useEffect(() => {
-    const now = new Date()
-    const t = { d: now.getDate(), m: now.getMonth(), y: now.getFullYear() }
-    setToday(t)
-    setMonth(t.m)
-    setYear(t.y)
-  }, [])
+  // Get the weeks visible in current month (approximately)
+  const monthStartWeek = Math.ceil(((new Date(today.y, today.m, 1).getTime() - startOfYear.getTime()) / 86400000 + 1) / 7)
+  const weeksInView = [monthStartWeek, monthStartWeek + 1, monthStartWeek + 2, monthStartWeek + 3]
 
-  const changeMonth = (delta: number) => {
-    let newMonth = month + delta
-    let newYear = year
-    if (newMonth < 0) { newMonth = 11; newYear-- }
-    if (newMonth > 11) { newMonth = 0; newYear++ }
-    setMonth(newMonth)
-    setYear(newYear)
-  }
+  // Build goal schedule data from taskMeta
+  const goalSchedules = useMemo(() => {
+    return LT_GOALS.map(goal => {
+      const allWeeks = new Set<number>()
+      let hasOngoing = false
+
+      goal.tasks.forEach((_, i) => {
+        const tk = `proj-${goal.key}-task-${i}`
+        const meta = taskMeta[tk]
+        if (!meta) return
+        const sched = (meta as any).schedule
+        if (sched?.ongoing) hasOngoing = true
+        if (sched?.weeks) sched.weeks.forEach((w: number) => allWeeks.add(w))
+      })
+
+      return { key: goal.key, name: goal.name, color: goal.color, weeks: [...allWeeks].sort((a, b) => a - b), ongoing: hasOngoing }
+    })
+  }, [taskMeta])
+
+  const toggleBtn = (active: boolean): React.CSSProperties => ({
+    background: active ? 'rgba(255,255,255,0.10)' : 'transparent',
+    color: active ? '#fff' : 'rgba(255,255,255,0.55)',
+    boxShadow: active ? 'inset 0 0 0 1px rgba(255,255,255,0.10)' : 'none',
+    border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '10px',
+    textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 8px',
+  })
 
   return (
-    <div className="card-base halo-sage">
-      <div className="section-header header-sage px-4 py-2.5">
+    <div className="card-base halo-teal">
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1.5px', background: 'linear-gradient(90deg, transparent 0%, #14b8a6 25%, #14b8a6 75%, transparent 100%)', boxShadow: '0 0 12px rgba(20,184,166,0.6)', zIndex: 2 }} />
+      <div style={{ background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '12px 16px' }}>
         <div className="flex justify-between items-center">
-          <span className="text-white font-semibold text-[11px] tracking-[0.16em] uppercase text-shadow-on-color">
-            Long-term goals calendar
-          </span>
-          <div className="seg-toggle flex">
-            <button
-              onClick={() => setView('gantt')}
-              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
-                view === 'gantt' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
-              }`}
-            >
-              Gantt
-            </button>
-            <button
-              onClick={() => setView('month')}
-              className={`seg-toggle-btn px-2 py-0.5 text-[10px] uppercase tracking-wider ${
-                view === 'month' ? 'seg-toggle-btn-active' : 'seg-toggle-btn-inactive'
-              }`}
-            >
-              Month
-            </button>
+          <span style={{ color: 'rgba(255,255,255,0.92)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>Long-Term Goals Calendar</span>
+          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 6, overflow: 'hidden', display: 'flex' }}>
+            <button onClick={() => setView('gantt')} style={toggleBtn(view === 'gantt')}>Gantt</button>
+            <button onClick={() => setView('month')} style={toggleBtn(view === 'month')}>Month</button>
           </div>
         </div>
       </div>
+
       <div className="px-3.5 py-3">
-        <div className="flex justify-between items-center mb-2.5">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => changeMonth(-1)}
-              className="bg-white/5 border border-white/10 rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
-              style={{ visibility: view === 'month' ? 'visible' : 'hidden' }}
-            >
-              ‹
-            </button>
-            <span className="font-display text-[18px] tracking-tight text-white text-shadow-soft leading-none">
-              {MONTH_NAMES[month]} <span className="text-slate-500">{year}</span>
-            </span>
-            <button
-              onClick={() => changeMonth(1)}
-              className="bg-white/5 border border-white/10 rounded-md w-6 h-6 cursor-pointer text-[13px] flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
-              style={{ visibility: view === 'month' ? 'visible' : 'hidden' }}
-            >
-              ›
-            </button>
-            {view === 'month' && (
-              <button
-                onClick={() => { setMonth(today.m); setYear(today.y) }}
-                className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-[#2dd4bf] hover:text-[#14b8a6] transition-colors"
-                title="Jump to today"
-              >
-                Today
-              </button>
-            )}
-          </div>
+        <div className="mb-2.5">
+          <span style={{ ...DISPLAY_FONT, fontSize: 20, color: '#fff' }}>{MONTH_NAMES[today.m]} </span>
+          <span style={{ ...DISPLAY_FONT, fontSize: 20, color: '#64748b' }}>{today.y}</span>
         </div>
-        {view === 'gantt' ? <GanttView /> : <LtMonthView month={month} year={year} today={today} />}
-      </div>
-    </div>
-  )
-}
 
-function GanttView() {
-  return (
-    <div className="grid gap-1" style={{ gridTemplateColumns: '64px repeat(4, 1fr)' }}>
-      <div />
-      {['W1', 'W2', 'W3', 'W4'].map(w => (
-        <div key={w} className="text-[9px] font-semibold text-slate-500 text-center uppercase tracking-[0.12em]">
-          {w}
-        </div>
-      ))}
-      {GANTT_DATA.map(row => (
-        <div key={row.name} className="contents">
-          <div
-            className="text-[10px] font-semibold text-right pr-2 self-center uppercase tracking-[0.05em]"
-            style={{ color: row.color }}
-          >
-            {row.name}
-          </div>
-          {row.active.map((a, i) => (
-            <div
-              key={i}
-              className="h-4 rounded-[4px]"
-              style={{
-                background: a ? `${row.color}33` : 'rgba(255,255,255,0.03)',
-                boxShadow: a ? `inset 0 0 0 1px ${row.color}55, 0 0 8px ${row.color}33` : 'none',
-              }}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function LtMonthView({ month, year, today }: { month: number; year: number; today: { d: number; m: number; y: number } }) {
-  const startDay = getFirstDayOfMonth(month, year)
-  const daysInMonth = getDaysInMonth(month, year)
-  const events = LT_MONTH_EVENTS[`${year}-${month}`] || {}
-
-  return (
-    <>
-      <div className="grid grid-cols-7 gap-0.5 mb-1">
-        {DAY_NAMES.map((d, i) => (
-          <div key={i} className="text-center text-[9.5px] font-semibold text-slate-500 uppercase tracking-[0.12em] py-1">
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-0.5">
-        {Array.from({ length: startDay }).map((_, i) => (
-          <div key={`empty-${i}`} className="min-h-[46px]" />
-        ))}
-        {Array.from({ length: daysInMonth }).map((_, i) => {
-          const day = i + 1
-          const isToday = day === today.d && month === today.m && year === today.y
-          const dayEvents = events[day] || []
-          return (
-            <div
-  key={day}
-  className={`min-h-[46px] rounded-md p-[3px] flex flex-col gap-0.5 border transition-colors ${
-    isToday
-      ? 'border-teal-400/60'
-      : 'border-transparent hover:bg-white/[0.03] hover:border-white/10'
-  }`}
-  style={isToday ? { background: 'rgba(20, 184, 166, 0.12)' } : {}}
->
-              <span className={`text-[11px] leading-none mb-[2px] tabular ${
-                isToday ? 'text-teal-300 font-bold' : 'text-slate-300 font-semibold'
-              }`}>
-                {day}
-              </span>
-              {dayEvents.slice(0, 2).map((ev, j) => (
-                <div
-                  key={j}
-                  className="text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
-                  style={{ background: `${ev.color}22`, color: ev.color, border: `1px solid ${ev.color}44` }}
-                >
-                  {ev.label}
+        {view === 'gantt' ? (
+          <>
+            {/* Week headers */}
+            <div style={{ display: 'flex', marginBottom: 6, paddingLeft: 80 }}>
+              {weeksInView.map(w => (
+                <div key={w} style={{ flex: 1, textAlign: 'center', fontSize: 9, fontWeight: 600, color: w === currentWeek ? '#fb7185' : '#475569', textTransform: 'uppercase' }}>
+                  W{w}
                 </div>
               ))}
             </div>
-          )
-        })}
-      </div>
-      <div className="flex flex-wrap gap-2 mt-3 pt-2.5 border-t border-white/5">
-        {LT_LEGEND.map(leg => (
-          <div key={leg.label} className="flex items-center gap-1.5 text-[9.5px] text-slate-400 font-medium uppercase tracking-[0.08em]">
-            <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: leg.color }} />
-            {leg.label}
+
+            {/* Goal bars */}
+            {goalSchedules.map(goal => (
+              <div key={goal.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ width: 72, fontSize: 10, fontWeight: 700, color: goal.color, textTransform: 'uppercase', textAlign: 'right', flexShrink: 0 }}>{goal.name}</span>
+                <div style={{ flex: 1, display: 'flex', gap: 2 }}>
+                  {weeksInView.map(w => {
+                    const isActive = goal.ongoing || goal.weeks.includes(w)
+                    const isCurrent = w === currentWeek
+                    return (
+                      <div key={w} style={{
+                        flex: 1, height: 16, borderRadius: 4,
+                        background: isActive ? `${goal.color}40` : 'rgba(255,255,255,0.03)',
+                        border: isActive ? `1px solid ${goal.color}60` : '1px solid rgba(255,255,255,0.04)',
+                        boxShadow: isActive ? `0 0 6px ${goal.color}30` : 'none',
+                        position: 'relative',
+                      }}>
+                        {isCurrent && <div style={{ position: 'absolute', left: '50%', top: -2, bottom: -2, width: 2, background: '#fb7185', borderRadius: 1 }} />}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingLeft: 80 }}>
+              <span style={{ fontSize: 8, color: '#475569', display: 'flex', alignItems: 'center', gap: 3 }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: 'rgba(129,140,248,0.4)', border: '1px solid rgba(129,140,248,0.6)' }} /> Scheduled
+              </span>
+              <span style={{ fontSize: 8, color: '#475569', display: 'flex', alignItems: 'center', gap: 3 }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }} /> Not set
+              </span>
+              <span style={{ fontSize: 8, color: '#475569', display: 'flex', alignItems: 'center', gap: 3 }}>
+                <div style={{ width: 2, height: 8, background: '#fb7185', borderRadius: 1 }} /> Today
+              </span>
+            </div>
+          </>
+        ) : (
+          /* Month view — shows which goals are active each week */
+          <div>
+            {goalSchedules.map(goal => (
+              <div key={goal.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                <span style={{ width: 72, fontSize: 10, fontWeight: 700, color: goal.color, textTransform: 'uppercase', textAlign: 'right', flexShrink: 0 }}>{goal.name}</span>
+                <div style={{ flex: 1, height: 16, borderRadius: 4, background: goal.ongoing ? `${goal.color}30` : goal.weeks.length > 0 ? `${goal.color}20` : 'rgba(255,255,255,0.03)', border: goal.ongoing || goal.weeks.length > 0 ? `1px solid ${goal.color}40` : '1px solid rgba(255,255,255,0.04)' }}>
+                  {goal.ongoing && <div style={{ height: '100%', borderRadius: 3, background: `${goal.color}40` }} />}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
-    </>
+    </div>
   )
 }
