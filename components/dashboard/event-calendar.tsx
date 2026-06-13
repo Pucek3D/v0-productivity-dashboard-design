@@ -1,11 +1,13 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   MONTH_EVENTS, WEEK_EVENTS, DAY_EVENTS,
   MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth
 } from '@/lib/data'
-import { IconPlus, IconX } from '@tabler/icons-react'
+import { IconPlus, IconX, IconClock } from '@tabler/icons-react'
 import type { DeadlineEvent } from '@/lib/task-meta'
+import { ScrollWheel, HOUR_ITEMS, MINUTE_ITEMS } from './task-actions'
 
 const CARD: React.CSSProperties = {
   background: 'linear-gradient(180deg, #131c2e 0%, #0d1421 100%)',
@@ -101,6 +103,8 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
   const [newMeetingColor, setNewMeetingColor] = useState('#818cf8')
   const [newMeetingDuration, setNewMeetingDuration] = useState(30)
   const [customDur, setCustomDur] = useState('')
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const timeBtnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     const now = new Date()
@@ -187,9 +191,17 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               onKeyDown={e => { if (e.key === 'Enter') addMeeting(showAddForm.day) }}
               placeholder="Meeting name..."
               style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#fff', outline: 'none' }} />
-            <input value={newMeetingTime} onChange={e => setNewMeetingTime(e.target.value)}
-              placeholder="14:00" type="time"
-              style={{ width: 72, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '4px 6px', fontSize: 11, color: '#fff', outline: 'none', colorScheme: 'dark' }} />
+            <button ref={timeBtnRef} onClick={() => setShowTimePicker(true)}
+              style={{
+                width: 78, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                background: 'rgba(255,255,255,0.05)',
+                border: newMeetingTime ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 6, padding: '4px 6px', fontSize: 11, cursor: 'pointer', outline: 'none',
+                color: newMeetingTime ? '#fff' : '#64748b', fontVariantNumeric: 'tabular-nums',
+              }}>
+              <IconClock size={11} />
+              {newMeetingTime || '--:--'}
+            </button>
             <div className="flex gap-0.5">
               {MEETING_COLORS.map(c => (
                 <button key={c} onClick={() => setNewMeetingColor(c)}
@@ -201,6 +213,16 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               Add
             </button>
           </div>
+          {showTimePicker && timeBtnRef.current && (
+            <TimePickerPopover
+              anchor={timeBtnRef.current.getBoundingClientRect()}
+              hour={newMeetingTime ? parseInt(newMeetingTime.split(':')[0]) : 9}
+              minute={newMeetingTime ? parseInt(newMeetingTime.split(':')[1] || '0') : 0}
+              onSelect={(h, mi) => { setNewMeetingTime(`${h.toString().padStart(2, '0')}:${mi.toString().padStart(2, '0')}`); setShowTimePicker(false) }}
+              onClear={() => { setNewMeetingTime(''); setShowTimePicker(false) }}
+              onClose={() => setShowTimePicker(false)}
+            />
+          )}
           {/* Duration picker — only relevant for timed meetings */}
           {newMeetingTime && (
             <div className="mt-1.5">
@@ -554,5 +576,54 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveM
         )
       })}
     </>
+  )
+}
+
+/* ── Time Picker Popover (matches the task date/time picker styling) ── */
+function TimePickerPopover({ anchor, hour: initHour, minute: initMinute, onSelect, onClear, onClose }: {
+  anchor: DOMRect
+  hour: number
+  minute: number
+  onSelect: (h: number, min: number) => void
+  onClear: () => void
+  onClose: () => void
+}) {
+  const [hour, setHour] = useState(initHour)
+  const [minute, setMinute] = useState(initMinute)
+
+  const top = Math.min(anchor.bottom + 6, window.innerHeight - 230)
+  const left = Math.max(8, Math.min(anchor.left - 30, window.innerWidth - 190))
+
+  return createPortal(
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={onClose} />
+      <div style={{
+        position: 'fixed', zIndex: 9999, top, left, width: 180,
+        background: '#131c2e', border: '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 12, padding: 12,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
+      }}>
+        <div style={{ fontSize: 9, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, textAlign: 'center' }}>
+          Start time
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          <ScrollWheel items={HOUR_ITEMS} value={hour} onChange={setHour} width={60} />
+          <span style={{ fontSize: 18, fontWeight: 700, color: '#475569', lineHeight: 1 }}>:</span>
+          <ScrollWheel items={MINUTE_ITEMS} value={minute} onChange={setMinute} width={60} />
+        </div>
+        <button onClick={() => onSelect(hour, minute)} style={{
+          width: '100%', padding: '6px 0', borderRadius: 6, cursor: 'pointer',
+          fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+          marginTop: 10, background: '#6366f1', color: '#fff', border: 'none',
+          boxShadow: '0 0 12px rgba(99,102,241,0.4)',
+        }}>
+          Set {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')}
+        </button>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <button onClick={onClear} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Clear</button>
+        </div>
+      </div>
+    </>,
+    document.body
   )
 }

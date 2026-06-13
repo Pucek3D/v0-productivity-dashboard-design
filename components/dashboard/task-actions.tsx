@@ -85,7 +85,7 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
 /* ── Scroll Wheel ── */
 const ITEM_H = 32
 
-function ScrollWheel({ items, value, onChange, width }: {
+export function ScrollWheel({ items, value, onChange, width }: {
   items: { value: number; label: string }[]
   value: number
   onChange: (v: number) => void
@@ -151,8 +151,8 @@ function ScrollWheel({ items, value, onChange, width }: {
   )
 }
 
-const HOUR_ITEMS = Array.from({ length: 24 }, (_, i) => ({ value: i, label: i.toString().padStart(2, '0') }))
-const MINUTE_ITEMS = Array.from({ length: 12 }, (_, i) => ({ value: i * 5, label: (i * 5).toString().padStart(2, '0') }))
+export const HOUR_ITEMS = Array.from({ length: 24 }, (_, i) => ({ value: i, label: i.toString().padStart(2, '0') }))
+export const MINUTE_ITEMS = Array.from({ length: 12 }, (_, i) => ({ value: i * 5, label: (i * 5).toString().padStart(2, '0') }))
 
 /* ── Mini Calendar ── */
 function MiniCalendar({ anchor, value, selectedHour, selectedMinute, onSelect, onClear, onClose }: {
