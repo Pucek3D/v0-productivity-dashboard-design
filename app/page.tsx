@@ -252,7 +252,38 @@ export default function Dashboard() {
       setTaskMeta(p => ({ ...p, [`prio-${newId}`]: { ...p[`prio-${newId}`], ...carried } }))
     }
   }, [])
-  const isTaskStarred = useCallback((text:string)=>prioTasks.some(s=>s.tasks.some(t=>t.text===text)), [prioTasks])
+  // Bookmark a task into the "Other to-dos" sub-section of Top Prio Today.
+  // Mirrors starToPrio but targets the Other Work / Other Home sections and
+  // carries over the source's synced detail fields (owner, deadline, etc.).
+  const bookmarkToOther = useCallback((text:string,category:'work'|'home')=>{
+    let newId: string | null = null
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Other Home':'Other Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false})};return n})
+    if (newId) {
+      const srcMetas = linkRegistry.current
+        .filter(r => r.label === text && !r.key.startsWith('prio-'))
+        .map(r => taskMeta[r.key])
+        .filter(Boolean) as TaskMeta[]
+      const carried: Partial<TaskMeta> = { label: text }
+      const CARRY_FIELDS = ['owner','deadline','hour','minute','priority','recurring','timeEstimate'] as const
+      CARRY_FIELDS.forEach(f => {
+        const src = srcMetas.find(m => (m as any)[f] !== undefined)
+        if (src) (carried as any)[f] = (src as any)[f]
+      })
+      setTaskMeta(p => ({ ...p, [`prio-${newId}`]: { ...p[`prio-${newId}`], ...carried } }))
+    }
+  }, [taskMeta])
+  // Bookmark a subtask into "Other to-dos", carrying its own details.
+  const bookmarkSubtaskToOther = useCallback((text:string, details?:Partial<TaskMeta>)=>{
+    let newId: string | null = null
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const idx=n.findIndex(s=>s.section==='Other Work');if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false})};return n})
+    if (newId && details) {
+      const carried: Partial<TaskMeta> = { label: text }
+      ;(['owner','deadline','timeEstimate'] as const).forEach(f => { if ((details as any)[f] !== undefined) (carried as any)[f] = (details as any)[f] })
+      setTaskMeta(p => ({ ...p, [`prio-${newId}`]: { ...p[`prio-${newId}`], ...carried } }))
+    }
+  }, [])
+  const isTaskStarred = useCallback((text:string)=>prioTasks.some(s=>(s.section==='Work'||s.section==='Home')&&s.tasks.some(t=>t.text===text)), [prioTasks])
+  const isTaskBookmarked = useCallback((text:string)=>prioTasks.some(s=>(s.section==='Other Work'||s.section==='Other Home')&&s.tasks.some(t=>t.text===text)), [prioTasks])
   const startFocus = useCallback((k:string,l:string)=>setFocusTask({key:k,label:l}), [])
   const stopFocus = useCallback((k:string,mins:number)=>{
     if(mins<=0)return;const now=new Date();const ds=`${now.getDate()}/${now.getMonth()+1} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
@@ -442,7 +473,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-[240px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="flex flex-col gap-3">
-          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} onRename={renameTask} />
+          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={renameTask} />
           <KpisCard />
         </div>
         <div className="flex flex-col gap-3">
@@ -451,16 +482,16 @@ export default function Dashboard() {
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
           {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
           <LtGoalsCalendar taskMeta={taskMeta} />
-          <LtGoalsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} nameOverrides={nameOverrides} onRename={renameTask} />
+          <LtGoalsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} nameOverrides={nameOverrides} onRename={renameTask} />
         </div>
         <div className="flex flex-col gap-3">
-          <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} hideTask={hideTask} hiddenTasks={hiddenTasks} onToggleGantt={toggleGantt} activeGanttProjects={ganttProjects} nameOverrides={nameOverrides} onRename={renameTask} />
-          <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} nameOverrides={nameOverrides} onRename={renameTask} />
+          <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} onToggleGantt={toggleGantt} activeGanttProjects={ganttProjects} nameOverrides={nameOverrides} onRename={renameTask} />
+          <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} nameOverrides={nameOverrides} onRename={renameTask} />
         </div>
       </div>
 
       {/* ── FIX #1 continued: modal onUpdate ALWAYS passes label ── */}
-      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,{...u, label: modalTask.label})} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} isTaskStarred={isTaskStarred} onRenameTask={(name)=>renameTask(modalTask.key, name)} />}
+      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,{...u, label: modalTask.label})} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} isTaskStarred={isTaskStarred} isTaskBookmarked={isTaskBookmarked} onRenameTask={(name)=>renameTask(modalTask.key, name)} />}
       {showShutdown&&<DailyShutdown onClose={()=>setShowShutdown(false)} tasksCompleted={timeStats.doneTodayTasks} tasksTotal={timeStats.totalTodayTasks} focusedMin={timeStats.focusedMin} messagesAnswered={messagesAnswered} onCleanup={dailyCleanup} />}
       {showAnalytics&&<WeeklyAnalytics onClose={()=>setShowAnalytics(false)} projectDone={projectDone} taskMeta={taskMeta} getProjectCompletion={getProjectCompletion} />}
     </div>

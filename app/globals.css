@@ -188,5 +188,12 @@
 .group:hover .icon-on-hover {
   opacity: 1;
 }
+.icon-on-hover-sub {
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.group\/sub:hover .icon-on-hover-sub {
+  opacity: 1;
+}
 .scroll-wheel::-webkit-scrollbar { display: none; }
 .scroll-wheel { -ms-overflow-style: none; scrollbar-width: none; }

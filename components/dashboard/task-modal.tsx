@@ -155,7 +155,7 @@ function SubEstimateInput({ value, onChange }: { value?: number; onChange: (v: n
     if (!raw || isNaN(num) || num <= 0) { onChange(undefined); return }
     onChange(Math.round(u === 'h' ? num * 60 : num))
   }
-  const inputStyle: React.CSSProperties = { width: 44, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 5, padding: '2px 6px', fontSize: 10, color: '#94a3b8', outline: 'none' }
+  const inputStyle: React.CSSProperties = { width: 44, background: '#0f1623', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 5, padding: '2px 6px', fontSize: 10, color: '#94a3b8', outline: 'none', colorScheme: 'dark' }
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
       <IconClock size={11} color="#475569" />

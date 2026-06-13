@@ -106,7 +106,7 @@ function SortableTodoTask({ task, taskKey, meta, firstSub, onToggle, onDelete, o
         </span>
       </div>
       {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}
-      {firstSub && <div className="flex items-center gap-1.5 pl-[28px] pb-0.5"><span className="text-[11px] text-slate-600">→</span><div className="w-3 h-3 rounded-[3px] border border-slate-600 bg-white/5 flex-shrink-0 cursor-pointer hover:border-slate-400" onClick={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(taskKey, { subtasks: subs }) }} /><span className="text-[11px] text-slate-500 truncate">{firstSub.text}</span></div>}
+      {firstSub && <div className="flex items-center gap-1.5 pl-[28px] pb-0.5 -mt-0.5"><span className="text-[11px] text-slate-600">→</span><div className="w-3 h-3 rounded-[3px] border border-slate-600 bg-white/5 flex-shrink-0 cursor-pointer hover:border-slate-400" onClick={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(taskKey, { subtasks: subs }) }} /><span className="text-[11px] text-slate-500 truncate">{firstSub.text}</span></div>}
     </div>
   )
 }
