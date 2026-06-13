@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { TopPrioCard } from '@/components/dashboard/top-prio-card'
 import { MessagesCard } from '@/components/dashboard/messages-card'
 
@@ -28,7 +28,7 @@ import { WeeklyAnalytics } from '@/components/dashboard/weekly-analytics'
 import { ProjectGantt } from '@/components/dashboard/project-gantt'
 import { PROJECTS, LT_GOALS, TOP_PRIO_TASKS, Project } from '@/lib/data'
 import type { TaskMeta, DeadlineEvent } from '@/lib/task-meta'
-import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone } from '@/lib/task-meta'
+import { loadTaskMeta, saveTaskMeta, loadProjectDone, saveProjectDone, sharePerson } from '@/lib/task-meta'
 import { IconMoon, IconChartBar } from '@tabler/icons-react'
 
 export default function Dashboard() {
@@ -43,11 +43,20 @@ export default function Dashboard() {
   useEffect(()=>{setTaskMeta(loadTaskMeta())}, [])
   useEffect(()=>{saveTaskMeta(taskMeta)}, [taskMeta])
 
+  // Registry of Message + Top Prio task labels keyed by their meta key.
+  // Kept in a ref (updated each render) so name-based sync can target
+  // tasks even when they don't have a taskMeta entry yet.
+  const linkRegistry = useRef<{ key: string; label: string }[]>([])
+
   // ──────────────────────────────────────────────────────────────────
   // FIX #1: Cross-sync taskMeta by label
   // Always syncs priority/recurring/owner/timeEstimate across all keys
   // that share the same label text.  Now also ensures `label` is stored
   // on every update so the matching can actually fire.
+  //
+  // NEW: also propagates owner + deadline between Messages (msg-*) and
+  // Top Prio (prio-*) tasks that mention the same person, so linked
+  // items stay in sync even when their wording differs.
   // ──────────────────────────────────────────────────────────────────
   const updateTaskMeta = useCallback((k:string,u:Partial<TaskMeta>)=>{
     setTaskMeta(p=>{
@@ -73,6 +82,29 @@ export default function Dashboard() {
           if (otherKey !== k && (updated[otherKey] as any)?.label === label) {
             updated[otherKey] = { ...updated[otherKey], ...syncFields }
           }
+        })
+      }
+
+      // ── Name/keyword link: Messages ↔ Top Prio (owner + deadline only) ──
+      const isLinkable = k.startsWith('msg-') || k.startsWith('prio-')
+      const ownerOrDeadlineChanged = u.owner !== undefined
+        || u.deadline !== undefined || u.hour !== undefined || u.minute !== undefined
+      if (isLinkable && ownerOrDeadlineChanged) {
+        const linkFields: Partial<TaskMeta> = {}
+        if (u.owner !== undefined) linkFields.owner = u.owner
+        if (u.deadline !== undefined) linkFields.deadline = u.deadline
+        if (u.hour !== undefined) linkFields.hour = u.hour
+        if (u.minute !== undefined) linkFields.minute = u.minute
+
+        linkRegistry.current.forEach(({ key: otherKey, label: otherLabel }) => {
+          if (otherKey === k) return
+          // only link across the msg ↔ prio boundary
+          const crossSurface =
+            (k.startsWith('msg-') && otherKey.startsWith('prio-')) ||
+            (k.startsWith('prio-') && otherKey.startsWith('msg-'))
+          if (!crossSurface) return
+          if (!sharePerson(label, otherLabel)) return
+          updated[otherKey] = { ...updated[otherKey], ...linkFields, label: otherLabel }
         })
       }
       return updated
@@ -229,6 +261,13 @@ export default function Dashboard() {
   const ganttProjectObjs = [...PROJECTS,...LT_GOALS].filter(p=>ganttProjects.has(p.key))
 
   const messagesAnswered = messages.filter(m=>m.done).length
+
+  // Keep the link registry current: every Message + every Top Prio task,
+  // keyed exactly as their TaskActions/meta keys (msg-<id> / prio-<id>).
+  linkRegistry.current = [
+    ...messages.map(m => ({ key: `msg-${m.id}`, label: m.text })),
+    ...prioTasks.flatMap(s => s.tasks.map(t => ({ key: `prio-${t.id}`, label: t.text }))),
+  ]
 
   const timeStats = useMemo(()=>{
     let plannedMin=0,totalTodayTasks=0,doneTodayTasks=0,meetingMin=0;const plannedTasks:{label:string;time:number}[]=[],meetingEvents:{label:string;time:string}[]=[];const todayStr=new Date().toISOString().slice(0,10)

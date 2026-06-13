@@ -21,6 +21,48 @@ export interface DeadlineEvent {
   minute?: number
 }
 
+// ──────────────────────────────────────────────────────────────────
+// Name / keyword auto-matching
+// Used to link a Message and a Top Prio task that refer to the same
+// person even when their wording differs, e.g.
+//   "John — meeting doc needed"  ↔  "Meeting doc for John (tomorrow!)"
+//   "Himadri — write meeting note" ↔ "Process Himadri+Prashant notes"
+// ──────────────────────────────────────────────────────────────────
+export const KNOWN_PEOPLE = [
+  'John', 'Himadri', 'Prashant', 'Varun', 'Surabhi', 'Anurag', 'Konrad',
+  'Shratha', 'Faisal', 'Inga', 'Christine', 'Giulia', 'Martin', 'Jakub',
+  'Ania', 'Domi', 'Twisha', 'Sushovan', 'Kuba', 'Sage',
+]
+
+function escapeRe(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Return the canonical person names mentioned in a label. */
+export function extractPeople(label: string, extra: string[] = []): string[] {
+  const pool = Array.from(new Set([...KNOWN_PEOPLE, ...extra])).filter(Boolean)
+  const found: string[] = []
+  for (const p of pool) {
+    const re = new RegExp(`\\b${escapeRe(p)}\\b`, 'i')
+    if (re.test(label) && !found.some(f => f.toLowerCase() === p.toLowerCase())) found.push(p)
+  }
+  return found
+}
+
+/** Two labels are "linked" when they mention at least one shared person. */
+export function sharePerson(a: string, b: string, extra: string[] = []): boolean {
+  const pa = extractPeople(a, extra)
+  if (!pa.length) return false
+  const pb = new Set(extractPeople(b, extra).map(s => s.toLowerCase()))
+  return pa.some(p => pb.has(p.toLowerCase()))
+}
+
+/** Best-effort leading proper name from a message label ("Surabhi — ..." → "Surabhi"). */
+export function leadingName(label: string): string {
+  const head = label.split(/[—\-(]/)[0].trim().split(/\s+/)[0] || ''
+  return /^[A-Z][a-z]+$/.test(head) ? head : ''
+}
+
 export function getDateLabel(dateStr: string): { text: string; className: string } {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
