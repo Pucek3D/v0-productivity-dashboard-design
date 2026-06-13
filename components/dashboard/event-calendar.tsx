@@ -70,6 +70,8 @@ interface CustomMeeting {
   time?: string
   durationMin?: number
   location?: string
+  lat?: number
+  lon?: number
   link?: string
   notes?: string
   files?: MeetingFile[]
@@ -115,6 +117,7 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
   const [showTimePicker, setShowTimePicker] = useState(false)
   const timeBtnRef = useRef<HTMLButtonElement>(null)
   const [newMeetingLocation, setNewMeetingLocation] = useState('')
+  const [newMeetingCoords, setNewMeetingCoords] = useState<{ lat: number; lon: number } | null>(null)
   const [newMeetingLink, setNewMeetingLink] = useState('')
   const [newMeetingNotes, setNewMeetingNotes] = useState('')
   const [newMeetingFiles, setNewMeetingFiles] = useState<MeetingFile[]>([])
@@ -149,6 +152,8 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
       time: newMeetingTime || undefined,
       durationMin: newMeetingTime ? newMeetingDuration : undefined,
       location: newMeetingLocation.trim() || undefined,
+      lat: newMeetingCoords?.lat,
+      lon: newMeetingCoords?.lon,
       link: newMeetingLink.trim() || undefined,
       notes: newMeetingNotes.trim() || undefined,
       files: newMeetingFiles.length ? newMeetingFiles : undefined,
@@ -158,6 +163,7 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
     setNewMeetingDuration(30)
     setCustomDur('')
     setNewMeetingLocation('')
+    setNewMeetingCoords(null)
     setNewMeetingLink('')
     setNewMeetingNotes('')
     setNewMeetingFiles([])
@@ -295,19 +301,12 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
           </div>
           {/* Location / link / notes / files */}
           <div className="mt-2 flex flex-col gap-1.5">
-            <div className="flex items-center gap-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '0 8px' }}>
-              <IconMapPin size={12} color="#64748b" />
-              <input value={newMeetingLocation} onChange={e => setNewMeetingLocation(e.target.value)}
-                placeholder="Add location"
-                style={{ flex: 1, background: 'transparent', border: 'none', padding: '5px 0', fontSize: 10, color: '#fff', outline: 'none' }} />
-              {newMeetingLocation.trim() && (
-                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(newMeetingLocation.trim())}`}
-                  target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 8, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em', textDecoration: 'none' }}>
-                  Map
-                </a>
-              )}
-            </div>
+            <LocationAutocomplete
+              value={newMeetingLocation}
+              onChange={(v) => { setNewMeetingLocation(v); setNewMeetingCoords(null) }}
+              onSelect={(name, lat, lon) => { setNewMeetingLocation(name); setNewMeetingCoords({ lat, lon }) }}
+              hasCoords={!!newMeetingCoords}
+            />
             <div className="flex items-center gap-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '0 8px' }}>
               <IconLink size={12} color="#64748b" />
               <input value={newMeetingLink} onChange={e => setNewMeetingLink(e.target.value)}
@@ -789,7 +788,9 @@ function MeetingDetail({ meeting, monthName, onClose }: {
 
         <div className="flex flex-col gap-2.5">
           {meeting.location && (
-            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(meeting.location)}`}
+            <a href={meeting.lat != null && meeting.lon != null
+              ? `https://www.google.com/maps/search/?api=1&query=${meeting.lat},${meeting.lon}`
+              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(meeting.location)}`}
               target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px', textDecoration: 'none' }}>
@@ -837,5 +838,104 @@ function MeetingDetail({ meeting, monthName, onClose }: {
       </div>
     </div>,
     document.body
+  )
+}
+
+/* ── Location autocomplete (OpenStreetMap / Nominatim — free, no API key) ── */
+interface NominatimResult {
+  display_name: string
+  lat: string
+  lon: string
+  place_id: number
+}
+
+function LocationAutocomplete({ value, onChange, onSelect, hasCoords }: {
+  value: string
+  onChange: (v: string) => void
+  onSelect: (name: string, lat: number, lon: number) => void
+  hasCoords: boolean
+}) {
+  const [results, setResults] = useState<NominatimResult[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const skipRef = useRef(false)
+
+  useEffect(() => {
+    if (skipRef.current) { skipRef.current = false; return }
+    const q = value.trim()
+    if (q.length < 3 || hasCoords) { setResults([]); setOpen(false); return }
+    setLoading(true)
+    const ctrl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=5&q=${encodeURIComponent(q)}`,
+          { signal: ctrl.signal, headers: { 'Accept-Language': 'en' } }
+        )
+        const data: NominatimResult[] = await res.json()
+        setResults(data)
+        setOpen(data.length > 0)
+      } catch {
+        /* aborted or network error — ignore */
+      } finally {
+        setLoading(false)
+      }
+    }, 350)
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [value, hasCoords])
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
+  const pick = (r: NominatimResult) => {
+    skipRef.current = true
+    onSelect(r.display_name, parseFloat(r.lat), parseFloat(r.lon))
+    setOpen(false)
+    setResults([])
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div className="flex items-center gap-1.5"
+        style={{
+          background: 'rgba(255,255,255,0.05)',
+          border: hasCoords ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 6, padding: '0 8px',
+        }}>
+        <IconMapPin size={12} color={hasCoords ? '#818cf8' : '#64748b'} />
+        <input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onFocus={() => { if (results.length) setOpen(true) }}
+          placeholder="Search location…"
+          style={{ flex: 1, background: 'transparent', border: 'none', padding: '5px 0', fontSize: 10, color: '#fff', outline: 'none' }} />
+        {loading && <span style={{ fontSize: 8, color: '#64748b' }}>…</span>}
+        {hasCoords && !loading && (
+          <span style={{ fontSize: 8, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pinned</span>
+        )}
+      </div>
+      {open && results.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 50,
+          background: '#0f1726', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+          boxShadow: '0 12px 32px rgba(0,0,0,0.5)', overflow: 'hidden', maxHeight: 180, overflowY: 'auto',
+        }}>
+          {results.map(r => (
+            <button key={r.place_id} onClick={() => pick(r)}
+              className="flex items-start gap-2 w-full text-left"
+              style={{ padding: '7px 9px', background: 'transparent', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <IconMapPin size={12} color="#64748b" style={{ flexShrink: 0, marginTop: 1 }} />
+              <span style={{ fontSize: 10, color: '#cbd5e1', lineHeight: 1.35 }}>{r.display_name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
