@@ -191,6 +191,10 @@ export default function Dashboard() {
   const [modalTask,setModalTask] = useState<{key:string;label:string}|null>(null)
   const [showAnalytics,setShowAnalytics] = useState(false)
   const [showShutdown,setShowShutdown] = useState(false)
+  // Timestamp (epoch ms) of the last "Close the Day". The top dashboard Focused
+  // counter only sums focus sessions logged after this moment; per-task records
+  // are never removed.
+  const [focusResetAt,setFocusResetAt] = useState(0)
   const [showPlanned,setShowPlanned] = useState(false)
   const [showMeetings,setShowMeetings] = useState(false)
   const [focusTask,setFocusTask] = useState<{key:string;label:string}|null>(null)
@@ -403,17 +407,17 @@ export default function Dashboard() {
     // Record every session (rounded to whole seconds). Sub-minute focuses are
     // kept and shown in seconds; only a literal 0s session is ignored.
     if(secs<1)return;const now=new Date();const ds=`${now.getDate()}/${now.getMonth()+1} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
-    setTaskMeta(p=>{const ex=p[k]||{};return{...p,[k]:{...ex,focusSessions:[...((ex as any).focusSessions||[]),{date:ds,seconds:secs}]} as any}})
+    setTaskMeta(p=>{const ex=p[k]||{};return{...p,[k]:{...ex,focusSessions:[...((ex as any).focusSessions||[]),{date:ds,seconds:secs,ts:now.getTime()}]} as any}})
   }, [])
 
   const toggleGantt = useCallback((pk:string)=>{setGanttProjects(prev=>{const next=new Set(prev);if(next.has(pk))next.delete(pk);else next.add(pk);return next})}, [])
 
-  /* Close the Day: remove done prio tasks + done messages + reset today focus */
+  /* Close the Day: remove done prio tasks + done messages + reset the top
+     Focused counter (per-task focus records are preserved). */
   const dailyCleanup = useCallback(()=>{
     setPrioTasks(prev=>prev.map(s=>({...s,tasks:s.tasks.filter(t=>!t.done)})))
     setMessages(prev=>prev.filter(m=>!m.done))
-    const td=new Date();const tp=`${td.getDate()}/${td.getMonth()+1}`
-    setTaskMeta(prev=>{const n={...prev};Object.keys(n).forEach(k=>{const m=n[k];if((m as any).focusSessions?.length){n[k]={...m,focusSessions:((m as any).focusSessions||[]).filter((s:any)=>!s.date?.startsWith(tp))} as any}});return n})
+    setFocusResetAt(Date.now())
   }, [])
 
   // ──────────────────────────────────────────────────────────────────
@@ -554,9 +558,9 @@ export default function Dashboard() {
     // today deadline still contribute their meeting time, but NOT planned time.
     Object.entries(taskMeta).forEach(([k,m])=>{if(m.deadline===todayStr&&!k.startsWith('prio-')){if(m.hour!==undefined){meetingMin+=60;meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`})}}})
     let focusedMin=0;const td=new Date();const tp=`${td.getDate()}/${td.getMonth()+1}`
-    Object.values(taskMeta).forEach(m=>{((m as any).focusSessions||[]).forEach((s:any)=>{if(s.date?.startsWith(tp))focusedMin+=(s.seconds!==undefined?s.seconds/60:(s.minutes||0))})})
+    Object.values(taskMeta).forEach(m=>{((m as any).focusSessions||[]).forEach((s:any)=>{const afterReset=s.ts!==undefined?s.ts>=focusResetAt:focusResetAt===0;if(s.date?.startsWith(tp)&&afterReset)focusedMin+=(s.seconds!==undefined?s.seconds/60:(s.minutes||0))})})
     return{plannedMin,meetingMin,overloaded:plannedMin>480,totalTodayTasks,doneTodayTasks,plannedTasks,meetingEvents,focusedMin}
-  }, [taskMeta,prioTasks])
+  }, [taskMeta,prioTasks,focusResetAt])
 
   const fmtTime = (m:number)=>{const total=Math.round((m||0)*60);if(total<60)return `${total}s`;const h=Math.floor(total/3600);const mm=Math.round((total%3600)/60);return h>0?(mm>0?`${h}h ${mm}m`:`${h}h`):`${mm}m`}
 
