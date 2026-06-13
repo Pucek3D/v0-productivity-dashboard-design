@@ -15,7 +15,7 @@ interface Props {
   isTaskStarred?: (text: string) => boolean
 }
 
-/* ── MetaBadges — shows priority / recurring / owner / deadline inline ── */
+/* MetaBadges — skips owner + deadline (already shown by TaskActions inline) */
 function MetaBadges({ meta }: { meta?: TaskMeta }) {
   if (!meta) return null
   const b: React.ReactNode[] = []
@@ -25,7 +25,7 @@ function MetaBadges({ meta }: { meta?: TaskMeta }) {
   }
   if (meta.recurring) b.push(<span key="r" style={{ fontSize: 7, fontWeight: 700, textTransform: 'uppercase', background: 'rgba(45,212,191,0.15)', color: '#2dd4bf', border: '1px solid rgba(45,212,191,0.3)', borderRadius: 3, padding: '0 3px', lineHeight: '14px' }}>{String(meta.recurring).slice(0, 3)}</span>)
   if (meta.timeEstimate) b.push(<span key="t" style={{ fontSize: 7, fontWeight: 600, color: '#64748b', background: 'rgba(255,255,255,0.05)', borderRadius: 3, padding: '0 3px', lineHeight: '14px' }}>{meta.timeEstimate >= 60 ? `${meta.timeEstimate / 60}h` : `${meta.timeEstimate}m`}</span>)
-  if (meta.owner) b.push(<span key="o" style={{ fontSize: 7, fontWeight: 600, color: '#2dd4bf', background: 'rgba(45,212,191,0.12)', borderRadius: 3, padding: '0 3px', lineHeight: '14px' }}>{meta.owner}</span>)
+  /* owner intentionally excluded — TaskActions already shows it inline */
   return b.length ? <span className="inline-flex items-center gap-0.5 flex-wrap">{b}</span> : null
 }
 
@@ -72,7 +72,6 @@ function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio
           {starToPrio && (
             <button
               onClick={() => starToPrio(msg.text, 'work')}
-              /* FIX: star always visible when starred — no icon-on-hover */
               className={`bg-transparent border-none cursor-pointer p-0 leading-none ${starred ? '' : 'icon-on-hover'}`}
             >
               <IconStar
@@ -85,7 +84,6 @@ function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio
           <button onClick={() => remove(msg.id)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconTrash size={12} className="text-slate-500 hover:text-rose-400" /></button>
         </span>
       </div>
-      {/* FIX: show meta badges (priority, owner, estimate, recurring) under message */}
       {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}
     </div>
   )
