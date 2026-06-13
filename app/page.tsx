@@ -220,7 +220,11 @@ export default function Dashboard() {
 
   const starToPrio = useCallback((text:string,category:'work'|'home')=>{
     let newId: string | null = null
-    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Home':'Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false})};return n})
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Home':'Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false});
+      // Star and bookmark are mutually exclusive: adding a star removes any
+      // existing bookmark of the same task from the "Other to-dos" sections.
+      n.forEach(s=>{if(s.section==='Other Work'||s.section==='Other Home'){const bi=s.tasks.findIndex(t=>t.text===text);if(bi>=0)s.tasks.splice(bi,1)}})
+    };return n})
     // FIX: carry over the source's owner/deadline onto the new prio task so
     // starring a task (from Messages, Projects, Goals, Other To-Do) keeps its
     // details in Top Prio.
@@ -245,7 +249,9 @@ export default function Dashboard() {
   // (owner / deadline / time estimate) so they show up + count in Planned.
   const starSubtaskToPrio = useCallback((text:string, details?:Partial<TaskMeta>)=>{
     let newId: string | null = null
-    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const idx=n.findIndex(s=>s.section==='Work');if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false})};return n})
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const idx=n.findIndex(s=>s.section==='Work');if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false});
+      n.forEach(s=>{if(s.section==='Other Work'||s.section==='Other Home'){const bi=s.tasks.findIndex(t=>t.text===text);if(bi>=0)s.tasks.splice(bi,1)}})
+    };return n})
     if (newId && details) {
       const carried: Partial<TaskMeta> = { label: text }
       ;(['owner','deadline','timeEstimate'] as const).forEach(f => { if ((details as any)[f] !== undefined) (carried as any)[f] = (details as any)[f] })
@@ -257,7 +263,11 @@ export default function Dashboard() {
   // carries over the source's synced detail fields (owner, deadline, etc.).
   const bookmarkToOther = useCallback((text:string,category:'work'|'home')=>{
     let newId: string | null = null
-    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Other Home':'Other Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false})};return n})
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Other Home':'Other Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false});
+      // Star and bookmark are mutually exclusive: adding a bookmark removes any
+      // existing star of the same task from the Work / Home sections.
+      n.forEach(s=>{if(s.section==='Work'||s.section==='Home'){const si=s.tasks.findIndex(t=>t.text===text);if(si>=0)s.tasks.splice(si,1)}})
+    };return n})
     if (newId) {
       const srcMetas = linkRegistry.current
         .filter(r => r.label === text && !r.key.startsWith('prio-'))
@@ -275,7 +285,9 @@ export default function Dashboard() {
   // Bookmark a subtask into "Other to-dos", carrying its own details.
   const bookmarkSubtaskToOther = useCallback((text:string, details?:Partial<TaskMeta>)=>{
     let newId: string | null = null
-    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const idx=n.findIndex(s=>s.section==='Other Work');if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false})};return n})
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const idx=n.findIndex(s=>s.section==='Other Work');if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false});
+      n.forEach(s=>{if(s.section==='Work'||s.section==='Home'){const si=s.tasks.findIndex(t=>t.text===text);if(si>=0)s.tasks.splice(si,1)}})
+    };return n})
     if (newId && details) {
       const carried: Partial<TaskMeta> = { label: text }
       ;(['owner','deadline','timeEstimate'] as const).forEach(f => { if ((details as any)[f] !== undefined) (carried as any)[f] = (details as any)[f] })

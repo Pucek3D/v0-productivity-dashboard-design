@@ -177,8 +177,11 @@ function ProjectTile({ project, projectDone, toggleProjectTask, getProjectComple
               <SortableContext items={visibleCustom.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {visibleCustom.map(ct => {
                   const ctk = `proj-${project.key}-custom-${ct.id}`; const cmeta = taskMeta[ctk]; const cSub = cmeta?.subtasks?.find((s: any) => !s.done)
+                  // Resolve display name through nameOverrides so a rename made
+                  // from the modal title (which only writes overrides) sticks.
+                  const ctText = nameOverrides?.[ctk] ?? ct.text
                   return <div key={ct.id}>
-                    <SortableCustomTask ct={ct} ctk={ctk} cmeta={cmeta} category={category}
+                    <SortableCustomTask ct={ct} ctText={ctText} ctk={ctk} cmeta={cmeta} category={category}
                       onToggle={() => onToggleCustomTask(ct.id)} onDelete={() => onDeleteCustomTask(ct.id)}
                       openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta}
                       starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={(n: string) => onRenameCustomTask?.(ct.id, n)} />
@@ -199,19 +202,20 @@ function ProjectTile({ project, projectDone, toggleProjectTask, getProjectComple
 }
 
 /* Sortable custom task */
-function SortableCustomTask({ ct, ctk, cmeta, category, onToggle, onDelete, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename }: any) {
+function SortableCustomTask({ ct, ctText, ctk, cmeta, category, onToggle, onDelete, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ct.id })
+  const label = ctText ?? ct.text
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-      className="py-0.5 cursor-pointer select-none group" onClick={() => openModal(ctk, ct.text)}>
+      className="py-0.5 cursor-pointer select-none group" onClick={() => openModal(ctk, label)}>
       <div className="flex items-center gap-1.5">
         <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${ct.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{ct.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
-        <EditableLabel value={ct.text} onRename={(n: string) => onRename?.(n)} className={`text-[12.5px] leading-[1.35] flex-1 min-w-0 truncate ${ct.done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
+        <EditableLabel value={label} onRename={(n: string) => onRename?.(n)} className={`text-[12.5px] leading-[1.35] flex-1 min-w-0 truncate ${ct.done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
-          <TaskActions taskKey={ctk} taskLabel={ct.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
-          <button onClick={() => starToPrio(ct.text, category)} className="bg-transparent border-none cursor-pointer p-0 leading-none"><IconStar size={11} className={isTaskStarred?.(ct.text) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>
-          {bookmarkToOther && <button onClick={() => bookmarkToOther(ct.text, category)} className="bg-transparent border-none cursor-pointer p-0 leading-none" title={isTaskBookmarked?.(ct.text) ? 'Added to Other to-dos' : 'Add to Other to-dos'}><IconBookmark size={11} className={isTaskBookmarked?.(ct.text) ? 'fill-indigo-400 text-indigo-400' : 'icon-on-hover text-slate-500 hover:text-indigo-300'} /></button>}
+          <TaskActions taskKey={ctk} taskLabel={label} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
+          <button onClick={() => starToPrio(label, category)} className="bg-transparent border-none cursor-pointer p-0 leading-none"><IconStar size={11} className={isTaskStarred?.(label) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>
+          {bookmarkToOther && <button onClick={() => bookmarkToOther(label, category)} className="bg-transparent border-none cursor-pointer p-0 leading-none" title={isTaskBookmarked?.(label) ? 'Added to Other to-dos' : 'Add to Other to-dos'}><IconBookmark size={11} className={isTaskBookmarked?.(label) ? 'fill-indigo-400 text-indigo-400' : 'icon-on-hover text-slate-500 hover:text-indigo-300'} /></button>}
           <button onClick={(e: any) => { e.stopPropagation(); onDelete() }} className="icon-on-hover bg-transparent border-none cursor-pointer p-0"><IconTrash size={10} className="text-slate-500 hover:text-rose-400" /></button>
         </span>
       </div>
