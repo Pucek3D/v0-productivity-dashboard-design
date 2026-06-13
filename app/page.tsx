@@ -14,6 +14,18 @@ const INITIAL_MESSAGES: Message[] = [
   { id:'m7',text:'Konrad — PPK + workshop?',done:false },
   { id:'m8',text:'Shratha — review case example',done:false },
 ]
+// Mirror of OtherTodoCard's INITIAL_SECTIONS so label-sync can reach those
+// static tasks (key format: todo-<sectionId>-<taskId>) before they're edited.
+const OTHER_TODO_REGISTRY: { key: string; label: string }[] = [
+  { key:'todo-sushovan-os1', label:'WEF — Food Systems (WIP)' },
+  { key:'todo-sushovan-os2', label:'AACI — case summary (WIP)' },
+  { key:'todo-varun-os3', label:'Draft promotion note for HR' },
+  { key:'todo-varun-os4', label:'Progress tracker (new joiners)' },
+  { key:'todo-konrad-os5', label:'PPK — budget for lunch + agenda' },
+  { key:'todo-konrad-os6', label:'Cross-practice section prep' },
+  { key:'todo-personal-os7', label:'Faisal — respond' },
+  { key:'todo-personal-os8', label:'Inga — celebrate her promotion!' },
+]
 import { KpisCard } from '@/components/dashboard/kpis-card'
 import { EventCalendar } from '@/components/dashboard/event-calendar'
 import { LtGoalsCalendar } from '@/components/dashboard/lt-goals-calendar'
@@ -83,10 +95,18 @@ export default function Dashboard() {
       if (changedShared.length) {
         const syncFields: Partial<TaskMeta> = {}
         changedShared.forEach(f => { (syncFields as any)[f] = (u as any)[f] })
+        // Existing meta entries with the same label
         Object.keys(updated).forEach(otherKey => {
           if (otherKey !== k && (updated[otherKey] as any)?.label === label) {
             updated[otherKey] = { ...updated[otherKey], ...syncFields }
           }
+        })
+        // Registry tasks (Projects/Goals/Other To-Do/Messages/Prio) with the
+        // same label that don't have a meta entry yet — create one so the
+        // detail shows up when that card renders.
+        linkRegistry.current.forEach(({ key: otherKey, label: otherLabel }) => {
+          if (otherKey === k || otherLabel !== label) return
+          updated[otherKey] = { ...updated[otherKey], ...syncFields, label: otherLabel }
         })
       }
 
@@ -186,10 +206,13 @@ export default function Dashboard() {
     let newId: string | null = null
     setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Home':'Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false})};return n})
     // FIX: carry over the source's owner/deadline onto the new prio task so
-    // starring a message keeps its details in Top Prio.
+    // starring a task (from Messages, Projects, Goals, Other To-Do) keeps its
+    // details in Top Prio.
     if (newId) {
-      const src = linkRegistry.current.find(r => r.label === text && r.key.startsWith('msg-'))
-      const srcMeta = src ? taskMeta[src.key] : undefined
+      const srcMeta = linkRegistry.current
+        .filter(r => r.label === text && !r.key.startsWith('prio-'))
+        .map(r => taskMeta[r.key])
+        .find(m => m && (m.owner !== undefined || m.deadline !== undefined))
       const carried: Partial<TaskMeta> = { label: text }
       if (srcMeta?.owner !== undefined) carried.owner = srcMeta.owner
       if (srcMeta?.deadline !== undefined) carried.deadline = srcMeta.deadline
@@ -245,28 +268,38 @@ export default function Dashboard() {
   // FIX #4: Recurring events in calendar
   // Generates future instances (up to 90 days) for tasks with recurring
   // set, so they appear in the EventCalendar automatically.
-  // ──────────────────────────────────────────────────────────────────
+  // ────────��─────────────────────────────────────────────────────────
   const deadlineEvents: DeadlineEvent[] = useMemo(()=>{
-    const ev:DeadlineEvent[]=[]
     const limit = new Date(); limit.setDate(limit.getDate() + 90)
 
     // Dedupe linked tasks so the SAME task isn't drawn twice (e.g. a message
     // and its linked Top Prio task, or identical task text shared across
-    // Top Prio / Projects / Other To-Do / Goals). Identity = date + time +
-    // (shared person if any, else normalized label).
-    const seen = new Set<string>()
-    const identity = (label:string, date:string, hour?:number, minute?:number) => {
-      const people = extractPeople(label)
-      const who = people.length ? people.map(p=>p.toLowerCase()).sort().join('+') : label.trim().toLowerCase()
-      return `${date}|${hour ?? '-'}|${minute ?? '-'}|${who}`
+    // Top Prio / Projects / Other To-Do / Goals).
+    // Identity = date + (shared person if any, else normalized label).
+    // NOTE: time is intentionally EXCLUDED from identity so an all-day copy
+    // and a timed copy of the same task collapse into one (we keep the timed
+    // one). This fixes duplicates lingering in Month/Week views.
+    const byId = new Map<string, DeadlineEvent>()
+    const identity = (label:string, date:string) => {
+      const base = label.replace(/^🔄\s*/, '')
+      const people = extractPeople(base)
+      const who = people.length ? people.map(p=>p.toLowerCase()).sort().join('+') : base.trim().toLowerCase()
+      return `${date}|${who}`
+    }
+    const add = (e: DeadlineEvent, k?: string) => {
+      const id = identity(e.label, e.date)
+      const existing = byId.get(id)
+      if (!existing) { byId.set(id, { ...e, keys: k ? [k] : [] }); return }
+      // merge contributing keys
+      if (k && !existing.keys!.includes(k)) existing.keys!.push(k)
+      // prefer the entry that has an explicit time
+      if (existing.hour === undefined && e.hour !== undefined) {
+        existing.hour = e.hour; existing.minute = e.minute
+      }
     }
 
     Object.entries(taskMeta).filter(([,m])=>m.deadline).forEach(([k,m])=>{
-      const id = identity(m.label||'Task', m.deadline!, m.hour, m.minute)
-      if (!seen.has(id)) {
-        seen.add(id)
-        ev.push({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute})
-      }
+      add({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute}, k)
 
       // Generate recurring instances for the next 90 days
       if (m.recurring && m.deadline) {
@@ -278,28 +311,47 @@ export default function Dashboard() {
           else { next = new Date(next); next.setMonth(next.getMonth() + 1) }
           if (next > limit) break
           const ds = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`
-          const rid = identity(`🔄 ${m.label || 'Task'}`, ds, m.hour, m.minute)
-          if (seen.has(rid)) continue
-          seen.add(rid)
-          ev.push({ date: ds, label: `🔄 ${m.label || 'Task'}`, color: '#2dd4bf', hour: m.hour, minute: m.minute })
+          add({ date: ds, label: `🔄 ${m.label || 'Task'}`, color: '#2dd4bf', hour: m.hour, minute: m.minute }, k)
         }
       }
     })
     // Subtask deadlines
-    Object.entries(taskMeta).forEach(([,m])=>{(m.subtasks||[]).forEach(st=>{if((st as any).deadline)ev.push({date:(st as any).deadline,label:st.text,color:'#a78bfa'})})})
-    return ev
+    Object.entries(taskMeta).forEach(([key,m])=>{(m.subtasks||[]).forEach((st:any)=>{if(st.deadline)add({date:st.deadline,label:st.text,color:'#a78bfa'}, key)})})
+    return Array.from(byId.values())
   }, [taskMeta])
+
+  // Delete a calendar event: clear the deadline/time from every taskMeta key
+  // that contributed to the (deduped) event so it disappears from all views.
+  const deleteDeadlineEvent = useCallback((ev: DeadlineEvent)=>{
+    const keys = ev.keys && ev.keys.length ? ev.keys : []
+    if (!keys.length) return
+    setTaskMeta(p=>{
+      const next = { ...p }
+      keys.forEach(k=>{
+        if (!next[k]) return
+        const { deadline, hour, minute, recurring, ...rest } = next[k] as any
+        next[k] = rest
+      })
+      return next
+    })
+  }, [])
 
   const completedTasks = useMemo(()=>{const set=new Set<string>();prioTasks.forEach(s=>s.tasks.forEach(t=>{if(t.done)set.add(t.text)}));[...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(projectDone[`${p.key}-task-${i}`])set.add(t)})});return set}, [prioTasks,projectDone])
   const ganttProjectObjs = [...PROJECTS,...LT_GOALS].filter(p=>ganttProjects.has(p.key))
 
   const messagesAnswered = messages.filter(m=>m.done).length
 
-  // Keep the link registry current: every Message + every Top Prio task,
-  // keyed exactly as their TaskActions/meta keys (msg-<id> / prio-<id>).
+  // Keep the link registry current. Includes every task surface so that
+  // label-based sync can reach tasks that have no taskMeta entry yet:
+  //   msg-<id>          Messages
+  //   prio-<id>         Top Prio
+  //   proj-<key>-<idx>  Active Projects + Long-Term Goals (same key prefix)
+  //   todo-<sid>-<tid>  Other To-Do (static initial sections)
   linkRegistry.current = [
     ...messages.map(m => ({ key: `msg-${m.id}`, label: m.text })),
     ...prioTasks.flatMap(s => s.tasks.map(t => ({ key: `prio-${t.id}`, label: t.text }))),
+    ...[...PROJECTS, ...LT_GOALS].flatMap(p => p.tasks.map((t, i) => ({ key: `proj-${p.key}-${i}`, label: t }))),
+    ...OTHER_TODO_REGISTRY,
   ]
 
   const timeStats = useMemo(()=>{
@@ -347,7 +399,7 @@ export default function Dashboard() {
         </div>
         <div className="flex flex-col gap-3">
           <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} />
-          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} />
+          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
           {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
           <LtGoalsCalendar taskMeta={taskMeta} />

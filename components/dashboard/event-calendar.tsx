@@ -69,9 +69,10 @@ const MEETING_COLORS = ['#818cf8', '#fb7185', '#fbbf24', '#2dd4bf', '#a78bfa', '
 interface EventCalendarProps {
   deadlineEvents?: DeadlineEvent[]
   completedTasks?: Set<string>
+  onDeleteEvent?: (ev: DeadlineEvent) => void
 }
 
-export function EventCalendar({ deadlineEvents = [], completedTasks }: EventCalendarProps) {
+export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent }: EventCalendarProps) {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
   const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
   const [month, setMonth] = useState(4)
@@ -219,21 +220,24 @@ export function EventCalendar({ deadlineEvents = [], completedTasks }: EventCale
         {view === 'm' && <MonthView month={month} year={year} today={today}
           deadlineEvents={activeDeadlineEvents} customMeetings={customMeetings}
           onClickDay={(day) => setShowAddForm({ day })}
-          onRemoveMeeting={removeMeeting} />}
+          onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent} />}
         {view === 'w' && <WeekView today={today} deadlineEvents={activeDeadlineEvents}
-          customMeetings={customMeetings} month={month} year={year} />}
+          customMeetings={customMeetings} month={month} year={year}
+          onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent} />}
         {view === 'd' && <DayView today={today} deadlineEvents={activeDeadlineEvents}
-          customMeetings={customMeetings} month={month} year={year} />}
+          customMeetings={customMeetings} month={month} year={year}
+          onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent} />}
       </div>
     </div>
   )
 }
 
 /* ─── Month View ─── */
-function MonthView({ month, year, today, deadlineEvents, customMeetings, onClickDay, onRemoveMeeting }: {
+function MonthView({ month, year, today, deadlineEvents, customMeetings, onClickDay, onRemoveMeeting, onDeleteEvent }: {
   month: number; year: number; today: { d: number; m: number; y: number }
   deadlineEvents: DeadlineEvent[]; customMeetings: CustomMeeting[]
   onClickDay: (day: number) => void; onRemoveMeeting: (id: string) => void
+  onDeleteEvent?: (ev: DeadlineEvent) => void
 }) {
   const startDay = getFirstDayOfMonth(month, year)
   const daysInMonth = getDaysInMonth(month, year)
@@ -251,14 +255,20 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1
           const isToday = day === today.d && month === today.m && year === today.y
-          const regularEvents = events[day] || []
+          const regularEvents = (events[day] || []).map(e => ({ label: e.label, color: e.color, kind: 'static' as const }))
+          // Dedupe task events by label (render-level safety net on top of the
+          // page-level dedup) so the same task never appears twice in a cell.
+          const seenLabels = new Set<string>()
           const taskEvents = deadlineEvents.filter(e => {
             const d = new Date(e.date + 'T00:00')
-            return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year
-          }).map(e => ({ label: e.label, color: e.color }))
+            if (!(d.getDate() === day && d.getMonth() === month && d.getFullYear() === year)) return false
+            const key = e.label.replace(/^🔄\s*/, '')
+            if (seenLabels.has(key)) return false
+            seenLabels.add(key); return true
+          }).map(e => ({ label: e.label, color: e.color, kind: 'task' as const, ev: e }))
           const meetingEvents = customMeetings
             .filter(m => m.day === day && m.month === month && m.year === year && !m.done)
-            .map(m => ({ label: m.label, color: m.color, id: m.id }))
+            .map(m => ({ label: m.label, color: m.color, kind: 'meeting' as const, id: m.id }))
           const dayEvents = [...regularEvents, ...taskEvents, ...meetingEvents]
 
           return (
@@ -272,9 +282,17 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
                 isToday ? 'text-rose-300 font-bold' : 'text-slate-300 font-semibold'
               }`} style={{ fontVariantNumeric: 'tabular-nums' }}>{day}</span>
               {dayEvents.slice(0, 2).map((ev, j) => (
-                <div key={j} className="text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
+                <div key={j} className="group/ev relative text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
                   style={{ background: `${ev.color}22`, color: ev.color, border: `1px solid ${ev.color}44` }}>
                   {ev.label}
+                  {(ev.kind === 'meeting' || (ev.kind === 'task' && onDeleteEvent)) && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); if (ev.kind === 'meeting') onRemoveMeeting(ev.id!); else onDeleteEvent!(ev.ev!) }}
+                      className="absolute right-0 top-0 bottom-0 px-0.5 hidden group-hover/ev:flex items-center bg-black/40 text-white/70 hover:text-rose-300"
+                      title="Delete">
+                      <IconX size={9} />
+                    </button>
+                  )}
                 </div>
               ))}
               {dayEvents.length > 2 && (
@@ -289,9 +307,10 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
 }
 
 /* ─── Week View ─── */
-function WeekView({ today, deadlineEvents, customMeetings, month, year }: {
+function WeekView({ today, deadlineEvents, customMeetings, month, year, onRemoveMeeting, onDeleteEvent }: {
   today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
   customMeetings: CustomMeeting[]; month: number; year: number
+  onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
 }) {
   const cols = (() => {
     const result: { name: string; day: number; dateStr: string; month: number; year: number }[] = []
@@ -314,12 +333,22 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year }: {
     <div className="grid grid-cols-7 gap-1">
       {cols.map(c => {
         const isToday = c.day === today.d && c.month === today.m
-        const regularEvents = WEEK_EVENTS[c.day] || []
-        const taskEvents = deadlineEvents.filter(e => e.date === c.dateStr)
-          .map(e => ({ label: e.label, color: e.color, time: 'All day' }))
+        const regularEvents = (WEEK_EVENTS[c.day] || []).map(e => ({ label: e.label, color: e.color, time: e.time, kind: 'static' as const }))
+        // Dedupe by label (render-level safety net) and keep the source event.
+        const seenLabels = new Set<string>()
+        const taskEvents = deadlineEvents.filter(e => {
+          if (e.date !== c.dateStr) return false
+          const key = e.label.replace(/^🔄\s*/, '')
+          if (seenLabels.has(key)) return false
+          seenLabels.add(key); return true
+        }).map(e => ({
+          label: e.label, color: e.color,
+          time: e.hour !== undefined ? `${e.hour.toString().padStart(2,'0')}:${(e.minute ?? 0).toString().padStart(2,'0')}` : 'All day',
+          kind: 'task' as const, ev: e,
+        }))
         const meetingEvents = customMeetings
           .filter(m => m.day === c.day && m.month === c.month && m.year === c.year && !m.done)
-          .map(m => ({ label: m.label, color: m.color, time: m.time || 'All day' }))
+          .map(m => ({ label: m.label, color: m.color, time: m.time || 'All day', kind: 'meeting' as const, id: m.id }))
         const events = [...regularEvents, ...taskEvents, ...meetingEvents]
 
         return (
@@ -334,13 +363,21 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year }: {
                 }`}>{c.day}</div>
             </div>
             {events.map((ev, i) => (
-              <div key={i} className="rounded-[5px] px-1.5 py-1"
+              <div key={i} className="group/ev relative rounded-[5px] px-1.5 py-1"
                 style={{ background: `${ev.color}22`, borderLeft: `2px solid ${ev.color}`, boxShadow: `0 0 8px ${ev.color}33` }}>
                 <div className="text-[9.5px] font-bold" style={{ color: ev.color, fontVariantNumeric: 'tabular-nums' }}>{ev.time}</div>
                 <div className="text-[10px] font-semibold leading-[1.25] text-slate-200 mt-px overflow-hidden"
                   style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
                   {ev.label}
                 </div>
+                {((ev as any).kind === 'meeting' || ((ev as any).kind === 'task' && onDeleteEvent)) && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if ((ev as any).kind === 'meeting') onRemoveMeeting((ev as any).id); else onDeleteEvent!((ev as any).ev) }}
+                    className="absolute right-0.5 top-0.5 hidden group-hover/ev:flex items-center justify-center w-4 h-4 rounded bg-black/40 text-white/70 hover:text-rose-300"
+                    title="Delete">
+                    <IconX size={10} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -351,16 +388,24 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year }: {
 }
 
 /* ─── Day View ─── */
-function DayView({ today, deadlineEvents, customMeetings, month, year }: {
+function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveMeeting, onDeleteEvent }: {
   today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
   customMeetings: CustomMeeting[]; month: number; year: number
+  onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
 }) {
   const dateStr = new Date(today.y, today.m, today.d).toLocaleDateString('en-US', {
     weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
   })
   const todayStr = `${today.y}-${String(today.m + 1).padStart(2, '0')}-${String(today.d).padStart(2, '0')}`
-  const allDayEvents = deadlineEvents.filter(e => e.date === todayStr && e.hour === undefined)
-  const timedDeadlines = deadlineEvents.filter(e => e.date === todayStr && e.hour !== undefined)
+  // Dedupe by label across all-day + timed (render-level safety net).
+  const seenLabels = new Set<string>()
+  const dedupe = (e: DeadlineEvent) => {
+    const key = e.label.replace(/^🔄\s*/, '')
+    if (seenLabels.has(key)) return false
+    seenLabels.add(key); return true
+  }
+  const timedDeadlines = deadlineEvents.filter(e => e.date === todayStr && e.hour !== undefined).filter(dedupe)
+  const allDayEvents = deadlineEvents.filter(e => e.date === todayStr && e.hour === undefined).filter(dedupe)
 
   const todayMeetings = customMeetings.filter(m =>
     m.day === today.d && m.month === today.m && m.year === today.y && !m.done
@@ -378,13 +423,24 @@ function DayView({ today, deadlineEvents, customMeetings, month, year }: {
       {(allDayEvents.length > 0 || allDayMeetings.length > 0) && (
         <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 4 }}>All day</div>
-          {[...allDayEvents, ...allDayMeetings.map(m => ({ label: m.label, color: m.color, date: todayStr }))].map((ev, i) => (
-            <div key={i} style={{
+          {[
+            ...allDayEvents.map(e => ({ label: e.label, color: e.color, kind: 'task' as const, ev: e })),
+            ...allDayMeetings.map(m => ({ label: m.label, color: m.color, kind: 'meeting' as const, id: m.id })),
+          ].map((ev, i) => (
+            <div key={i} className="group/ev relative" style={{
               background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`,
               borderRadius: '0 6px 6px 0', padding: '4px 8px', marginBottom: 2,
               boxShadow: `0 0 12px ${ev.color}33`,
             }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: ev.color }}>{ev.label}</span>
+              {(ev.kind === 'meeting' || (ev.kind === 'task' && onDeleteEvent)) && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (ev.kind === 'meeting') onRemoveMeeting(ev.id!); else onDeleteEvent!(ev.ev!) }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/ev:flex items-center justify-center w-4 h-4 rounded bg-black/40 text-white/70 hover:text-rose-300"
+                  title="Delete">
+                  <IconX size={10} />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -394,12 +450,12 @@ function DayView({ today, deadlineEvents, customMeetings, month, year }: {
         const hour = i + 8
         const staticEvents = DAY_EVENTS.filter(e => e.hour === hour)
         const deadlineAtHour = timedDeadlines.filter(e => e.hour === hour)
-          .map(e => ({ label: e.label, color: e.color, hour, end: hour + 1, timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}` }))
+          .map(e => ({ label: e.label, color: e.color, hour, end: hour + 1, timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}`, kind: 'task' as const, ev: e }))
         const meetingAtHour = timedMeetings
           .filter(m => m.time && parseInt(m.time.split(':')[0]) === hour)
-          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time! }))
+          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time!, kind: 'meeting' as const, id: m.id }))
         const events = [
-          ...staticEvents.map(e => ({ ...e, timeLabel: `${e.hour.toString().padStart(2, '0')}:00` })),
+          ...staticEvents.map(e => ({ ...e, timeLabel: `${e.hour.toString().padStart(2, '0')}:00`, kind: 'static' as const })),
           ...deadlineAtHour,
           ...meetingAtHour,
         ]
@@ -419,12 +475,20 @@ function DayView({ today, deadlineEvents, customMeetings, month, year }: {
             }}>
               {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#fb7185', boxShadow: '0 0 8px #fb7185' }} />}
               {events.map((ev, j) => (
-                <div key={j} className="rounded-r-md px-2 py-1 mb-1"
+                <div key={j} className="group/ev relative rounded-r-md px-2 py-1 mb-1"
                   style={{ background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`, boxShadow: `0 0 12px ${ev.color}33` }}>
                   <div className="text-[12px] font-bold" style={{ color: ev.color }}>{ev.label}</div>
                   <div className="text-[10px] text-slate-500 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {ev.timeLabel} — {ev.end.toString().padStart(2, '0')}:00
                   </div>
+                  {((ev as any).kind === 'meeting' || ((ev as any).kind === 'task' && onDeleteEvent)) && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); if ((ev as any).kind === 'meeting') onRemoveMeeting((ev as any).id); else onDeleteEvent!((ev as any).ev) }}
+                      className="absolute right-1 top-1 hidden group-hover/ev:flex items-center justify-center w-4 h-4 rounded bg-black/40 text-white/70 hover:text-rose-300"
+                      title="Delete">
+                      <IconX size={10} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
