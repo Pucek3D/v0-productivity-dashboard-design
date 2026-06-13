@@ -143,9 +143,9 @@ export default function Dashboard() {
         <div style={{display:'flex',alignItems:'center',gap:6,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:10,padding:'6px 12px'}}><span style={{color:'#64748b',fontSize:14}}>+</span><input placeholder="Add task to Top Prio — press Enter" onKeyDown={e=>{if(e.key==='Enter'&&(e.target as HTMLInputElement).value.trim()){addPrioTask((e.target as HTMLInputElement).value.trim());(e.target as HTMLInputElement).value=''}}} style={{flex:1,background:'transparent',border:'none',outline:'none',fontSize:12,color:'#e2e8f0',fontFamily:'inherit'}} /></div>
       </header>
 
-      <div className="grid grid-cols-[196px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
+      <div className="grid grid-cols-[240px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="flex flex-col gap-3">
-          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} />
           <KpisCard />
         </div>
         <div className="flex flex-col gap-3">
@@ -162,7 +162,35 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,u)} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} />}
+      /* Recurring auto-deadline: when task checked + has recurring, set next deadline */
+  const handleRecurringAfterToggle = useCallback((taskKey: string, nowDone: boolean) => {
+    if (!nowDone) return
+    const meta = taskMeta[taskKey] as any
+    if (!meta?.recurring || !meta?.deadline) return
+    const current = new Date(meta.deadline + 'T00:00')
+    let next: Date
+    if (meta.recurring === 'daily') { next = new Date(current); next.setDate(next.getDate() + 1) }
+    else if (meta.recurring === 'weekly') { next = new Date(current); next.setDate(next.getDate() + 7) }
+    else { next = new Date(current); next.setMonth(next.getMonth() + 1) }
+    const nextStr = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
+    // After 1 second, uncheck and set new deadline
+    setTimeout(() => {
+      setProjectDone(prev => ({ ...prev, [taskKey.replace('proj-', '').replace(/-task-(\d+)$/, '-task-$1')]: false }))
+      setTaskMeta(prev => ({ ...prev, [taskKey]: { ...prev[taskKey], deadline: nextStr } }))
+    }, 1200)
+  }, [taskMeta])
+
+  /* Rename task from modal */
+  const renameTaskFromModal = useCallback((newName: string) => {
+    if (!modalTask) return
+    const oldName = modalTask.label
+    // Rename in prio tasks
+    setPrioTasks(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(t => t.text === oldName ? { ...t, text: newName } : t) })))
+    // Update modal reference
+    setModalTask(prev => prev ? { ...prev, label: newName } : null)
+  }, [modalTask])
+
+  {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,u)} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} onRenameTask={renameTaskFromModal} />}
       {showShutdown&&<DailyShutdown onClose={()=>setShowShutdown(false)} tasksCompleted={timeStats.doneTodayTasks} tasksTotal={timeStats.totalTodayTasks} focusedMin={timeStats.focusedMin} messagesAnswered={messagesAnswered} onCleanup={dailyCleanup} />}
       {showAnalytics&&<WeeklyAnalytics onClose={()=>setShowAnalytics(false)} projectDone={projectDone} taskMeta={taskMeta} getProjectCompletion={getProjectCompletion} />}
     </div>
