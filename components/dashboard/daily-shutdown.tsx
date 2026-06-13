@@ -22,7 +22,7 @@ export function DailyShutdown({ onClose, tasksCompleted, tasksTotal, focusedMin=
     const entry:JournalEntry = {date:dateStr,well:well.trim(),improve:improve.trim(),completed:tasksCompleted,total:tasksTotal,focused:focusedMin,messages:messagesAnswered}
     const updated=[entry,...journal].slice(0,90); saveJournal(updated); setJournal(updated); onCleanup(); onClose()
   }
-  const fmtMin = (m:number) => { const total=Math.round((m||0)*60); if(total<60) return `${total}s`; const h=Math.floor(total/3600); const mm=Math.round((total%3600)/60); return h>0?(mm>0?`${h}h ${mm}m`:`${h}h`):`${mm}m` }
+  const fmtMin = (m:number) => { const mins=Math.round(m||0); const h=Math.floor(mins/60); const mm=mins%60; return h>0?(mm>0?`${h}h ${mm}m`:`${h}h`):`${mm}m` }
 
   return createPortal(<>
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:10000,background:'rgba(0,0,0,0.6)',backdropFilter:'blur(4px)'}} />

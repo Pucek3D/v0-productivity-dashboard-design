@@ -248,7 +248,7 @@ export default function Dashboard() {
   // same text — Top Prio Today, Messages, subtasks (in any task's meta)
   // and the source Project / Goal tasks — and vice-versa. Setting the
   // same value is idempotent, so this is safe to call from any toggle.
-  // ──────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────��────────────────
   const propagateDone = useCallback((text:string, done:boolean)=>{
     setPrioTasks(prev=>prev.map(s=>({...s,tasks:s.tasks.map(t=>t.text===text?{...t,done}:t)})))
     setMessages(prev=>prev.map(m=>m.text===text?{...m,done}:m))
@@ -562,7 +562,7 @@ export default function Dashboard() {
     return{plannedMin,meetingMin,overloaded:plannedMin>480,totalTodayTasks,doneTodayTasks,plannedTasks,meetingEvents,focusedMin}
   }, [taskMeta,prioTasks,focusResetAt])
 
-  const fmtTime = (m:number)=>{const total=Math.round((m||0)*60);if(total<60)return `${total}s`;const h=Math.floor(total/3600);const mm=Math.round((total%3600)/60);return h>0?(mm>0?`${h}h ${mm}m`:`${h}h`):`${mm}m`}
+  const fmtTime = (m:number)=>{const mins=Math.round(m||0);const h=Math.floor(mins/60);const mm=mins%60;return h>0?(mm>0?`${h}h ${mm}m`:`${h}h`):`${mm}m`}
 
   return (
     <div className="min-h-screen bg-background p-5 font-sans">
