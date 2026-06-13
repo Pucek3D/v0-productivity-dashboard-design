@@ -5,7 +5,7 @@ import {
   MONTH_EVENTS, WEEK_EVENTS, DAY_EVENTS,
   MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth
 } from '@/lib/data'
-import { IconPlus, IconX, IconClock } from '@tabler/icons-react'
+import { IconPlus, IconX, IconCalendar } from '@tabler/icons-react'
 import type { DeadlineEvent } from '@/lib/task-meta'
 import { ScrollWheel, HOUR_ITEMS, MINUTE_ITEMS } from './task-actions'
 
@@ -193,14 +193,14 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#fff', outline: 'none' }} />
             <button ref={timeBtnRef} onClick={() => setShowTimePicker(true)}
               style={{
-                width: 78, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                minWidth: 96, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 background: 'rgba(255,255,255,0.05)',
-                border: newMeetingTime ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 6, padding: '4px 6px', fontSize: 11, cursor: 'pointer', outline: 'none',
-                color: newMeetingTime ? '#fff' : '#64748b', fontVariantNumeric: 'tabular-nums',
+                border: '1px solid rgba(99,102,241,0.4)',
+                borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', outline: 'none',
+                color: '#fff', fontVariantNumeric: 'tabular-nums',
               }}>
-              <IconClock size={11} />
-              {newMeetingTime || '--:--'}
+              <IconCalendar size={12} />
+              {MONTH_NAMES[month].slice(0, 3)} {showAddForm.day}{newMeetingTime ? ` · ${newMeetingTime}` : ''}
             </button>
             <div className="flex gap-0.5">
               {MEETING_COLORS.map(c => (
@@ -216,9 +216,13 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
           {showTimePicker && timeBtnRef.current && (
             <TimePickerPopover
               anchor={timeBtnRef.current.getBoundingClientRect()}
+              month={month}
+              year={year}
+              today={today}
+              day={showAddForm.day}
               hour={newMeetingTime ? parseInt(newMeetingTime.split(':')[0]) : 9}
               minute={newMeetingTime ? parseInt(newMeetingTime.split(':')[1] || '0') : 0}
-              onSelect={(h, mi) => { setNewMeetingTime(`${h.toString().padStart(2, '0')}:${mi.toString().padStart(2, '0')}`); setShowTimePicker(false) }}
+              onSelect={(d, h, mi) => { setShowAddForm({ day: d }); setNewMeetingTime(`${h.toString().padStart(2, '0')}:${mi.toString().padStart(2, '0')}`); setShowTimePicker(false) }}
               onClear={() => { setNewMeetingTime(''); setShowTimePicker(false) }}
               onClose={() => setShowTimePicker(false)}
             />
@@ -258,23 +262,6 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
                 </span>
               )}
             </div>
-          </div>
-          {/* Day picker row */}
-          <div className="flex gap-0.5 mt-1.5 overflow-x-auto">
-            {Array.from({ length: getDaysInMonth(month, year) }).map((_, i) => {
-              const d = i + 1
-              const isSelected = showAddForm.day === d
-              const isToday = d === today.d && month === today.m && year === today.y
-              return (
-                <button key={d} onClick={() => setShowAddForm({ day: d })}
-                  style={{
-                    width: 22, height: 22, borderRadius: 4, border: 'none', cursor: 'pointer',
-                    fontSize: 9, fontWeight: isSelected ? 700 : 400, flexShrink: 0,
-                    background: isSelected ? '#6366f1' : 'transparent',
-                    color: isSelected ? '#fff' : isToday ? '#fb7185' : '#475569',
-                  }}>{d}</button>
-              )
-            })}
           </div>
         </div>
       )}
@@ -579,31 +566,65 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveM
   )
 }
 
-/* ── Time Picker Popover (matches the task date/time picker styling) ── */
-function TimePickerPopover({ anchor, hour: initHour, minute: initMinute, onSelect, onClear, onClose }: {
+/* ── Date + Time Picker Popover (matches the task date/time picker styling) ── */
+function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: initHour, minute: initMinute, onSelect, onClear, onClose }: {
   anchor: DOMRect
+  month: number
+  year: number
+  today: { d: number; m: number; y: number }
+  day: number
   hour: number
   minute: number
-  onSelect: (h: number, min: number) => void
+  onSelect: (day: number, h: number, min: number) => void
   onClear: () => void
   onClose: () => void
 }) {
+  const [day, setDay] = useState(initDay)
   const [hour, setHour] = useState(initHour)
   const [minute, setMinute] = useState(initMinute)
 
-  const top = Math.min(anchor.bottom + 6, window.innerHeight - 230)
-  const left = Math.max(8, Math.min(anchor.left - 30, window.innerWidth - 190))
+  const daysInMonth = getDaysInMonth(month, year)
+  const firstDay = getFirstDayOfMonth(month, year)
+
+  const top = Math.min(anchor.bottom + 6, window.innerHeight - 360)
+  const left = Math.max(8, Math.min(anchor.left - 30, window.innerWidth - 230))
 
   return createPortal(
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={onClose} />
       <div style={{
-        position: 'fixed', zIndex: 9999, top, left, width: 180,
+        position: 'fixed', zIndex: 9999, top, left, width: 220,
         background: '#131c2e', border: '1px solid rgba(255,255,255,0.10)',
         borderRadius: 12, padding: 12,
         boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
       }}>
+        {/* Date grid */}
         <div style={{ fontSize: 9, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, textAlign: 'center' }}>
+          {MONTH_NAMES[month]} {year}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+          {DAY_NAMES.map(dn => (
+            <div key={dn} style={{ fontSize: 8, fontWeight: 600, color: '#475569', textAlign: 'center' }}>{dn.slice(0, 1)}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+          {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const d = i + 1
+            const isSelected = day === d
+            const isToday = d === today.d && month === today.m && year === today.y
+            return (
+              <button key={d} onClick={() => setDay(d)} style={{
+                aspectRatio: '1', borderRadius: 5, border: 'none', cursor: 'pointer',
+                fontSize: 10, fontWeight: isSelected ? 700 : 500,
+                background: isSelected ? '#6366f1' : 'transparent',
+                color: isSelected ? '#fff' : isToday ? '#fb7185' : '#94a3b8',
+              }}>{d}</button>
+            )
+          })}
+        </div>
+        {/* Time wheels */}
+        <div style={{ fontSize: 9, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '10px 0 8px', textAlign: 'center' }}>
           Start time
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
@@ -611,16 +632,16 @@ function TimePickerPopover({ anchor, hour: initHour, minute: initMinute, onSelec
           <span style={{ fontSize: 18, fontWeight: 700, color: '#475569', lineHeight: 1 }}>:</span>
           <ScrollWheel items={MINUTE_ITEMS} value={minute} onChange={setMinute} width={60} />
         </div>
-        <button onClick={() => onSelect(hour, minute)} style={{
+        <button onClick={() => onSelect(day, hour, minute)} style={{
           width: '100%', padding: '6px 0', borderRadius: 6, cursor: 'pointer',
           fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
           marginTop: 10, background: '#6366f1', color: '#fff', border: 'none',
           boxShadow: '0 0 12px rgba(99,102,241,0.4)',
         }}>
-          Set {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')}
+          Set {MONTH_NAMES[month].slice(0, 3)} {day} · {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')}
         </button>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <button onClick={onClear} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Clear</button>
+          <button onClick={onClear} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Clear time</button>
         </div>
       </div>
     </>,
