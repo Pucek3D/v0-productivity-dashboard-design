@@ -472,12 +472,12 @@ export default function Dashboard() {
       if (k && !existing.keys!.includes(k)) existing.keys!.push(k)
       // prefer the entry that has an explicit time
       if (existing.hour === undefined && e.hour !== undefined) {
-        existing.hour = e.hour; existing.minute = e.minute
+        existing.hour = e.hour; existing.minute = e.minute; existing.durationMin = e.durationMin
       }
     }
 
     Object.entries(taskMeta).filter(([,m])=>m.deadline).forEach(([k,m])=>{
-      add({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute}, k)
+      add({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute,durationMin:m.durationMin}, k)
 
       // Generate recurring instances for the next 90 days
       if (m.recurring && m.deadline) {
@@ -489,7 +489,7 @@ export default function Dashboard() {
           else { next = new Date(next); next.setMonth(next.getMonth() + 1) }
           if (next > limit) break
           const ds = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`
-          add({ date: ds, label: `🔄 ${m.label || 'Task'}`, color: '#2dd4bf', hour: m.hour, minute: m.minute }, k)
+          add({ date: ds, label: `🔄 ${m.label || 'Task'}`, color: '#2dd4bf', hour: m.hour, minute: m.minute, durationMin: m.durationMin }, k)
         }
       }
     })

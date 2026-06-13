@@ -66,6 +66,18 @@ interface CustomMeeting {
 
 const MEETING_COLORS = ['#818cf8', '#fb7185', '#fbbf24', '#2dd4bf', '#a78bfa', '#f97316']
 
+/* Build a "HH:MM–HH:MM" range from a start time + duration (minutes).
+   Falls back to just the start time when no duration is set. */
+function fmtTimeRange(hour: number, minute: number, durationMin?: number): string {
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  const start = `${pad(hour)}:${pad(minute)}`
+  if (!durationMin || durationMin < 1) return start
+  const total = hour * 60 + minute + durationMin
+  const eh = Math.floor(total / 60) % 24
+  const em = total % 60
+  return `${start}–${pad(eh)}:${pad(em)}`
+}
+
 interface EventCalendarProps {
   deadlineEvents?: DeadlineEvent[]
   completedTasks?: Set<string>
@@ -343,7 +355,7 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onRemove
           seenLabels.add(key); return true
         }).map(e => ({
           label: e.label, color: e.color,
-          time: e.hour !== undefined ? `${e.hour.toString().padStart(2,'0')}:${(e.minute ?? 0).toString().padStart(2,'0')}` : 'All day',
+          time: e.hour !== undefined ? fmtTimeRange(e.hour, e.minute ?? 0, e.durationMin) : 'All day',
           kind: 'task' as const, ev: e,
         }))
         const meetingEvents = customMeetings
@@ -450,12 +462,12 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveM
         const hour = i + 8
         const staticEvents = DAY_EVENTS.filter(e => e.hour === hour)
         const deadlineAtHour = timedDeadlines.filter(e => e.hour === hour)
-          .map(e => ({ label: e.label, color: e.color, hour, end: hour + 1, timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}`, kind: 'task' as const, ev: e }))
+          .map(e => ({ label: e.label, color: e.color, hour, end: hour + 1, timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}`, endLabel: e.durationMin ? fmtTimeRange(hour, e.minute ?? 0, e.durationMin).split('–')[1] : `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'task' as const, ev: e }))
         const meetingAtHour = timedMeetings
           .filter(m => m.time && parseInt(m.time.split(':')[0]) === hour)
-          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time!, kind: 'meeting' as const, id: m.id }))
+          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time!, endLabel: `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'meeting' as const, id: m.id }))
         const events = [
-          ...staticEvents.map(e => ({ ...e, timeLabel: `${e.hour.toString().padStart(2, '0')}:00`, kind: 'static' as const })),
+          ...staticEvents.map(e => ({ ...e, timeLabel: `${e.hour.toString().padStart(2, '0')}:00`, endLabel: `${(e.hour + 1).toString().padStart(2, '0')}:00`, kind: 'static' as const })),
           ...deadlineAtHour,
           ...meetingAtHour,
         ]
@@ -479,7 +491,7 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveM
                   style={{ background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`, boxShadow: `0 0 12px ${ev.color}33` }}>
                   <div className="text-[12px] font-bold" style={{ color: ev.color }}>{ev.label}</div>
                   <div className="text-[10px] text-slate-500 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {ev.timeLabel} — {ev.end.toString().padStart(2, '0')}:00
+                    {ev.timeLabel} — {(ev as any).endLabel}
                   </div>
                   {((ev as any).kind === 'meeting' || ((ev as any).kind === 'task' && onDeleteEvent)) && (
                     <button
