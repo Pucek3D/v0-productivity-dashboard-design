@@ -223,42 +223,42 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               onClose={() => setShowTimePicker(false)}
             />
           )}
-          {/* Duration picker — only relevant for timed meetings */}
-          {newMeetingTime && (
-            <div className="mt-1.5">
-              <div style={{ fontSize: 8, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Duration</div>
-              <div className="flex items-center gap-1 flex-wrap">
-                {DURATION_PRESETS.map(p => {
-                  const active = newMeetingDuration === p.value && customDur === ''
-                  return (
-                    <button key={p.value} onClick={() => { setNewMeetingDuration(p.value); setCustomDur('') }} style={{
-                      padding: '3px 8px', borderRadius: 5, cursor: 'pointer', fontSize: 9, fontWeight: 700,
-                      background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.04)',
-                      color: active ? '#818cf8' : '#94a3b8',
-                      border: active ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.06)',
-                    }}>{p.label}</button>
-                  )
-                })}
-                <input
-                  value={customDur}
-                  onChange={e => {
-                    const v = e.target.value.replace(/[^0-9]/g, '')
-                    setCustomDur(v)
-                    if (v) setNewMeetingDuration(parseInt(v, 10))
-                  }}
-                  placeholder="Custom (min)"
-                  style={{
-                    width: 80, background: 'rgba(255,255,255,0.05)',
-                    border: customDur ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 5, padding: '3px 8px', fontSize: 9, color: '#fff', outline: 'none',
-                  }}
-                />
+          {/* Duration picker */}
+          <div className="mt-1.5">
+            <div style={{ fontSize: 8, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Duration</div>
+            <div className="flex items-center gap-1 flex-wrap">
+              {DURATION_PRESETS.map(p => {
+                const active = newMeetingDuration === p.value && customDur === ''
+                return (
+                  <button key={p.value} onClick={() => { setNewMeetingDuration(p.value); setCustomDur('') }} style={{
+                    padding: '3px 8px', borderRadius: 5, cursor: 'pointer', fontSize: 9, fontWeight: 700,
+                    background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.04)',
+                    color: active ? '#818cf8' : '#94a3b8',
+                    border: active ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                  }}>{p.label}</button>
+                )
+              })}
+              <input
+                value={customDur}
+                onChange={e => {
+                  const v = e.target.value.replace(/[^0-9]/g, '')
+                  setCustomDur(v)
+                  if (v) setNewMeetingDuration(parseInt(v, 10))
+                }}
+                placeholder="Custom (min)"
+                style={{
+                  width: 80, background: 'rgba(255,255,255,0.05)',
+                  border: customDur ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 5, padding: '3px 8px', fontSize: 9, color: '#fff', outline: 'none',
+                }}
+              />
+              {newMeetingTime && (
                 <span style={{ fontSize: 9, color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
                   {fmtTimeRange(parseInt(newMeetingTime.split(':')[0]), parseInt(newMeetingTime.split(':')[1] || '0'), newMeetingDuration)}
                 </span>
-              </div>
+              )}
             </div>
-          )}
+          </div>
           {/* Day picker row */}
           <div className="flex gap-0.5 mt-1.5 overflow-x-auto">
             {Array.from({ length: getDaysInMonth(month, year) }).map((_, i) => {
