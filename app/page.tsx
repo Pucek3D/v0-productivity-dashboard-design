@@ -539,7 +539,7 @@ export default function Dashboard() {
     return{plannedMin,meetingMin,overloaded:plannedMin>480,totalTodayTasks,doneTodayTasks,plannedTasks,meetingEvents,focusedMin}
   }, [taskMeta,prioTasks])
 
-  const fmtTime = (m:number)=>{const h=Math.floor(m/60);const mm=m%60;return mm>0?`${h}h ${mm}m`:`${h}h`}
+  const fmtTime = (m:number)=>{const total=Math.round((m||0)*60);if(total<60)return `${total}s`;const h=Math.floor(total/3600);const mm=Math.round((total%3600)/60);return h>0?(mm>0?`${h}h ${mm}m`:`${h}h`):`${mm}m`}
 
   return (
     <div className="min-h-screen bg-background p-5 font-sans">
