@@ -202,16 +202,17 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               <IconCalendar size={12} />
               {MONTH_NAMES[month].slice(0, 3)} {showAddForm.day}{newMeetingTime ? ` · ${newMeetingTime}` : ''}
             </button>
-            <div className="flex gap-0.5">
+            <div className="flex gap-1 items-center">
               {MEETING_COLORS.map(c => (
                 <button key={c} onClick={() => setNewMeetingColor(c)}
-                  style={{ width: 16, height: 16, borderRadius: 4, background: c, border: newMeetingColor === c ? '2px solid #fff' : '2px solid transparent', cursor: 'pointer' }} />
+                  style={{
+                    width: 18, height: 18, borderRadius: 4, cursor: 'pointer',
+                    background: `${c}22`,
+                    border: newMeetingColor === c ? `1.5px solid ${c}` : `1px solid ${c}44`,
+                    boxShadow: newMeetingColor === c ? `0 0 8px ${c}66` : 'none',
+                  }} />
               ))}
             </div>
-            <button onClick={() => addMeeting(showAddForm.day)}
-              style={{ background: '#6366f1', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 600, color: '#fff' }}>
-              Add
-            </button>
           </div>
           {showTimePicker && timeBtnRef.current && (
             <TimePickerPopover
@@ -263,6 +264,17 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               )}
             </div>
           </div>
+          {/* Add button — full width, transparent */}
+          <button onClick={() => addMeeting(showAddForm.day)}
+            style={{
+              width: '100%', marginTop: 10, padding: '7px 0', borderRadius: 7, cursor: 'pointer',
+              fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em',
+              background: 'rgba(99,102,241,0.12)',
+              border: '1px solid rgba(99,102,241,0.3)',
+              color: '#a5b4fc',
+            }}>
+            Add meeting
+          </button>
         </div>
       )}
 
