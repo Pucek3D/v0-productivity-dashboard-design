@@ -9,7 +9,7 @@ import { CSS } from '@dnd-kit/utilities'
 
 type PrioTask = { id: string; text: string; done: boolean; priority?: 'red' | 'yellow' | 'gray'; source?: 'message' }
 type PrioSection = { section: string; color: string; tasks: PrioTask[] }
-interface TopPrioCardProps { tasks: PrioSection[]; setTasks: React.Dispatch<React.SetStateAction<PrioSection[]>>; taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; onTaskToggle?: (text: string, done: boolean) => void; onRename?: (key: string, newName: string) => void }
+interface TopPrioCardProps { tasks: PrioSection[]; setTasks: React.Dispatch<React.SetStateAction<PrioSection[]>>; taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; onTaskToggle?: (text: string, done: boolean) => void; onRename?: (key: string, newName: string) => void; onSectionCategoryChange?: (text: string, category: 'work' | 'home') => void }
 
 function MetaBadges({ meta }: { meta?: TaskMeta }) {
   if (!meta) return null; const b: React.ReactNode[] = []
@@ -26,7 +26,7 @@ function EditableText({ value, onChange, className, style }: any) {
   return <span className={className} style={style} onDoubleClick={(e:any)=>{e.stopPropagation();setEditing(true)}}>{value}</span>
 }
 
-export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openModal, onTaskToggle, onRename }: TopPrioCardProps) {
+export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openModal, onTaskToggle, onRename, onSectionCategoryChange }: TopPrioCardProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [activeTask, setActiveTask] = useState<PrioTask | null>(null)
 
@@ -53,6 +53,10 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
     let srcKey='',srcIdx=-1; for (const s of tasks){const i=s.tasks.findIndex(t=>t.id===active.id);if(i>=0){srcKey=s.section;srcIdx=i;break}}; if(!srcKey) return
     let destKey='',destIdx=-1; for (const s of tasks){const i=s.tasks.findIndex(t=>t.id===over.id);if(i>=0){destKey=s.section;destIdx=i;break}}
     if(!destKey){const k=String(over.id);const sec=tasks.find(s=>s.section===k);if(sec){destKey=k;destIdx=sec.tasks.length}}; if(!destKey) return
+    // If the task crossed between a Work and a Home column, sync the matching message's W/H category.
+    const cat=(k:string):'work'|'home'|null=>k.includes('Work')?'work':k.includes('Home')?'home':null
+    const srcCat=cat(srcKey),destCat=cat(destKey)
+    if(srcCat&&destCat&&srcCat!==destCat){const moved=tasks.find(s=>s.section===srcKey)?.tasks[srcIdx];if(moved)onSectionCategoryChange?.(moved.text,destCat)}
     setTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));if(srcKey===destKey){const sec=n.find(s=>s.section===srcKey)!;sec.tasks=arrayMove(sec.tasks,srcIdx,destIdx)}else{const src=n.find(s=>s.section===srcKey)!;const dest=n.find(s=>s.section===destKey)!;const[moved]=src.tasks.splice(srcIdx,1);dest.tasks.splice(Math.min(destIdx,dest.tasks.length),0,moved)};return n})
   }
 

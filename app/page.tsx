@@ -357,6 +357,12 @@ export default function Dashboard() {
     })
   }, [])
 
+  // Reverse sync: when a Top Prio task is dragged between Work<->Home sections,
+  // flip the matching message's W/H category.
+  const syncMessageCategory = useCallback((text:string, category:'work'|'home')=>{
+    setMessages(prev=>prev.map(m=>m.text===text?{...m,category}:m))
+  }, [])
+
   const bookmarkSubtaskToOther = useCallback((text:string, details?:Partial<TaskMeta>)=>{
     let newId: string | null = null
     setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const idx=n.findIndex(s=>s.section==='Other Work');if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false});
@@ -568,7 +574,7 @@ export default function Dashboard() {
           <KpisCard />
         </div>
         <div className="flex flex-col gap-3">
-          <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} onRename={renameTask} />
+          <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} onRename={renameTask} onSectionCategoryChange={syncMessageCategory} />
           <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
           {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
