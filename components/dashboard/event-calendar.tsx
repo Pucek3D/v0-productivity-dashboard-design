@@ -938,9 +938,6 @@ function LocationAutocomplete({ value, onChange, onSelect, hasCoords }: {
           placeholder="Search location…"
           style={{ flex: 1, background: 'transparent', border: 'none', padding: '5px 0', fontSize: 10, color: '#fff', outline: 'none' }} />
         {loading && <span style={{ fontSize: 8, color: '#64748b' }}>…</span>}
-        {hasCoords && !loading && (
-          <span style={{ fontSize: 8, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pinned</span>
-        )}
       </div>
       {open && results.length > 0 && (
         <div style={{
