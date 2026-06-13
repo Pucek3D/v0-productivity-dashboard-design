@@ -19,6 +19,8 @@ export interface DeadlineEvent {
   color: string
   hour?: number
   minute?: number
+  /** taskMeta keys that contribute to this (deduped) event — used for deletion. */
+  keys?: string[]
 }
 
 // ──────────────────────────────────────────────────────────────────
