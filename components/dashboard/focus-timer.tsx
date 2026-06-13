@@ -4,7 +4,7 @@ import { IconPlayerPlay, IconPlayerPause, IconPlayerStop, IconTarget } from '@ta
 
 interface FocusTimerProps {
   task: { key: string; label: string } | null
-  onStop: (key: string, elapsedMinutes: number) => void
+  onStop: (key: string, elapsedSeconds: number) => void
   onClear: () => void
 }
 
@@ -41,7 +41,7 @@ export function FocusTimer({ task, onStop, onClear }: FocusTimerProps) {
   }
 
   const stop = () => {
-    if (task) onStop(task.key, Math.round(elapsed / 60))
+    if (task) onStop(task.key, elapsed)
     onClear()
   }
 

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconPlus, IconTrash, IconPlayerPlay, IconPlayerStop, IconStar, IconBookmark } from '@tabler/icons-react'
+import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconPlus, IconTrash, IconPlayerPlay, IconStar, IconBookmark } from '@tabler/icons-react'
 import { type TaskMeta, getDateLabel } from '@/lib/task-meta'
 
 interface TaskModalProps { taskKey: string; taskLabel: string; meta: TaskMeta; onUpdate: (u: Partial<TaskMeta>) => void; onClose: () => void; onStartFocus?: (k: string, l: string) => void; starSubtaskToPrio?: (text: string, details?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (text: string, details?: Partial<TaskMeta>) => void; isTaskStarred?: (text: string) => boolean; isTaskBookmarked?: (text: string) => boolean; onRenameTask?: (newName: string) => void }
@@ -37,20 +37,10 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   const [nameDraft, setNameDraft] = useState(taskLabel)
   const nameRef = useRef<HTMLInputElement>(null)
 
-  // Built-in focus timer
-  const [focusing, setFocusing] = useState(false)
-  const [focusSec, setFocusSec] = useState(0)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const startFocus = () => { setFocusing(true); setFocusSec(0); intervalRef.current = setInterval(() => setFocusSec(s => s + 1), 1000) }
-  const stopFocus = () => {
-    setFocusing(false); if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
-    const mins = Math.max(1, Math.round(focusSec / 60)); const now = new Date()
-    const ds = `${now.getDate()}/${now.getMonth() + 1} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-    onUpdate({ focusSessions: [...((meta as any).focusSessions || []), { date: ds, minutes: mins }] } as any); setFocusSec(0)
-  }
-  useEffect(() => { return () => { if (intervalRef.current) clearInterval(intervalRef.current) } }, [])
+  // Focus runs as a floating page-level widget (FocusTimer) so the modal can be
+  // closed and the user can keep working on the dashboard while the timer runs.
   useEffect(() => { if (editingName) nameRef.current?.focus() }, [editingName])
-  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === 'Escape' && !focusing) onClose() }; document.addEventListener('keydown', h); return () => document.removeEventListener('keydown', h) }, [onClose, focusing])
+  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }; document.addEventListener('keydown', h); return () => document.removeEventListener('keydown', h) }, [onClose])
 
   const saveDesc = () => { if (desc !== (meta.description || '')) onUpdate({ description: desc || undefined }) }
   const addLink = () => { if (!newLink.trim()) return; onUpdate({ links: [...(meta.links || []), newLink.trim()] }); setNewLink('') }
@@ -67,12 +57,12 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   const sDone = (meta.subtasks || []).filter(s => s.done).length; const sTotal = (meta.subtasks || []).length
   const focusSessions: { date: string; minutes: number }[] = (meta as any).focusSessions || []
   const totalFocusMin = focusSessions.reduce((sum, s) => sum + s.minutes, 0)
-  const fmtTimer = (sec: number) => `${Math.floor(sec / 60).toString().padStart(2, '0')}:${(sec % 60).toString().padStart(2, '0')}`
+  const fmtMin = (m: number) => m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`
 
   const S: React.CSSProperties = { fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }
 
   return createPortal(<>
-    <div onClick={() => { if (!focusing) onClose() }} style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} />
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} />
     <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10001, width: 560, maxHeight: '85vh', overflowY: 'auto', background: '#0f1623', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
       {/* Header */}
       <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between' }}>
@@ -86,17 +76,16 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
           ) : (
             <h2 onClick={() => setEditingName(true)} style={{ fontSize: 22, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1.3, cursor: 'text' }} title="Click to edit">{taskLabel}</h2>
           )}
-          {/* Focus */}
-          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-            {!focusing ? <button onClick={startFocus} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.06em' }}><IconPlayerPlay size={14} /> Start Focus</button>
-              : <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ fontSize: 24, fontWeight: 700, color: '#fb7185', fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-geist-mono, monospace)' }}>{fmtTimer(focusSec)}</span><button onClick={stopFocus} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(244,63,94,0.25)', border: '1px solid rgba(244,63,94,0.4)', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#fff', textTransform: 'uppercase' }}><IconPlayerStop size={14} /> Stop</button></div>}
-          </div>
-          {totalFocusMin > 0 && <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(244,63,94,0.08)', borderRadius: 8, border: '1px solid rgba(244,63,94,0.15)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: focusSessions.length > 0 ? 6 : 0 }}><IconClock size={14} color="#fb7185" /><span style={{ fontSize: 15, fontWeight: 700, color: '#fb7185' }}>{totalFocusMin >= 60 ? `${Math.floor(totalFocusMin / 60)}h ${totalFocusMin % 60}m` : `${totalFocusMin}m`}</span><span style={{ fontSize: 11, color: '#64748b' }}>total</span></div>
-            {focusSessions.length > 0 && <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 4 }}>{focusSessions.slice(-5).map((s, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 10 }}><span style={{ color: '#94a3b8' }}>{s.date}</span><span style={{ fontWeight: 700, color: '#fb7185' }}>{s.minutes}m</span></div>)}</div>}
+          {/* Focus — launches the floating widget so the modal can be closed */}
+          {onStartFocus && <div style={{ marginTop: 8 }}>
+            <button onClick={() => { onStartFocus(taskKey, taskLabel); onClose() }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)', borderRadius: 6, padding: '3px 9px', cursor: 'pointer', fontSize: 10, fontWeight: 600, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.05em' }}><IconPlayerPlay size={11} /> Start Focus</button>
+          </div>}
+          {totalFocusMin > 0 && <div style={{ marginTop: 8, padding: '5px 8px', background: 'rgba(244,63,94,0.08)', borderRadius: 6, border: '1px solid rgba(244,63,94,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: focusSessions.length > 0 ? 4 : 0 }}><IconClock size={11} color="#fb7185" /><span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185' }}>{fmtMin(totalFocusMin)}</span><span style={{ fontSize: 9, color: '#64748b' }}>total</span></div>
+            {focusSessions.length > 0 && <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 3 }}>{focusSessions.slice(-5).map((s, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0', fontSize: 9 }}><span style={{ color: '#94a3b8' }}>{s.date}</span><span style={{ fontWeight: 700, color: '#fb7185' }}>{fmtMin(s.minutes)}</span></div>)}</div>}
           </div>}
         </div>
-        <button onClick={() => { if (!focusing) onClose() }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, alignSelf: 'flex-start' }}><IconX size={20} color="#64748b" /></button>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, alignSelf: 'flex-start' }}><IconX size={20} color="#64748b" /></button>
       </div>
 
       <div style={{ padding: '20px 24px' }}>

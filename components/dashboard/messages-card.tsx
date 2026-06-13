@@ -8,15 +8,23 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-interface Message { id: string; text: string; done: boolean }
+interface Message { id: string; text: string; done: boolean; category?: 'work' | 'home' }
 interface Props {
   messages: Message[]; setMessages: React.Dispatch<React.SetStateAction<Message[]>>
   taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void
-  starToPrio?: (text: string, category: 'work' | 'home') => void
+  starToPrio?: (text: string, category: 'work' | 'home', source?: 'message') => void
   isTaskStarred?: (text: string) => boolean
-  bookmarkToOther?: (text: string, category: 'work' | 'home') => void
+  bookmarkToOther?: (text: string, category: 'work' | 'home', source?: 'message') => void
   isTaskBookmarked?: (text: string) => boolean
   onRename?: (key: string, newName: string) => void
+  onToggleDone?: (text: string, done: boolean) => void
+}
+
+/* Small W (work, blue) / H (home, green) tag shown before a message's text. */
+function CatTag({ category }: { category?: 'work' | 'home' }) {
+  const home = category === 'home'
+  const c = home ? { bg: 'rgba(16,185,129,0.15)', fg: '#34d399', bd: 'rgba(52,211,153,0.45)' } : { bg: 'rgba(59,130,246,0.15)', fg: '#60a5fa', bd: 'rgba(96,165,250,0.45)' }
+  return <span style={{ fontSize: 8, fontWeight: 800, background: c.bg, color: c.fg, border: `1px solid ${c.bd}`, borderRadius: 3, padding: '0 4px', lineHeight: '14px', flexShrink: 0 }}>{home ? 'H' : 'W'}</span>
 }
 
 /* MetaBadges — skips owner + deadline (already shown by TaskActions inline) */
@@ -33,12 +41,14 @@ function MetaBadges({ meta }: { meta?: TaskMeta }) {
   return b.length ? <span className="inline-flex items-center gap-0.5 flex-wrap">{b}</span> : null
 }
 
-export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename }: Props) {
+export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename, onToggleDone }: Props) {
   const [newMsg, setNewMsg] = useState('')
+  const [newCat, setNewCat] = useState<'work' | 'home'>('work')
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-  const toggle = (id: string) => setMessages(p => p.map(m => m.id === id ? { ...m, done: !m.done } : m))
+  const toggle = (id: string) => setMessages(p => p.map(m => { if (m.id !== id) return m; const done = !m.done; onToggleDone?.(m.text, done); return { ...m, done } }))
   const remove = (id: string) => setMessages(p => p.filter(m => m.id !== id))
-  const add = () => { if (!newMsg.trim()) return; setMessages(p => [...p, { id: `m${Date.now()}`, text: newMsg.trim(), done: false }]); setNewMsg('') }
+  const setCat = (id: string, category: 'work' | 'home') => setMessages(p => p.map(m => m.id === id ? { ...m, category } : m))
+  const add = () => { if (!newMsg.trim()) return; setMessages(p => [...p, { id: `m${Date.now()}`, text: newMsg.trim(), done: false, category: newCat }]); setNewMsg('') }
   const sorted = [...messages].sort((a, b) => Number(a.done) - Number(b.done))
   const handleDragEnd = (e: DragEndEvent) => { const { active, over } = e; if (!over || active.id === over.id) return; setMessages(p => { const oi = p.findIndex(m => m.id === active.id); const ni = p.findIndex(m => m.id === over.id); return oi >= 0 && ni >= 0 ? arrayMove([...p], oi, ni) : p }) }
 
@@ -48,11 +58,16 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, 
       <div className="px-3 py-3">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sorted.map(m => m.id)} strategy={verticalListSortingStrategy}>
-            {sorted.map(msg => <SortableMsg key={msg.id} msg={msg} toggle={toggle} remove={remove} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={onRename} />)}
+            {sorted.map(msg => <SortableMsg key={msg.id} msg={msg} toggle={toggle} remove={remove} setCat={setCat} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={onRename} />)}
           </SortableContext>
         </DndContext>
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
           <span className="text-slate-600"><IconPlus size={12} /></span>
+          {/* Work / Home selector for the new message */}
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <button onClick={() => setNewCat('work')} title="Work" style={{ fontSize: 8, fontWeight: 800, cursor: 'pointer', borderRadius: 3, padding: '1px 5px', lineHeight: '14px', border: `1px solid ${newCat === 'work' ? 'rgba(96,165,250,0.5)' : 'rgba(255,255,255,0.08)'}`, background: newCat === 'work' ? 'rgba(59,130,246,0.18)' : 'transparent', color: newCat === 'work' ? '#60a5fa' : '#475569' }}>W</button>
+            <button onClick={() => setNewCat('home')} title="Home" style={{ fontSize: 8, fontWeight: 800, cursor: 'pointer', borderRadius: 3, padding: '1px 5px', lineHeight: '14px', border: `1px solid ${newCat === 'home' ? 'rgba(52,211,153,0.5)' : 'rgba(255,255,255,0.08)'}`, background: newCat === 'home' ? 'rgba(16,185,129,0.18)' : 'transparent', color: newCat === 'home' ? '#34d399' : '#475569' }}>H</button>
+          </div>
           <input value={newMsg} onChange={e => setNewMsg(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add() }} placeholder="Add message..." style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 11, color: '#e2e8f0', fontFamily: 'inherit' }} />
         </div>
       </div>
@@ -60,23 +75,26 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, 
   )
 }
 
-function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename }: any) {
+function SortableMsg({ msg, toggle, remove, setCat, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: msg.id })
   const starred = isTaskStarred?.(msg.text)
   const bookmarked = isTaskBookmarked?.(msg.text)
   const meta = taskMeta[`msg-${msg.id}`]
+  const category: 'work' | 'home' = msg.category === 'home' ? 'home' : 'work'
 
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
       <div className="flex items-center gap-1.5 py-[3px] group">
         <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab"><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={() => toggle(msg.id)} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${msg.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{msg.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
+        {/* Click the W/H tag to flip the message between Work and Home */}
+        <button onClick={() => setCat(msg.id, category === 'home' ? 'work' : 'home')} className="bg-transparent border-none cursor-pointer p-0 leading-none flex-shrink-0" title="Toggle Work / Home"><CatTag category={category} /></button>
         <EditableLabel value={msg.text} onRename={(name) => onRename?.(`msg-${msg.id}`, name)} className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${msg.done ? 'text-slate-500 line-through' : 'text-slate-300'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0">
           <TaskActions taskKey={`msg-${msg.id}`} taskLabel={msg.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
           {starToPrio && (
             <button
-              onClick={() => starToPrio(msg.text, 'work')}
+              onClick={() => starToPrio(msg.text, category, 'message')}
               className={`bg-transparent border-none cursor-pointer p-0 leading-none ${starred ? '' : 'icon-on-hover'}`}
             >
               <IconStar
@@ -88,7 +106,7 @@ function SortableMsg({ msg, toggle, remove, taskMeta, updateTaskMeta, starToPrio
           )}
           {bookmarkToOther && (
             <button
-              onClick={() => bookmarkToOther(msg.text, 'work')}
+              onClick={() => bookmarkToOther(msg.text, category, 'message')}
               className={`bg-transparent border-none cursor-pointer p-0 leading-none ${bookmarked ? '' : 'icon-on-hover'}`}
               title={bookmarked ? 'Added to Other to-dos' : 'Add to Other to-dos'}
             >

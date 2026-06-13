@@ -271,9 +271,9 @@ export default function Dashboard() {
 
   const addPrioTask = useCallback((text:string)=>{setPrioTasks(prev=>prev.map(s=>s.section==='Other Work'?{...s,tasks:[...s.tasks,{id:`q${Date.now()}`,text,done:false}]}:s))}, [])
 
-  const starToPrio = useCallback((text:string,category:'work'|'home')=>{
+  const starToPrio = useCallback((text:string,category:'work'|'home',source?:'message')=>{
     let newId: string | null = null
-    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Home':'Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false});
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Home':'Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false,...(source?{source}:{})} as any);
       // Star and bookmark are mutually exclusive: adding a star removes any
       // existing bookmark of the same task from the "Other to-dos" sections.
       n.forEach(s=>{if(s.section==='Other Work'||s.section==='Other Home'){const bi=s.tasks.findIndex(t=>t.text===text);if(bi>=0)s.tasks.splice(bi,1)}})
@@ -314,9 +314,9 @@ export default function Dashboard() {
   // Bookmark a task into the "Other to-dos" sub-section of Top Prio Today.
   // Mirrors starToPrio but targets the Other Work / Other Home sections and
   // carries over the source's synced detail fields (owner, deadline, etc.).
-  const bookmarkToOther = useCallback((text:string,category:'work'|'home')=>{
+  const bookmarkToOther = useCallback((text:string,category:'work'|'home',source?:'message')=>{
     let newId: string | null = null
-    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Other Home':'Other Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false});
+    setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Other Home':'Other Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false,...(source?{source}:{})} as any);
       // Star and bookmark are mutually exclusive: adding a bookmark removes any
       // existing star of the same task from the Work / Home sections.
       n.forEach(s=>{if(s.section==='Work'||s.section==='Home'){const si=s.tasks.findIndex(t=>t.text===text);if(si>=0)s.tasks.splice(si,1)}})
@@ -350,8 +350,11 @@ export default function Dashboard() {
   const isTaskStarred = useCallback((text:string)=>prioTasks.some(s=>(s.section==='Work'||s.section==='Home')&&s.tasks.some(t=>t.text===text)), [prioTasks])
   const isTaskBookmarked = useCallback((text:string)=>prioTasks.some(s=>(s.section==='Other Work'||s.section==='Other Home')&&s.tasks.some(t=>t.text===text)), [prioTasks])
   const startFocus = useCallback((k:string,l:string)=>setFocusTask({key:k,label:l}), [])
-  const stopFocus = useCallback((k:string,mins:number)=>{
-    if(mins<=0)return;const now=new Date();const ds=`${now.getDate()}/${now.getMonth()+1} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
+  // Records a focus session. `secs` is the raw elapsed seconds.
+  // Standard rounding: < 30s is discarded (not worth logging), otherwise
+  // round to the nearest whole minute.
+  const stopFocus = useCallback((k:string,secs:number)=>{
+    if(secs<30)return;const mins=Math.round(secs/60)||1;const now=new Date();const ds=`${now.getDate()}/${now.getMonth()+1} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
     setTaskMeta(p=>{const ex=p[k]||{};return{...p,[k]:{...ex,focusSessions:[...((ex as any).focusSessions||[]),{date:ds,minutes:mins}]} as any}})
   }, [])
 

@@ -87,8 +87,10 @@ export const LT_GOALS: Project[] = [
 export interface TopTask {
   id: string
   text: string
-  priority: 'red' | 'yellow' | 'gray'
+  priority?: 'red' | 'yellow' | 'gray'
   done: boolean
+  /** When the task originated from a Message, it is prefixed with "M:" in Top Prio. */
+  source?: 'message'
 }
 
 export const TOP_PRIO_TASKS: { section: string; color: string; tasks: TopTask[] }[] = [
