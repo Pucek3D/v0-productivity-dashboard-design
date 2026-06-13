@@ -335,7 +335,28 @@ export default function Dashboard() {
       setTaskMeta(p => ({ ...p, [`prio-${newId}`]: { ...p[`prio-${newId}`], ...carried } }))
     }
   }, [taskMeta])
-  // Bookmark a subtask into "Other to-dos", carrying its own details.
+  // When a message's W/H category is toggled, move any matching Top Prio task
+  // between Work<->Home (and Other Work<->Other Home) sections.
+  const moveCategory = useCallback((text:string, newCategory:'work'|'home')=>{
+    setPrioTasks(prev=>{
+      const n=prev.map(s=>({...s,tasks:[...s.tasks]}))
+      const pairs:[string,string][]=[['Work','Home'],['Other Work','Other Home']]
+      pairs.forEach(([work,home])=>{
+        const fromName=newCategory==='home'?work:home
+        const toName=newCategory==='home'?home:work
+        const from=n.find(s=>s.section===fromName)
+        const to=n.find(s=>s.section===toName)
+        if(!from||!to)return
+        const i=from.tasks.findIndex(t=>t.text===text)
+        if(i<0)return
+        if(to.tasks.some(t=>t.text===text)){from.tasks.splice(i,1);return}
+        const [moved]=from.tasks.splice(i,1)
+        to.tasks.push(moved)
+      })
+      return n
+    })
+  }, [])
+
   const bookmarkSubtaskToOther = useCallback((text:string, details?:Partial<TaskMeta>)=>{
     let newId: string | null = null
     setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const idx=n.findIndex(s=>s.section==='Other Work');if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false});
@@ -541,7 +562,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-[240px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="flex flex-col gap-3">
-          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={renameTask} onToggleDone={propagateDone} />
+          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={renameTask} onToggleDone={propagateDone} onMoveCategory={moveCategory} />
           <KpisCard />
         </div>
         <div className="flex flex-col gap-3">
