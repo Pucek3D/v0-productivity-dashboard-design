@@ -25,9 +25,7 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
 
   const dateInfo = meta?.deadline ? getDateLabel(meta.deadline) : null
   const timeStr = meta?.hour !== undefined
-    ? (meta.durationMin
-        ? `${meta.hour.toString().padStart(2, '0')}:${(meta.minute ?? 0).toString().padStart(2, '0')}·${fmtDuration(meta.durationMin)}`
-        : `${meta.hour.toString().padStart(2, '0')}:${(meta.minute ?? 0).toString().padStart(2, '0')}`)
+    ? `${meta.hour.toString().padStart(2, '0')}:${(meta.minute ?? 0).toString().padStart(2, '0')}`
     : null
   const sz = compact ? 14 : 16
 
@@ -66,9 +64,8 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
           value={meta?.deadline}
           selectedHour={meta?.hour}
           selectedMinute={meta?.minute}
-          selectedDuration={meta?.durationMin}
-          onSelect={(d, h, min, dur) => { updateTaskMeta(taskKey, { deadline: d, hour: h, minute: min, durationMin: dur, label: taskLabel }); setShowCal(false) }}
-          onClear={() => { updateTaskMeta(taskKey, { deadline: undefined, hour: undefined, minute: undefined, durationMin: undefined }); setShowCal(false) }}
+          onSelect={(d, h, min) => { updateTaskMeta(taskKey, { deadline: d, hour: h, minute: min, label: taskLabel }); setShowCal(false) }}
+          onClear={() => { updateTaskMeta(taskKey, { deadline: undefined, hour: undefined, minute: undefined }); setShowCal(false) }}
           onClose={() => setShowCal(false)}
         />, document.body
       )}
@@ -157,23 +154,10 @@ function ScrollWheel({ items, value, onChange, width }: {
 const HOUR_ITEMS = Array.from({ length: 24 }, (_, i) => ({ value: i, label: i.toString().padStart(2, '0') }))
 const MINUTE_ITEMS = Array.from({ length: 12 }, (_, i) => ({ value: i * 5, label: (i * 5).toString().padStart(2, '0') }))
 
-/* Format a minute count into a compact label (e.g. 90 -> "1h 30m", 45 -> "45m"). */
-function fmtDuration(min: number): string {
-  const mins = Math.round(min || 0)
-  if (mins < 1) return '—'
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`
-}
-
 /* ── Mini Calendar ── */
-const DURATION_PRESETS = [
-  { label: '15m', value: 15 }, { label: '30m', value: 30 }, { label: '1h', value: 60 },
-  { label: '1.5h', value: 90 }, { label: '2h', value: 120 }, { label: '3h', value: 180 },
-]
-function MiniCalendar({ anchor, value, selectedHour, selectedMinute, selectedDuration, onSelect, onClear, onClose }: {
-  anchor: DOMRect; value?: string; selectedHour?: number; selectedMinute?: number; selectedDuration?: number
-  onSelect: (d: string, h?: number, min?: number, dur?: number) => void; onClear: () => void; onClose: () => void
+function MiniCalendar({ anchor, value, selectedHour, selectedMinute, onSelect, onClear, onClose }: {
+  anchor: DOMRect; value?: string; selectedHour?: number; selectedMinute?: number
+  onSelect: (d: string, h?: number, min?: number) => void; onClear: () => void; onClose: () => void
 }) {
   const now = new Date()
   const [m, setM] = useState(value ? new Date(value + 'T00:00').getMonth() : now.getMonth())
@@ -182,8 +166,6 @@ function MiniCalendar({ anchor, value, selectedHour, selectedMinute, selectedDur
   const [step, setStep] = useState<'date' | 'time'>(value ? 'time' : 'date')
   const [hour, setHour] = useState(selectedHour ?? 9)
   const [minute, setMinute] = useState(selectedMinute ?? 0)
-  const [duration, setDuration] = useState<number>(selectedDuration ?? 30)
-  const [customDur, setCustomDur] = useState('')
 
   const days = getDaysInMonth(m, y)
   const start = getFirstDayOfMonth(m, y)
@@ -203,7 +185,7 @@ function MiniCalendar({ anchor, value, selectedHour, selectedMinute, selectedDur
   }
 
   const confirm = (allDay: boolean) => {
-    if (pickedDate) onSelect(pickedDate, allDay ? undefined : hour, allDay ? undefined : minute, allDay ? undefined : duration)
+    if (pickedDate) onSelect(pickedDate, allDay ? undefined : hour, allDay ? undefined : minute)
   }
 
   const top = Math.min(anchor.bottom + 6, window.innerHeight - 470)
@@ -300,38 +282,6 @@ function MiniCalendar({ anchor, value, selectedHour, selectedMinute, selectedDur
               <ScrollWheel items={MINUTE_ITEMS} value={minute} onChange={setMinute} width={60} />
             </div>
 
-            {/* Meeting duration */}
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 8, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5 }}>Duration</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-                {DURATION_PRESETS.map(p => {
-                  const active = duration === p.value && customDur === ''
-                  return (
-                    <button key={p.value} onClick={() => { setDuration(p.value); setCustomDur('') }} style={{
-                      padding: '4px 0', borderRadius: 5, cursor: 'pointer', fontSize: 10, fontWeight: 700,
-                      background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.04)',
-                      color: active ? '#818cf8' : '#94a3b8',
-                      border: active ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.06)',
-                    }}>{p.label}</button>
-                  )
-                })}
-              </div>
-              <input
-                value={customDur}
-                onChange={e => {
-                  const v = e.target.value.replace(/[^0-9]/g, '')
-                  setCustomDur(v)
-                  if (v) setDuration(parseInt(v, 10))
-                }}
-                placeholder="Custom (min)"
-                style={{
-                  width: '100%', marginTop: 4, background: 'rgba(255,255,255,0.05)',
-                  border: customDur ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 5, padding: '4px 8px', fontSize: 10, color: '#fff', outline: 'none',
-                }}
-              />
-            </div>
-
             {/* Confirm button */}
             <button onClick={() => confirm(false)} style={{
               width: '100%', padding: '6px 0', borderRadius: 6, cursor: 'pointer',
@@ -340,7 +290,7 @@ function MiniCalendar({ anchor, value, selectedHour, selectedMinute, selectedDur
               background: '#6366f1', color: '#fff', border: 'none',
               boxShadow: '0 0 12px rgba(99,102,241,0.4)',
             }}>
-              Set {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')} · {fmtDuration(duration)}
+              Set {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')}
             </button>
 
             {/* Footer */}

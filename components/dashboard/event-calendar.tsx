@@ -61,10 +61,15 @@ interface CustomMeeting {
   label: string
   color: string
   time?: string
+  durationMin?: number
   done?: boolean
 }
 
 const MEETING_COLORS = ['#818cf8', '#fb7185', '#fbbf24', '#2dd4bf', '#a78bfa', '#f97316']
+const DURATION_PRESETS = [
+  { label: '15m', value: 15 }, { label: '30m', value: 30 }, { label: '1h', value: 60 },
+  { label: '1.5h', value: 90 }, { label: '2h', value: 120 }, { label: '3h', value: 180 },
+]
 
 /* Build a "HH:MM–HH:MM" range from a start time + duration (minutes).
    Falls back to just the start time when no duration is set. */
@@ -94,6 +99,8 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
   const [newMeetingText, setNewMeetingText] = useState('')
   const [newMeetingTime, setNewMeetingTime] = useState('')
   const [newMeetingColor, setNewMeetingColor] = useState('#818cf8')
+  const [newMeetingDuration, setNewMeetingDuration] = useState(30)
+  const [customDur, setCustomDur] = useState('')
 
   useEffect(() => {
     const now = new Date()
@@ -121,9 +128,12 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
       label: newMeetingText.trim(),
       color: newMeetingColor,
       time: newMeetingTime || undefined,
+      durationMin: newMeetingTime ? newMeetingDuration : undefined,
     }])
     setNewMeetingText('')
     setNewMeetingTime('')
+    setNewMeetingDuration(30)
+    setCustomDur('')
     setShowAddForm(null)
   }
 
@@ -191,6 +201,42 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               Add
             </button>
           </div>
+          {/* Duration picker — only relevant for timed meetings */}
+          {newMeetingTime && (
+            <div className="mt-1.5">
+              <div style={{ fontSize: 8, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Duration</div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {DURATION_PRESETS.map(p => {
+                  const active = newMeetingDuration === p.value && customDur === ''
+                  return (
+                    <button key={p.value} onClick={() => { setNewMeetingDuration(p.value); setCustomDur('') }} style={{
+                      padding: '3px 8px', borderRadius: 5, cursor: 'pointer', fontSize: 9, fontWeight: 700,
+                      background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.04)',
+                      color: active ? '#818cf8' : '#94a3b8',
+                      border: active ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                    }}>{p.label}</button>
+                  )
+                })}
+                <input
+                  value={customDur}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[^0-9]/g, '')
+                    setCustomDur(v)
+                    if (v) setNewMeetingDuration(parseInt(v, 10))
+                  }}
+                  placeholder="Custom (min)"
+                  style={{
+                    width: 80, background: 'rgba(255,255,255,0.05)',
+                    border: customDur ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 5, padding: '3px 8px', fontSize: 9, color: '#fff', outline: 'none',
+                  }}
+                />
+                <span style={{ fontSize: 9, color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtTimeRange(parseInt(newMeetingTime.split(':')[0]), parseInt(newMeetingTime.split(':')[1] || '0'), newMeetingDuration)}
+                </span>
+              </div>
+            </div>
+          )}
           {/* Day picker row */}
           <div className="flex gap-0.5 mt-1.5 overflow-x-auto">
             {Array.from({ length: getDaysInMonth(month, year) }).map((_, i) => {
@@ -360,7 +406,7 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onRemove
         }))
         const meetingEvents = customMeetings
           .filter(m => m.day === c.day && m.month === c.month && m.year === c.year && !m.done)
-          .map(m => ({ label: m.label, color: m.color, time: m.time || 'All day', kind: 'meeting' as const, id: m.id }))
+          .map(m => ({ label: m.label, color: m.color, time: m.time ? fmtTimeRange(parseInt(m.time.split(':')[0]), parseInt(m.time.split(':')[1] || '0'), m.durationMin) : 'All day', kind: 'meeting' as const, id: m.id }))
         const events = [...regularEvents, ...taskEvents, ...meetingEvents]
 
         return (
@@ -465,7 +511,7 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveM
           .map(e => ({ label: e.label, color: e.color, hour, end: hour + 1, timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}`, endLabel: e.durationMin ? fmtTimeRange(hour, e.minute ?? 0, e.durationMin).split('–')[1] : `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'task' as const, ev: e }))
         const meetingAtHour = timedMeetings
           .filter(m => m.time && parseInt(m.time.split(':')[0]) === hour)
-          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time!, endLabel: `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'meeting' as const, id: m.id }))
+          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time!, endLabel: m.durationMin ? fmtTimeRange(hour, parseInt(m.time!.split(':')[1] || '0'), m.durationMin).split('–')[1] : `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'meeting' as const, id: m.id }))
         const events = [
           ...staticEvents.map(e => ({ ...e, timeLabel: `${e.hour.toString().padStart(2, '0')}:00`, endLabel: `${(e.hour + 1).toString().padStart(2, '0')}:00`, kind: 'static' as const })),
           ...deadlineAtHour,
