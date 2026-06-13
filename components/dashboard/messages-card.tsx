@@ -19,6 +19,7 @@ interface Props {
   onRename?: (key: string, newName: string) => void
   onToggleDone?: (text: string, done: boolean) => void
   onMoveCategory?: (text: string, newCategory: 'work' | 'home') => void
+  onRemoveLinked?: (text: string) => void
 }
 
 /* Plain colored letter — W (work) / H (home) — matching the Top Prio section
@@ -43,12 +44,12 @@ function MetaBadges({ meta }: { meta?: TaskMeta }) {
   return b.length ? <span className="inline-flex items-center gap-0.5 flex-wrap">{b}</span> : null
 }
 
-export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename, onToggleDone, onMoveCategory }: Props) {
+export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename, onToggleDone, onMoveCategory, onRemoveLinked }: Props) {
   const [newMsg, setNewMsg] = useState('')
   const [newCat, setNewCat] = useState<'work' | 'home'>('work')
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const toggle = (id: string) => setMessages(p => p.map(m => { if (m.id !== id) return m; const done = !m.done; onToggleDone?.(m.text, done); return { ...m, done } }))
-  const remove = (id: string) => setMessages(p => p.filter(m => m.id !== id))
+  const remove = (id: string) => { const m = messages.find(x => x.id === id); if (m) onRemoveLinked?.(m.text); setMessages(p => p.filter(x => x.id !== id)) }
   const setCat = (id: string, category: 'work' | 'home') => setMessages(p => p.map(m => { if (m.id !== id) return m; onMoveCategory?.(m.text, category); return { ...m, category } }))
   const add = () => { if (!newMsg.trim()) return; setMessages(p => [...p, { id: `m${Date.now()}`, text: newMsg.trim(), done: false, category: newCat }]); setNewMsg('') }
   const sorted = [...messages].sort((a, b) => Number(a.done) - Number(b.done))

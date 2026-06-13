@@ -92,6 +92,13 @@ export default function Dashboard() {
       // Messages and any other task's subtasks. Keeps bi-directional sync.
       if (u.subtasks) {
         const prevSubs = (p[k] as any)?.subtasks || []
+        // Subtask(s) removed entirely → drop any linked Top Prio copy by text.
+        const newTexts = new Set((u.subtasks as any[]).map(s => s.text))
+        prevSubs.forEach((o:any) => {
+          if (!(u.subtasks as any[]).some(ns => ns.id === o.id) && !newTexts.has(o.text)) {
+            setPrioTasks(pt=>pt.map(s=>({...s,tasks:s.tasks.filter(t=>t.text!==o.text)})))
+          }
+        })
         ;(u.subtasks as any[]).forEach(ns => {
           const old = prevSubs.find((o:any) => o.id === ns.id)
           if (old && !!old.done !== !!ns.done) {
@@ -190,7 +197,19 @@ export default function Dashboard() {
   const [ganttProjects, setGanttProjects] = useState<Set<string>>(new Set())
 
   const openModal = useCallback((k:string,l:string)=>setModalTask({key:k,label:l}), [])
-  const hideTask = useCallback((k:string)=>{setHiddenTasks(p=>new Set([...p,k]))}, [])
+  // Remove any Top Prio Today entry (starred or bookmarked) that mirrors a
+  // task/subtask/message by text. Called whenever the source item is fully
+  // deleted so the linked copy doesn't linger in Top Prio Today.
+  const removeFromPrioByText = useCallback((text:string)=>{
+    if(!text) return
+    setPrioTasks(prev=>prev.map(s=>({...s,tasks:s.tasks.filter(t=>t.text!==text)})))
+  }, [])
+  const hideTask = useCallback((k:string)=>{
+    setHiddenTasks(p=>new Set([...p,k]))
+    // Also drop any Top Prio Today copy linked to this task by text.
+    const label = nameOverrides[k] || (taskMeta[k] as any)?.label || linkRegistry.current.find(r=>r.key===k)?.label
+    if(label) removeFromPrioByText(label)
+  }, [nameOverrides, taskMeta, removeFromPrioByText])
   const getProjectCompletion = useCallback((project:Project)=>{const total=project.tasks.length+project.doneTasks.length;if(!total)return 0;let done=0;project.tasks.forEach((_,i)=>{if(projectDone[`${project.key}-task-${i}`])done++});project.doneTasks.forEach((_,i)=>{if(projectDone[`${project.key}-done-${i}`]!==false)done++});return Math.round((done/total)*100)}, [projectDone])
 
   /* Recurring auto-deadline: when task checked + has recurring, set next deadline */
@@ -570,7 +589,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-[240px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="flex flex-col gap-3">
-          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={renameTask} onToggleDone={propagateDone} onMoveCategory={moveCategory} />
+          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={renameTask} onToggleDone={propagateDone} onMoveCategory={moveCategory} onRemoveLinked={removeFromPrioByText} />
           <KpisCard />
         </div>
         <div className="flex flex-col gap-3">
@@ -582,8 +601,8 @@ export default function Dashboard() {
           <LtGoalsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} nameOverrides={nameOverrides} onRename={renameTask} />
         </div>
         <div className="flex flex-col gap-3">
-          <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} onToggleGantt={toggleGantt} activeGanttProjects={ganttProjects} nameOverrides={nameOverrides} onRename={renameTask} />
-          <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} nameOverrides={nameOverrides} onRename={renameTask} />
+          <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} onToggleGantt={toggleGantt} activeGanttProjects={ganttProjects} nameOverrides={nameOverrides} onRename={renameTask} onRemoveLinked={removeFromPrioByText} />
+          <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} nameOverrides={nameOverrides} onRename={renameTask} onRemoveLinked={removeFromPrioByText} />
         </div>
       </div>
 

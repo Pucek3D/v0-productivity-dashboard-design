@@ -40,9 +40,10 @@ interface Props {
   hideTask?: (k: string) => void; hiddenTasks?: Set<string>
   onToggleGantt?: (pk: string) => void; activeGanttProjects?: Set<string>
   nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void
+  onRemoveLinked?: (text: string) => void
 }
 
-export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, hideTask, hiddenTasks, onToggleGantt, activeGanttProjects, nameOverrides, onRename }: Props) {
+export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, hideTask, hiddenTasks, onToggleGantt, activeGanttProjects, nameOverrides, onRename, onRemoveLinked }: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [taskOrders, setTaskOrders] = useState<Record<string, number[]>>({})
@@ -68,6 +69,8 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
   }
 
   const deleteCustomTask = (projectKey: string, taskId: string) => {
+    const ct = (customTasks[projectKey] || []).find(t => t.id === taskId)
+    if (ct) { const ctk = `proj-${projectKey}-custom-${ct.id}`; onRemoveLinked?.(nameOverrides?.[ctk] ?? ct.text) }
     setCustomTasks(p => ({ ...p, [projectKey]: (p[projectKey] || []).filter(t => t.id !== taskId) }))
   }
 
@@ -101,7 +104,7 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDrag}>
         <SortableContext items={projects.map(p => p.key)} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-2 gap-2.5">
-            {projects.map(project => <SortableProjectWrap key={project.key} project={project} projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} isExpanded={!!expanded[project.key]} toggleExpand={k => setExpanded(p => ({ ...p, [k]: !p[k] }))} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} taskOrders={taskOrders} reorderTasks={(pk: string, o: number, n: number, tl: any[]) => { setTaskOrders(p => ({ ...p, [pk]: arrayMove(tl.map((t: any) => t.originalIdx), o, n) })) }} onDelete={() => setDeletedProjects(p => new Set([...p, project.key]))} onRename={(n: string) => setProjectNames(p => ({ ...p, [project.key]: n }))} displayName={projectNames[project.key] || project.name} customTasks={customTasks[project.key] || []} onAddCustomTask={() => addCustomTask(project.key)} onDeleteCustomTask={(tid: string) => deleteCustomTask(project.key, tid)} onToggleCustomTask={(tid: string) => toggleCustomTask(project.key, tid)} onReorderCustomTasks={(e: DragEndEvent) => reorderCustomTasks(project.key, e)} onRenameCustomTask={(tid: string, n: string) => renameCustomTask(project.key, tid, n)} onToggleGantt={onToggleGantt} isGanttActive={activeGanttProjects?.has(project.key) || false} nameOverrides={nameOverrides} onRenameTask={onRename} />)}
+            {projects.map(project => <SortableProjectWrap key={project.key} project={project} projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} isExpanded={!!expanded[project.key]} toggleExpand={k => setExpanded(p => ({ ...p, [k]: !p[k] }))} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} taskOrders={taskOrders} reorderTasks={(pk: string, o: number, n: number, tl: any[]) => { setTaskOrders(p => ({ ...p, [pk]: arrayMove(tl.map((t: any) => t.originalIdx), o, n) })) }} onDelete={() => { project.tasks.forEach((t, i) => onRemoveLinked?.(nameOverrides?.[`proj-${project.key}-${i}`] ?? t)); (customTasks[project.key] || []).forEach(ct => onRemoveLinked?.(nameOverrides?.[`proj-${project.key}-custom-${ct.id}`] ?? ct.text)); setDeletedProjects(p => new Set([...p, project.key])) }} onRename={(n: string) => setProjectNames(p => ({ ...p, [project.key]: n }))} displayName={projectNames[project.key] || project.name} customTasks={customTasks[project.key] || []} onAddCustomTask={() => addCustomTask(project.key)} onDeleteCustomTask={(tid: string) => deleteCustomTask(project.key, tid)} onToggleCustomTask={(tid: string) => toggleCustomTask(project.key, tid)} onReorderCustomTasks={(e: DragEndEvent) => reorderCustomTasks(project.key, e)} onRenameCustomTask={(tid: string, n: string) => renameCustomTask(project.key, tid, n)} onToggleGantt={onToggleGantt} isGanttActive={activeGanttProjects?.has(project.key) || false} nameOverrides={nameOverrides} onRenameTask={onRename} />)}
           </div>
         </SortableContext>
       </DndContext>

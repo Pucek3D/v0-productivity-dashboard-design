@@ -32,16 +32,24 @@ const INITIAL_SECTIONS: OtherSection[] = [
   { id: 'personal', name: 'Personal', color: '#ec4899', tasks: [{ id: 'os7', text: 'Faisal — respond', done: false }, { id: 'os8', text: 'Inga — celebrate her promotion!', done: false }] },
 ]
 
-interface Props { taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; starToPrio?: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean; bookmarkToOther?: (t: string, c: 'work' | 'home') => void; isTaskBookmarked?: (t: string) => boolean; starSubtaskToPrio?: (t: string, d?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (t: string, d?: Partial<TaskMeta>) => void; nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void }
+interface Props { taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; starToPrio?: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean; bookmarkToOther?: (t: string, c: 'work' | 'home') => void; isTaskBookmarked?: (t: string) => boolean; starSubtaskToPrio?: (t: string, d?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (t: string, d?: Partial<TaskMeta>) => void; nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void; onRemoveLinked?: (text: string) => void }
 
-export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename }: Props) {
+export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename, onRemoveLinked }: Props) {
   const [sections, setSections] = useState<OtherSection[]>(INITIAL_SECTIONS)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const toggleTask = (sid: string, tid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.map(t => t.id === tid ? { ...t, done: !t.done } : t) } : s))
-  const deleteTask = (sid: string, tid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.filter(t => t.id !== tid) } : s))
+  const deleteTask = (sid: string, tid: string) => {
+    const sec = sections.find(s => s.id === sid); const t = sec?.tasks.find(x => x.id === tid)
+    if (t) { const tk = `todo-${sid}-${tid}`; onRemoveLinked?.(nameOverrides?.[tk] ?? t.text) }
+    setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.filter(x => x.id !== tid) } : s))
+  }
   const addTask = (sid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, tasks: [...s.tasks, { id: `ot${Date.now()}`, text: 'New task', done: false }] } : s))
-  const deleteSection = (sid: string) => setSections(p => p.filter(s => s.id !== sid))
+  const deleteSection = (sid: string) => {
+    const sec = sections.find(s => s.id === sid)
+    sec?.tasks.forEach(t => onRemoveLinked?.(nameOverrides?.[`todo-${sid}-${t.id}`] ?? t.text))
+    setSections(p => p.filter(s => s.id !== sid))
+  }
   const renameSection = (sid: string, name: string) => setSections(p => p.map(s => s.id === sid ? { ...s, name } : s))
   const renameTask = (sid: string, tid: string, text: string) => {
     setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.map(t => t.id === tid ? { ...t, text } : t) } : s))
