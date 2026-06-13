@@ -94,7 +94,7 @@ function SortableMsg({ msg, toggle, remove, setCat, taskMeta, updateTaskMeta, st
       {starToPrio && (
         <button
           onClick={() => starToPrio(msg.text, category, 'message')}
-          className={`bg-transparent border-none cursor-pointer p-0 leading-none ${starred ? '' : 'icon-on-hover'}`}
+          className={`bg-transparent border-none cursor-pointer p-0 leading-none ${starred ? 'order-last' : 'icon-on-hover'}`}
         >
           <IconStar
             size={11}
@@ -106,7 +106,7 @@ function SortableMsg({ msg, toggle, remove, setCat, taskMeta, updateTaskMeta, st
       {bookmarkToOther && (
         <button
           onClick={() => bookmarkToOther(msg.text, category, 'message')}
-          className={`bg-transparent border-none cursor-pointer p-0 leading-none ${bookmarked ? '' : 'icon-on-hover'}`}
+          className={`bg-transparent border-none cursor-pointer p-0 leading-none ${bookmarked ? 'order-last' : 'icon-on-hover'}`}
           title={bookmarked ? 'Added to Other to-dos' : 'Add to Other to-dos'}
         >
           <IconBookmark

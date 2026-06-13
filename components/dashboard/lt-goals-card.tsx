@@ -146,8 +146,8 @@ function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openMo
         <EditableLabel value={task} onRename={(n: string) => onRename?.(n)} className={`text-[12px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={tk} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
-          <button className="bg-transparent border-none cursor-pointer p-0" onClick={() => starToPrio(task, 'work')}><IconStar size={11} className={isTaskStarred?.(task) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>
-          {bookmarkToOther && <button className="bg-transparent border-none cursor-pointer p-0" onClick={() => bookmarkToOther(task, 'work')} title={isTaskBookmarked?.(task) ? 'Added to Other to-dos' : 'Add to Other to-dos'}><IconBookmark size={11} className={isTaskBookmarked?.(task) ? 'fill-indigo-400 text-indigo-400' : 'icon-on-hover text-slate-500 hover:text-indigo-300'} /></button>}
+          <button className={`bg-transparent border-none cursor-pointer p-0 ${isTaskStarred?.(task) ? 'order-last' : ''}`} onClick={() => starToPrio(task, 'work')}><IconStar size={11} className={isTaskStarred?.(task) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>
+          {bookmarkToOther && <button className={`bg-transparent border-none cursor-pointer p-0 ${isTaskBookmarked?.(task) ? 'order-last' : ''}`} onClick={() => bookmarkToOther(task, 'work')} title={isTaskBookmarked?.(task) ? 'Added to Other to-dos' : 'Add to Other to-dos'}><IconBookmark size={11} className={isTaskBookmarked?.(task) ? 'fill-indigo-400 text-indigo-400' : 'icon-on-hover text-slate-500 hover:text-indigo-300'} /></button>}
         </span>
       </div>
       {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}

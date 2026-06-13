@@ -32,12 +32,12 @@ export function SubtaskPreview({ sub, pl = 'pl-[28px]', onToggleDone, isTaskStar
       {sub.owner && <span className="text-[7px] font-medium text-teal-300 bg-teal-500/15 px-1 py-[1px] rounded tracking-wider flex-shrink-0">{sub.owner}</span>}
       <span className="inline-flex items-center gap-0.5 ml-auto flex-shrink-0" onClick={(e) => e.stopPropagation()}>
         {starSubtaskToPrio && (
-          <button onClick={() => starSubtaskToPrio(sub.text, details)} className="bg-transparent border-none cursor-pointer p-0 leading-none" title={starred ? 'Starred to Top Prio' : 'Star to Top Prio'}>
+          <button onClick={() => starSubtaskToPrio(sub.text, details)} className={`bg-transparent border-none cursor-pointer p-0 leading-none ${starred ? 'order-last' : ''}`} title={starred ? 'Starred to Top Prio' : 'Star to Top Prio'}>
             <IconStar size={10} className={starred ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover-sub text-slate-500 hover:text-amber-400'} />
           </button>
         )}
         {bookmarkSubtaskToOther && (
-          <button onClick={() => bookmarkSubtaskToOther(sub.text, details)} className="bg-transparent border-none cursor-pointer p-0 leading-none" title={bookmarked ? 'Added to Other to-dos' : 'Add to Other to-dos'}>
+          <button onClick={() => bookmarkSubtaskToOther(sub.text, details)} className={`bg-transparent border-none cursor-pointer p-0 leading-none ${bookmarked ? 'order-last' : ''}`} title={bookmarked ? 'Added to Other to-dos' : 'Add to Other to-dos'}>
             <IconBookmark size={10} className={bookmarked ? 'fill-indigo-400 text-indigo-400' : 'icon-on-hover-sub text-slate-500 hover:text-indigo-300'} />
           </button>
         )}
