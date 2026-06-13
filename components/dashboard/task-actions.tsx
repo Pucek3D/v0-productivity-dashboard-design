@@ -74,7 +74,7 @@ export function TaskActions({ taskKey, taskLabel, taskMeta, updateTaskMeta, comp
         <OwnerInput
           anchor={ownerRef.current.getBoundingClientRect()}
           value={meta?.owner || ''}
-          onSave={name => { updateTaskMeta(taskKey, { owner: name || undefined }); setShowOwner(false) }}
+          onSave={name => { /* FIX: always pass label so cross-sync fires */ updateTaskMeta(taskKey, { owner: name || undefined, label: taskLabel }); setShowOwner(false) }}
           onClose={() => setShowOwner(false)}
         />, document.body
       )}

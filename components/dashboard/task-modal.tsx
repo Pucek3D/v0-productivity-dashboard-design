@@ -8,6 +8,27 @@ interface TaskModalProps { taskKey: string; taskLabel: string; meta: TaskMeta; o
 const PRIOS = [{ value: 'high', label: 'High', color: '#fb7185' }, { value: 'medium', label: 'Medium', color: '#fbbf24' }, { value: 'low', label: 'Low', color: '#64748b' }]
 const TIMES = [15, 30, 45, 60, 90, 120, 180, 240]
 
+// ── FIX #7: ISO 8601 week number (Monday-start) ──
+function getISOWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  // Set to nearest Thursday: current date + 4 - current day number (Monday=1, Sunday=7)
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+}
+
+// Get the Monday of the ISO week containing a given date
+function getMondayOfISOWeek(weekNum: number, year: number): Date {
+  // Jan 4 is always in ISO week 1
+  const jan4 = new Date(Date.UTC(year, 0, 4))
+  const dayOfWeek = jan4.getUTCDay() || 7 // Monday=1..Sunday=7
+  const mondayOfWeek1 = new Date(jan4)
+  mondayOfWeek1.setUTCDate(jan4.getUTCDate() - dayOfWeek + 1)
+  const result = new Date(mondayOfWeek1)
+  result.setUTCDate(result.getUTCDate() + (weekNum - 1) * 7)
+  return result
+}
+
 export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStartFocus, starSubtaskToPrio, onRenameTask }: TaskModalProps) {
   const [desc, setDesc] = useState(meta.description || '')
   const [newLink, setNewLink] = useState('')
@@ -123,11 +144,11 @@ function Sec({ label, children }: { label: string; children: React.ReactNode }) 
   return <div style={{ marginBottom: 22 }}><div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 10 }}>{label}</div>{children}</div>
 }
 
-/* ── 6-month week picker — calendar-aligned ── */
+/* ── FIX #7: 6-month week picker — now uses ISO 8601 weeks (Monday-start) ── */
 function MonthWeekPicker({ selectedWeeks, onChange }: { selectedWeeks: number[]; onChange: (w: number[]) => void }) {
   const months = useMemo(() => {
     const now = new Date()
-    const result: { name: string; year: number; month: number; weeks: { weekNum: number; label: string }[] }[] = []
+    const result: { name: string; year: number; month: number; weeks: { weekNum: number; label: string; dateRange: string }[] }[] = []
 
     for (let offset = 0; offset < 6; offset++) {
       const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
@@ -135,26 +156,40 @@ function MonthWeekPicker({ selectedWeeks, onChange }: { selectedWeeks: number[];
       const year = d.getFullYear()
       const month = d.getMonth()
 
-      // Get weeks in this month
-      const weeks: { weekNum: number; label: string }[] = []
+      // Get ISO weeks that overlap this month
+      const weeks: { weekNum: number; label: string; dateRange: string }[] = []
+      const seenWeeks = new Set<number>()
+
+      // Walk through every Monday that has days in this month
       const firstDay = new Date(year, month, 1)
       const lastDay = new Date(year, month + 1, 0)
 
-      let weekCount = 1
+      // Find the Monday on or before the first day of the month
       let current = new Date(firstDay)
-      // Align to Monday
-      const dayOfWeek = current.getDay()
-      if (dayOfWeek !== 1) {
-        current.setDate(current.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
-      }
+      const dayOfWeek = current.getDay() || 7 // Monday=1..Sunday=7
+      current.setDate(current.getDate() - (dayOfWeek - 1)) // Go back to Monday
 
-      while (current <= lastDay || weekCount <= 4) {
-        const startOfYear = new Date(year, 0, 1)
-        const weekNum = Math.ceil(((current.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
-        weeks.push({ weekNum, label: `W${weekCount}` })
-        weekCount++
+      while (current <= lastDay) {
+        // Only include if this week overlaps the month (at least one day in this month)
+        const weekEnd = new Date(current)
+        weekEnd.setDate(weekEnd.getDate() + 6) // Sunday
+
+        if (weekEnd.getMonth() === month || current.getMonth() === month ||
+            (current < firstDay && weekEnd > firstDay)) {
+          const weekNum = getISOWeekNumber(current)
+          if (!seenWeeks.has(weekNum)) {
+            seenWeeks.add(weekNum)
+            const rangeStart = current.getDate()
+            const rangeEnd = Math.min(weekEnd.getDate(), lastDay.getDate())
+            weeks.push({
+              weekNum,
+              label: `W${weekNum}`,
+              dateRange: `${rangeStart}–${rangeEnd}`
+            })
+          }
+        }
         current.setDate(current.getDate() + 7)
-        if (weekCount > 5) break
+        if (weeks.length >= 6) break // safety cap
       }
 
       result.push({ name: monthName, year, month, weeks })
@@ -162,9 +197,7 @@ function MonthWeekPicker({ selectedWeeks, onChange }: { selectedWeeks: number[];
     return result
   }, [])
 
-  const now = new Date()
-  const startOfYear = new Date(now.getFullYear(), 0, 1)
-  const currentWeek = Math.ceil(((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
+  const currentWeek = getISOWeekNumber(new Date())
 
   const toggle = (w: number) => {
     if (selectedWeeks.includes(w)) onChange(selectedWeeks.filter(x => x !== w))
@@ -184,12 +217,14 @@ function MonthWeekPicker({ selectedWeeks, onChange }: { selectedWeeks: number[];
                 const isSelected = selectedWeeks.includes(w.weekNum)
                 const isCurrent = w.weekNum === currentWeek
                 return (
-                  <button key={w.weekNum} onClick={() => toggle(w.weekNum)} style={{
-                    height: 22, borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 600,
-                    background: isSelected ? '#818cf8' : isCurrent ? 'rgba(251,113,133,0.15)' : 'rgba(255,255,255,0.04)',
-                    color: isSelected ? '#fff' : isCurrent ? '#fb7185' : '#64748b',
-                    boxShadow: isSelected ? '0 0 6px rgba(99,102,241,0.4)' : 'none',
-                  }}>{w.label}</button>
+                  <button key={w.weekNum} onClick={() => toggle(w.weekNum)}
+                    title={`ISO Week ${w.weekNum} (${w.dateRange})`}
+                    style={{
+                      height: 22, borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 600,
+                      background: isSelected ? '#818cf8' : isCurrent ? 'rgba(251,113,133,0.15)' : 'rgba(255,255,255,0.04)',
+                      color: isSelected ? '#fff' : isCurrent ? '#fb7185' : '#64748b',
+                      boxShadow: isSelected ? '0 0 6px rgba(99,102,241,0.4)' : 'none',
+                    }}>{w.label}</button>
                 )
               })}
             </div>
@@ -197,7 +232,7 @@ function MonthWeekPicker({ selectedWeeks, onChange }: { selectedWeeks: number[];
         ))}
       </div>
       {selectedWeeks.length > 0 && <div style={{ marginTop: 6, fontSize: 10, color: '#94a3b8' }}>
-        {selectedWeeks.length} week{selectedWeeks.length > 1 ? 's' : ''} selected
+        {selectedWeeks.length} week{selectedWeeks.length > 1 ? 's' : ''} selected (ISO weeks, Mon–Sun)
       </div>}
     </div>
   )
