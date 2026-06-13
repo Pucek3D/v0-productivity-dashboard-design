@@ -86,6 +86,29 @@ export default function Dashboard() {
     setTaskMeta(p=>{
       const updated = {...p,[k]:{...p[k],...u}}
 
+      // ── Subtask done propagation ──
+      // When this update toggles a subtask's done state, mirror that done
+      // state to every linked surface sharing the subtask's text: Top Prio,
+      // Messages and any other task's subtasks. Keeps bi-directional sync.
+      if (u.subtasks) {
+        const prevSubs = (p[k] as any)?.subtasks || []
+        ;(u.subtasks as any[]).forEach(ns => {
+          const old = prevSubs.find((o:any) => o.id === ns.id)
+          if (old && !!old.done !== !!ns.done) {
+            const txt = ns.text; const done = !!ns.done
+            setPrioTasks(pt=>pt.map(s=>({...s,tasks:s.tasks.map(t=>t.text===txt?{...t,done}:t)})))
+            setMessages(ms=>ms.map(m=>m.text===txt?{...m,done}:m))
+            Object.keys(updated).forEach(ok=>{
+              if (ok===k) return
+              const subs=(updated[ok] as any)?.subtasks
+              if(Array.isArray(subs)&&subs.some((s:any)=>s.text===txt&&!!s.done!==done)){
+                updated[ok]={...updated[ok],subtasks:subs.map((s:any)=>s.text===txt?{...s,done}:s)} as any
+              }
+            })
+          }
+        })
+      }
+
       // Resolve the label — prefer what was just passed, fall back to stored,
       // then fall back to the live registry (handles owner-only edits from the
       // modal that don't pass a label for tasks with no stored meta yet).
@@ -187,8 +210,37 @@ export default function Dashboard() {
   const toggleProjectTask = useCallback((pk:string,tt:'task'|'done',idx:number)=>{
     const key=tt==='done'?`${pk}-done-${idx}`:`${pk}-task-${idx}`
     const metaKey = `proj-${pk}-${idx}`
-    setProjectDone(prev=>{const nd=!prev[key];if(tt==='task'){const proj=[...PROJECTS,...LT_GOALS].find(p=>p.key===pk);if(proj?.tasks[idx]){const txt=proj.tasks[idx];setPrioTasks(pt=>pt.map(s=>({...s,tasks:s.tasks.map(t=>t.text===txt?{...t,done:nd}:t)})))};if(nd) handleRecurringAfterToggle(metaKey,true)}return{...prev,[key]:nd}})
+    setProjectDone(prev=>{const nd=!prev[key];if(tt==='task'){const proj=[...PROJECTS,...LT_GOALS].find(p=>p.key===pk);if(proj?.tasks[idx]){const txt=proj.tasks[idx];
+      // Sync done across Top Prio, Messages and any matching subtasks.
+      setPrioTasks(pt=>pt.map(s=>({...s,tasks:s.tasks.map(t=>t.text===txt?{...t,done:nd}:t)})))
+      setMessages(ms=>ms.map(m=>m.text===txt?{...m,done:nd}:m))
+      setTaskMeta(prevM=>{let changed=false;const n:typeof prevM={...prevM};Object.keys(prevM).forEach(k=>{const subs=(prevM[k] as any)?.subtasks;if(Array.isArray(subs)&&subs.some((s:any)=>s.text===txt&&!!s.done!==nd)){n[k]={...prevM[k],subtasks:subs.map((s:any)=>s.text===txt?{...s,done:nd}:s)} as any;changed=true}});return changed?n:prevM})
+    };if(nd) handleRecurringAfterToggle(metaKey,true)}return{...prev,[key]:nd}})
   }, [handleRecurringAfterToggle])
+
+  // ──────────────────────────────────────────────────────────────────
+  // Bi-directional done sync by task text.
+  // Marking a task / subtask / message done anywhere on the dashboard
+  // propagates the done state to every linked surface that shares the
+  // same text — Top Prio Today, Messages, subtasks (in any task's meta)
+  // and the source Project / Goal tasks — and vice-versa. Setting the
+  // same value is idempotent, so this is safe to call from any toggle.
+  // ──────────────────────────────────────────────────────────────────
+  const propagateDone = useCallback((text:string, done:boolean)=>{
+    setPrioTasks(prev=>prev.map(s=>({...s,tasks:s.tasks.map(t=>t.text===text?{...t,done}:t)})))
+    setMessages(prev=>prev.map(m=>m.text===text?{...m,done}:m))
+    setTaskMeta(prev=>{
+      let changed=false; const n:typeof prev={...prev}
+      Object.keys(prev).forEach(key=>{
+        const subs=(prev[key] as any)?.subtasks
+        if(Array.isArray(subs)&&subs.some((s:any)=>s.text===text&&!!s.done!==done)){
+          n[key]={...prev[key],subtasks:subs.map((s:any)=>s.text===text?{...s,done}:s)} as any; changed=true
+        }
+      })
+      return changed?n:prev
+    })
+    ;[...PROJECTS,...LT_GOALS].forEach(p=>p.tasks.forEach((t,i)=>{ if(t===text) setProjectDone(prev=>({...prev,[`${p.key}-task-${i}`]:done})) }))
+  }, [])
 
   // ──────────────────────────────────────────────────────────────────
   // FIX #2: Recurring in prio toggle
@@ -196,11 +248,12 @@ export default function Dashboard() {
   // on matching project meta keys AND the prio meta key itself.
   // ──────────────────────────────────────────────────────────────────
   const onPrioTaskToggle = useCallback((text:string,done:boolean)=>{
-    // Sync done state to matching project tasks
+    // Propagate done across all linked surfaces (Messages, subtasks, projects)
+    propagateDone(text, done)
+    // Sync done state to matching project tasks (+ recurring deadline shift)
     ;[...PROJECTS,...LT_GOALS].forEach(p=>{
       p.tasks.forEach((t,i)=>{
         if(t===text){
-          setProjectDone(prev=>({...prev,[`${p.key}-task-${i}`]:done}))
           // Trigger recurring deadline shift on the project meta key
           if(done) handleRecurringAfterToggle(`proj-${p.key}-${i}`, true)
         }
@@ -214,7 +267,7 @@ export default function Dashboard() {
         }
       })
     }
-  }, [handleRecurringAfterToggle, taskMeta])
+  }, [handleRecurringAfterToggle, taskMeta, propagateDone])
 
   const addPrioTask = useCallback((text:string)=>{setPrioTasks(prev=>prev.map(s=>s.section==='Other Work'?{...s,tasks:[...s.tasks,{id:`q${Date.now()}`,text,done:false}]}:s))}, [])
 
@@ -485,7 +538,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-[240px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="flex flex-col gap-3">
-          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={renameTask} />
+          <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={renameTask} onToggleDone={propagateDone} />
           <KpisCard />
         </div>
         <div className="flex flex-col gap-3">
