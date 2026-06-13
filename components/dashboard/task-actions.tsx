@@ -157,12 +157,13 @@ function ScrollWheel({ items, value, onChange, width }: {
 const HOUR_ITEMS = Array.from({ length: 24 }, (_, i) => ({ value: i, label: i.toString().padStart(2, '0') }))
 const MINUTE_ITEMS = Array.from({ length: 12 }, (_, i) => ({ value: i * 5, label: (i * 5).toString().padStart(2, '0') }))
 
-/* Format a minute count into a compact label (e.g. 90 -> "1.5h", 45 -> "45m"). */
+/* Format a minute count into a compact label (e.g. 90 -> "1h 30m", 45 -> "45m"). */
 function fmtDuration(min: number): string {
-  if (!min || min < 1) return '—'
-  if (min < 60) return `${min}m`
-  const h = min / 60
-  return `${Number.isInteger(h) ? h : h.toFixed(1)}h`
+  const mins = Math.round(min || 0)
+  if (mins < 1) return '—'
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`
 }
 
 /* ── Mini Calendar ── */
