@@ -5,7 +5,7 @@ import {
   MONTH_EVENTS, WEEK_EVENTS, DAY_EVENTS,
   MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth
 } from '@/lib/data'
-import { IconPlus, IconX, IconCalendar } from '@tabler/icons-react'
+import { IconPlus, IconX, IconCalendar, IconMapPin, IconLink, IconNotes, IconPaperclip } from '@tabler/icons-react'
 import type { DeadlineEvent } from '@/lib/task-meta'
 import { ScrollWheel, HOUR_ITEMS, MINUTE_ITEMS } from './task-actions'
 
@@ -55,6 +55,11 @@ const DISPLAY_FONT: React.CSSProperties = {
 }
 
 /* ─── custom meeting type ─── */
+interface MeetingFile {
+  name: string
+  url: string
+}
+
 interface CustomMeeting {
   id: string
   day: number
@@ -64,6 +69,10 @@ interface CustomMeeting {
   color: string
   time?: string
   durationMin?: number
+  location?: string
+  link?: string
+  notes?: string
+  files?: MeetingFile[]
   done?: boolean
 }
 
@@ -105,6 +114,12 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
   const [customDur, setCustomDur] = useState('')
   const [showTimePicker, setShowTimePicker] = useState(false)
   const timeBtnRef = useRef<HTMLButtonElement>(null)
+  const [newMeetingLocation, setNewMeetingLocation] = useState('')
+  const [newMeetingLink, setNewMeetingLink] = useState('')
+  const [newMeetingNotes, setNewMeetingNotes] = useState('')
+  const [newMeetingFiles, setNewMeetingFiles] = useState<MeetingFile[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [openMeetingId, setOpenMeetingId] = useState<string | null>(null)
 
   useEffect(() => {
     const now = new Date()
@@ -133,16 +148,30 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
       color: newMeetingColor,
       time: newMeetingTime || undefined,
       durationMin: newMeetingTime ? newMeetingDuration : undefined,
+      location: newMeetingLocation.trim() || undefined,
+      link: newMeetingLink.trim() || undefined,
+      notes: newMeetingNotes.trim() || undefined,
+      files: newMeetingFiles.length ? newMeetingFiles : undefined,
     }])
     setNewMeetingText('')
     setNewMeetingTime('')
     setNewMeetingDuration(30)
     setCustomDur('')
+    setNewMeetingLocation('')
+    setNewMeetingLink('')
+    setNewMeetingNotes('')
+    setNewMeetingFiles([])
     setShowAddForm(null)
   }
 
   const removeMeeting = (id: string) => {
     setCustomMeetings(prev => prev.filter(m => m.id !== id))
+  }
+
+  const handleFiles = (list: FileList | null) => {
+    if (!list) return
+    const added = Array.from(list).map(f => ({ name: f.name, url: URL.createObjectURL(f) }))
+    setNewMeetingFiles(prev => [...prev, ...added])
   }
 
   const getMeetingsForDay = (day: number, m: number, y: number) => {
@@ -264,6 +293,57 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               )}
             </div>
           </div>
+          {/* Location / link / notes / files */}
+          <div className="mt-2 flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '0 8px' }}>
+              <IconMapPin size={12} color="#64748b" />
+              <input value={newMeetingLocation} onChange={e => setNewMeetingLocation(e.target.value)}
+                placeholder="Add location"
+                style={{ flex: 1, background: 'transparent', border: 'none', padding: '5px 0', fontSize: 10, color: '#fff', outline: 'none' }} />
+              {newMeetingLocation.trim() && (
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(newMeetingLocation.trim())}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 8, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em', textDecoration: 'none' }}>
+                  Map
+                </a>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '0 8px' }}>
+              <IconLink size={12} color="#64748b" />
+              <input value={newMeetingLink} onChange={e => setNewMeetingLink(e.target.value)}
+                placeholder="Add meeting link (Zoom, Meet…)"
+                style={{ flex: 1, background: 'transparent', border: 'none', padding: '5px 0', fontSize: 10, color: '#fff', outline: 'none' }} />
+            </div>
+            <div className="flex items-start gap-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '0 8px' }}>
+              <IconNotes size={12} color="#64748b" style={{ marginTop: 6 }} />
+              <textarea value={newMeetingNotes} onChange={e => setNewMeetingNotes(e.target.value)}
+                placeholder="Notes…" rows={2}
+                style={{ flex: 1, background: 'transparent', border: 'none', padding: '5px 0', fontSize: 10, color: '#fff', outline: 'none', resize: 'none' }} />
+            </div>
+            <div>
+              <input ref={fileInputRef} type="file" multiple hidden onChange={e => handleFiles(e.target.files)} />
+              <button onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.14)', borderRadius: 6, padding: '5px 8px', fontSize: 10, color: '#94a3b8', cursor: 'pointer', width: '100%' }}>
+                <IconPaperclip size={12} />
+                Attach files
+              </button>
+              {newMeetingFiles.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {newMeetingFiles.map((f, i) => (
+                    <span key={i} className="flex items-center gap-1"
+                      style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 5, padding: '2px 6px', fontSize: 9, color: '#a5b4fc', maxWidth: 120 }}>
+                      <span className="truncate">{f.name}</span>
+                      <button onClick={() => setNewMeetingFiles(prev => prev.filter((_, j) => j !== i))}
+                        style={{ color: '#818cf8', display: 'flex' }}>
+                        <IconX size={9} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           {/* Add button — full width, transparent */}
           <button onClick={() => addMeeting(showAddForm.day)}
             style={{
@@ -298,24 +378,29 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
         )}
         {view === 'm' && <MonthView month={month} year={year} today={today}
           deadlineEvents={activeDeadlineEvents} customMeetings={customMeetings}
-          onClickDay={(day) => setShowAddForm({ day })}
+          onClickDay={(day) => setShowAddForm({ day })} onOpenMeeting={setOpenMeetingId}
           onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent} />}
         {view === 'w' && <WeekView today={today} deadlineEvents={activeDeadlineEvents}
-          customMeetings={customMeetings} month={month} year={year}
+          customMeetings={customMeetings} month={month} year={year} onOpenMeeting={setOpenMeetingId}
           onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent} />}
         {view === 'd' && <DayView today={today} deadlineEvents={activeDeadlineEvents}
-          customMeetings={customMeetings} month={month} year={year}
+          customMeetings={customMeetings} month={month} year={year} onOpenMeeting={setOpenMeetingId}
           onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent} />}
       </div>
+      {openMeetingId && (() => {
+        const m = customMeetings.find(mm => mm.id === openMeetingId)
+        if (!m) return null
+        return <MeetingDetail meeting={m} monthName={MONTH_NAMES[m.month]} onClose={() => setOpenMeetingId(null)} />
+      })()}
     </div>
   )
 }
 
 /* ─── Month View ─── */
-function MonthView({ month, year, today, deadlineEvents, customMeetings, onClickDay, onRemoveMeeting, onDeleteEvent }: {
+function MonthView({ month, year, today, deadlineEvents, customMeetings, onClickDay, onOpenMeeting, onRemoveMeeting, onDeleteEvent }: {
   month: number; year: number; today: { d: number; m: number; y: number }
   deadlineEvents: DeadlineEvent[]; customMeetings: CustomMeeting[]
-  onClickDay: (day: number) => void; onRemoveMeeting: (id: string) => void
+  onClickDay: (day: number) => void; onOpenMeeting: (id: string) => void; onRemoveMeeting: (id: string) => void
   onDeleteEvent?: (ev: DeadlineEvent) => void
 }) {
   const startDay = getFirstDayOfMonth(month, year)
@@ -347,7 +432,7 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
           }).map(e => ({ label: e.label, color: e.color, kind: 'task' as const, ev: e }))
           const meetingEvents = customMeetings
             .filter(m => m.day === day && m.month === month && m.year === year && !m.done)
-            .map(m => ({ label: m.label, color: m.color, kind: 'meeting' as const, id: m.id }))
+            .map(m => ({ label: m.label, color: m.color, kind: 'meeting' as const, id: m.id, hasDetails: !!(m.location || m.link || m.notes || m.files?.length) }))
           const dayEvents = [...regularEvents, ...taskEvents, ...meetingEvents]
 
           return (
@@ -362,7 +447,9 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
               }`} style={{ fontVariantNumeric: 'tabular-nums' }}>{day}</span>
               {dayEvents.slice(0, 2).map((ev, j) => (
                 <div key={j} className="group/ev relative text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
-                  style={{ background: `${ev.color}22`, color: ev.color, border: `1px solid ${ev.color}44` }}>
+                  style={{ background: `${ev.color}22`, color: ev.color, border: `1px solid ${ev.color}44`, cursor: (ev as any).kind === 'meeting' ? 'pointer' : undefined }}
+                  onClick={(ev as any).kind === 'meeting' ? (e) => { e.stopPropagation(); onOpenMeeting((ev as any).id) } : undefined}>
+                  {(ev as any).hasDetails && <span style={{ marginRight: 2 }}>•</span>}
                   {ev.label}
                   {(ev.kind === 'meeting' || (ev.kind === 'task' && onDeleteEvent)) && (
                     <button
@@ -386,10 +473,10 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
 }
 
 /* ─── Week View ─── */
-function WeekView({ today, deadlineEvents, customMeetings, month, year, onRemoveMeeting, onDeleteEvent }: {
+function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMeeting, onRemoveMeeting, onDeleteEvent }: {
   today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
   customMeetings: CustomMeeting[]; month: number; year: number
-  onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
+  onOpenMeeting: (id: string) => void; onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
 }) {
   const cols = (() => {
     const result: { name: string; day: number; dateStr: string; month: number; year: number }[] = []
@@ -427,7 +514,7 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onRemove
         }))
         const meetingEvents = customMeetings
           .filter(m => m.day === c.day && m.month === c.month && m.year === c.year && !m.done)
-          .map(m => ({ label: m.label, color: m.color, time: m.time ? fmtTimeRange(parseInt(m.time.split(':')[0]), parseInt(m.time.split(':')[1] || '0'), m.durationMin) : 'All day', kind: 'meeting' as const, id: m.id }))
+          .map(m => ({ label: m.label, color: m.color, time: m.time ? fmtTimeRange(parseInt(m.time.split(':')[0]), parseInt(m.time.split(':')[1] || '0'), m.durationMin) : 'All day', kind: 'meeting' as const, id: m.id, hasDetails: !!(m.location || m.link || m.notes || m.files?.length) }))
         const events = [...regularEvents, ...taskEvents, ...meetingEvents]
 
         return (
@@ -443,10 +530,12 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onRemove
             </div>
             {events.map((ev, i) => (
               <div key={i} className="group/ev relative rounded-[5px] px-1.5 py-1"
-                style={{ background: `${ev.color}22`, borderLeft: `2px solid ${ev.color}`, boxShadow: `0 0 8px ${ev.color}33` }}>
+                style={{ background: `${ev.color}22`, borderLeft: `2px solid ${ev.color}`, boxShadow: `0 0 8px ${ev.color}33`, cursor: (ev as any).kind === 'meeting' ? 'pointer' : undefined }}
+                onClick={(ev as any).kind === 'meeting' ? (e) => { e.stopPropagation(); onOpenMeeting((ev as any).id) } : undefined}>
                 <div className="text-[9.5px] font-bold" style={{ color: ev.color, fontVariantNumeric: 'tabular-nums' }}>{ev.time}</div>
                 <div className="text-[10px] font-semibold leading-[1.25] text-slate-200 mt-px overflow-hidden"
                   style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
+                  {(ev as any).hasDetails && <span style={{ color: ev.color, marginRight: 2 }}>•</span>}
                   {ev.label}
                 </div>
                 {((ev as any).kind === 'meeting' || ((ev as any).kind === 'task' && onDeleteEvent)) && (
@@ -467,10 +556,10 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onRemove
 }
 
 /* ─── Day View ─── */
-function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveMeeting, onDeleteEvent }: {
+function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMeeting, onRemoveMeeting, onDeleteEvent }: {
   today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
   customMeetings: CustomMeeting[]; month: number; year: number
-  onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
+  onOpenMeeting: (id: string) => void; onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
 }) {
   const dateStr = new Date(today.y, today.m, today.d).toLocaleDateString('en-US', {
     weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
@@ -504,14 +593,18 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveM
           <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 4 }}>All day</div>
           {[
             ...allDayEvents.map(e => ({ label: e.label, color: e.color, kind: 'task' as const, ev: e })),
-            ...allDayMeetings.map(m => ({ label: m.label, color: m.color, kind: 'meeting' as const, id: m.id })),
+            ...allDayMeetings.map(m => ({ label: m.label, color: m.color, kind: 'meeting' as const, id: m.id, hasDetails: !!(m.location || m.link || m.notes || m.files?.length) })),
           ].map((ev, i) => (
             <div key={i} className="group/ev relative" style={{
               background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`,
               borderRadius: '0 6px 6px 0', padding: '4px 8px', marginBottom: 2,
-              boxShadow: `0 0 12px ${ev.color}33`,
-            }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: ev.color }}>{ev.label}</span>
+              boxShadow: `0 0 12px ${ev.color}33`, cursor: (ev as any).kind === 'meeting' ? 'pointer' : undefined,
+            }}
+            onClick={(ev as any).kind === 'meeting' ? (e) => { e.stopPropagation(); onOpenMeeting((ev as any).id) } : undefined}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: ev.color }}>
+                {(ev as any).hasDetails && <span style={{ marginRight: 3 }}>•</span>}
+                {ev.label}
+              </span>
               {(ev.kind === 'meeting' || (ev.kind === 'task' && onDeleteEvent)) && (
                 <button
                   onClick={(e) => { e.stopPropagation(); if (ev.kind === 'meeting') onRemoveMeeting(ev.id!); else onDeleteEvent!(ev.ev!) }}
@@ -532,7 +625,7 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveM
           .map(e => ({ label: e.label, color: e.color, hour, end: hour + 1, timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}`, endLabel: e.durationMin ? fmtTimeRange(hour, e.minute ?? 0, e.durationMin).split('–')[1] : `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'task' as const, ev: e }))
         const meetingAtHour = timedMeetings
           .filter(m => m.time && parseInt(m.time.split(':')[0]) === hour)
-          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time!, endLabel: m.durationMin ? fmtTimeRange(hour, parseInt(m.time!.split(':')[1] || '0'), m.durationMin).split('–')[1] : `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'meeting' as const, id: m.id }))
+          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time!, endLabel: m.durationMin ? fmtTimeRange(hour, parseInt(m.time!.split(':')[1] || '0'), m.durationMin).split('–')[1] : `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'meeting' as const, id: m.id, hasDetails: !!(m.location || m.link || m.notes || m.files?.length) }))
         const events = [
           ...staticEvents.map(e => ({ ...e, timeLabel: `${e.hour.toString().padStart(2, '0')}:00`, endLabel: `${(e.hour + 1).toString().padStart(2, '0')}:00`, kind: 'static' as const })),
           ...deadlineAtHour,
@@ -555,8 +648,12 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onRemoveM
               {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#fb7185', boxShadow: '0 0 8px #fb7185' }} />}
               {events.map((ev, j) => (
                 <div key={j} className="group/ev relative rounded-r-md px-2 py-1 mb-1"
-                  style={{ background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`, boxShadow: `0 0 12px ${ev.color}33` }}>
-                  <div className="text-[12px] font-bold" style={{ color: ev.color }}>{ev.label}</div>
+                  style={{ background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`, boxShadow: `0 0 12px ${ev.color}33`, cursor: (ev as any).kind === 'meeting' ? 'pointer' : undefined }}
+                  onClick={(ev as any).kind === 'meeting' ? (e) => { e.stopPropagation(); onOpenMeeting((ev as any).id) } : undefined}>
+                  <div className="text-[12px] font-bold" style={{ color: ev.color }}>
+                    {(ev as any).hasDetails && <span style={{ marginRight: 3 }}>•</span>}
+                    {ev.label}
+                  </div>
                   <div className="text-[10px] text-slate-500 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {ev.timeLabel} — {(ev as any).endLabel}
                   </div>
@@ -657,6 +754,88 @@ function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: ini
         </div>
       </div>
     </>,
+    document.body
+  )
+}
+
+/* ── Meeting Detail Modal (location, link, notes, files) ── */
+function MeetingDetail({ meeting, monthName, onClose }: {
+  meeting: CustomMeeting
+  monthName: string
+  onClose: () => void
+}) {
+  const timeLabel = meeting.time
+    ? fmtTimeRange(parseInt(meeting.time.split(':')[0]), parseInt(meeting.time.split(':')[1] || '0'), meeting.durationMin)
+    : 'All day'
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} onClick={onClose} />
+      <div style={{
+        position: 'relative', width: '100%', maxWidth: 340,
+        background: '#131c2e', border: '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 14, padding: 18, boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+      }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 12, color: '#64748b', cursor: 'pointer', display: 'flex' }}>
+          <IconX size={16} />
+        </button>
+        <div className="flex items-center gap-2" style={{ marginBottom: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 3, background: `${meeting.color}33`, border: `1px solid ${meeting.color}` }} />
+          <span style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{meeting.label}</span>
+        </div>
+        <div style={{ fontSize: 11, color: '#94a3b8', fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
+          {monthName} {meeting.day} · {timeLabel}
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          {meeting.location && (
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(meeting.location)}`}
+              target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px', textDecoration: 'none' }}>
+              <IconMapPin size={15} color="#818cf8" style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 12, color: '#e2e8f0' }}>{meeting.location}</span>
+              <span style={{ fontSize: 8, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Open map</span>
+            </a>
+          )}
+          {meeting.link && (
+            <a href={meeting.link} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px', textDecoration: 'none' }}>
+              <IconLink size={15} color="#2dd4bf" style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 12, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meeting.link}</span>
+              <span style={{ fontSize: 8, fontWeight: 700, color: '#2dd4bf', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Join</span>
+            </a>
+          )}
+          {meeting.notes && (
+            <div className="flex items-start gap-2"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px' }}>
+              <IconNotes size={15} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
+              <span style={{ flex: 1, fontSize: 12, color: '#cbd5e1', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{meeting.notes}</span>
+            </div>
+          )}
+          {meeting.files && meeting.files.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px' }}>
+              <div className="flex items-center gap-1.5" style={{ marginBottom: 6 }}>
+                <IconPaperclip size={14} color="#fb7185" />
+                <span style={{ fontSize: 9, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Files</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                {meeting.files.map((f, i) => (
+                  <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" download={f.name}
+                    style={{ fontSize: 11, color: '#a5b4fc', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {f.name}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          {!meeting.location && !meeting.link && !meeting.notes && !(meeting.files && meeting.files.length) && (
+            <div style={{ fontSize: 11, color: '#64748b', textAlign: 'center', padding: '8px 0' }}>No additional details.</div>
+          )}
+        </div>
+      </div>
+    </div>,
     document.body
   )
 }
