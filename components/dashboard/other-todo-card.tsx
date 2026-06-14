@@ -4,9 +4,11 @@ import { IconTrash, IconStar, IconBookmark, IconPlus, IconGripVertical } from '@
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
 import { SubtaskPreview } from './subtask-preview'
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { ClientDnd } from './client-dnd'
+import { useMounted } from '@/lib/use-mounted'
 
 function EditableText({ value, onChange, className, style }: any) {
   const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(value); const ref = useRef<HTMLInputElement>(null)
@@ -79,7 +81,7 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio,
                 <EditableText value={section.name} onChange={(n: string) => renameSection(section.id, n)} className="text-[10px] font-bold tracking-[0.10em] uppercase flex-1 min-w-0" style={{ color: section.color }} />
                 <button onClick={() => deleteSection(section.id)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 flex-shrink-0"><IconTrash size={11} className="text-slate-600 hover:text-rose-400" /></button>
               </div>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd(section.id)}>
+              <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd(section.id)}>
                 <SortableContext items={section.tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                   {section.tasks.map(task => {
                     const taskKey = `todo-${section.id}-${task.id}`; const meta = taskMeta[taskKey]; const firstSub = meta?.subtasks?.find(s => !s.done)
@@ -90,7 +92,7 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio,
                       taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} />
                   })}
                 </SortableContext>
-              </DndContext>
+              </ClientDnd>
               <button onClick={() => addTask(section.id)} className="flex items-center gap-1 mt-1 text-slate-600 hover:text-slate-400 transition-colors"><IconPlus size={10} /><span className="text-[9px] font-medium">Add task</span></button>
             </div>
           ))}
@@ -101,11 +103,13 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio,
 }
 
 function SortableTodoTask({ task, taskKey, meta, firstSub, onToggle, onDelete, onRename, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther }: any) {
+  const mounted = useMounted()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id })
+  const dndProps = mounted ? { ...attributes, ...listeners } : {}
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
       <div className="flex items-center gap-1.5 py-[3px] group cursor-pointer" onClick={() => openModal(taskKey, task.text)}>
-        <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
+        <span {...dndProps} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${task.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{task.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         <EditableText value={task.text} onChange={onRename} className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${task.done ? 'text-slate-500 line-through' : 'text-slate-300'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>

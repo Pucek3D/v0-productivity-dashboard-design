@@ -3,9 +3,11 @@ import { useState, useRef, useEffect } from 'react'
 import { IconGripVertical, IconTrash, IconPlus } from '@tabler/icons-react'
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, useDroppable, type DragEndEvent, DragOverlay, type DragStartEvent } from '@dnd-kit/core'
+import { closestCenter, PointerSensor, useSensor, useSensors, useDroppable, type DragEndEvent, DragOverlay, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { ClientDnd } from './client-dnd'
+import { useMounted } from '@/lib/use-mounted'
 
 type PrioTask = { id: string; text: string; done: boolean; priority?: 'red' | 'yellow' | 'gray'; source?: 'message' }
 type PrioSection = { section: string; color: string; tasks: PrioTask[] }
@@ -61,7 +63,7 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="card-base halo-black">
         <div className="section-header header-black px-4 py-2.5"><span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Top prio today</span></div>
         <div className="px-3 py-2.5"><div className="grid grid-cols-2 gap-2.5">
@@ -76,7 +78,7 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
         </div></div>
       </div>
       <DragOverlay>{activeTask?<div className="bg-[#1e2438] border border-white/10 rounded-md px-2 py-1 text-[12px] text-slate-200 shadow-xl">{activeTask.text}</div>:null}</DragOverlay>
-    </DndContext>
+    </ClientDnd>
   )
 }
 
@@ -108,11 +110,13 @@ function Quadrant({ sectionKey, label, labelColor, tasks, onToggle, onDelete, on
 }
 
 function SortableTask({ task, onToggle, onDelete, onOpen, onRename, taskMeta, updateTaskMeta }: any) {
+  const mounted = useMounted()
   const {attributes,listeners,setNodeRef,transform,transition,isDragging} = useSortable({id:task.id})
+  const dndProps = mounted ? { ...attributes, ...listeners } : {}
   const meta = taskMeta[`prio-${task.id}`]
   return (
     <div ref={setNodeRef} style={{transform:CSS.Transform.toString(transform),transition,opacity:isDragging?0.4:1}} className="flex items-start gap-1.5 py-[3px] cursor-pointer select-none group" onClick={onOpen}>
-      <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 mt-[3px] cursor-grab" onClick={(e:any)=>e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
+      <span {...dndProps} className="icon-on-hover flex-shrink-0 mt-[3px] cursor-grab" onClick={(e:any)=>e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
       <div onClick={(e:any)=>{e.stopPropagation();onToggle()}} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${task.done?'bg-indigo-500/30 border-indigo-400':'border-slate-600 bg-white/5 group-hover:border-slate-400'}`}>{task.done&&<span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
       <div className="flex-1 min-w-0"><div className="flex items-center gap-1">{task.source==='message'&&<span className="flex-shrink-0" style={{fontSize:12,fontWeight:800,color:'#facc15',letterSpacing:'0.02em'}}>M:</span>}<EditableText value={task.text} onChange={onRename} className={`text-[12px] leading-[1.35] min-w-0 truncate ${task.done?'text-slate-500 line-through':'text-slate-200'}`} /><MetaBadges meta={meta} /></div></div>
       <span className="inline-flex items-center gap-0.5 ml-auto flex-shrink-0" onClick={(e:any)=>e.stopPropagation()}>

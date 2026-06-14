@@ -6,9 +6,11 @@ import { EditableLabel } from './editable-label'
 import { IconStar, IconBookmark, IconGripVertical, IconPlus, IconTrash } from '@tabler/icons-react'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 import { SubtaskPreview } from './subtask-preview'
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { ClientDnd } from './client-dnd'
+import { useMounted } from '@/lib/use-mounted'
 
 const COLORS = ['#10b981', '#f59e0b', '#06b6d4', '#a78bfa', '#f472b6', '#fb7185', '#818cf8', '#34d399']
 
@@ -58,7 +60,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
     <div className="card-base halo-teal">
       <div className="section-header header-teal px-4 py-3"><div className="flex items-center justify-between"><span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Long-Term Goals</span><button onClick={() => setExtraGoals(p => [...p, { key: `ltg-${Date.now()}`, name: 'New Goal', color: COLORS[Math.floor(Math.random() * COLORS.length)], status: 'planning', next: '', tasks: [], doneTasks: [] }])} className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/5"><IconPlus size={13} /></button></div></div>
       <div className="p-3">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGoalDragEnd}>
+        <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGoalDragEnd}>
           <SortableContext items={orderedGoals.map(g => g.key)} strategy={verticalListSortingStrategy}>
             <div className="grid grid-cols-2 gap-2.5">
               {orderedGoals.map(goal => <SortableGoal key={goal.key} goal={goal} displayName={goalNames[goal.key] || goal.name}
@@ -73,15 +75,16 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
                 reorderTasks={(gk: string, oi: number, ni: number, tl: any[]) => setTaskOrders(p => ({ ...p, [gk]: arrayMove(tl.map((t: any) => t.originalIdx), oi, ni) }))} />)}
             </div>
           </SortableContext>
-        </DndContext>
+        </ClientDnd>
       </div>
     </div>
   )
 }
 
 function SortableGoal(props: any) {
+  const mounted = useMounted()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.goal.key })
-  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}><GoalTile {...props} dragHandleProps={{ ...attributes, ...listeners }} /></div>
+  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}><GoalTile {...props} dragHandleProps={mounted ? { ...attributes, ...listeners } : {}} /></div>
 }
 
 function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, onDelete, onRename, dragHandleProps, taskOrders, reorderTasks, nameOverrides, onRenameTask }: any) {
@@ -118,7 +121,7 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
           <span className="font-display text-[18px] tabular leading-none" style={{ color: goal.color }}>{pct}%</span>
         </div>
         <div className="border-t border-white/5 pt-1 mt-1">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
+          <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
             <SortableContext items={visible.map((t: any) => t.originalIdx)} strategy={verticalListSortingStrategy}>
               {visible.map((t: any) => {
                 const tk = `proj-${goal.key}-${t.originalIdx}`; const meta = taskMeta[tk]; const firstSub = meta?.subtasks?.find((s: any) => !s.done)
@@ -128,7 +131,7 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
                   taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} onRename={(n: string) => onRenameTask?.(tk, n)} />
               })}
             </SortableContext>
-          </DndContext>
+          </ClientDnd>
         </div>
         {hiddenCount > 0 && <div className="flex items-center gap-1 mt-1 cursor-pointer text-slate-500 hover:text-[#14b8a6] transition-colors" onClick={() => toggleExpand(goal.key)}><span className="text-[9px] font-semibold uppercase tracking-[0.10em]">{isExpanded ? 'Less' : `+${hiddenCount} more`}</span><span className={`text-[9px] transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span></div>}
       </div>
@@ -137,11 +140,13 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
 }
 
 function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, onRename }: any) {
+  const mounted = useMounted()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const dndProps = mounted ? { ...attributes, ...listeners } : {}
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
       <div className="flex items-center gap-1.5 py-0.5 cursor-pointer select-none group" onClick={() => openModal(tk, task)}>
-        <span {...attributes} {...listeners} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
+        <span {...dndProps} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         <EditableLabel value={task} onRename={(n: string) => onRename?.(n)} className={`text-[12px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
