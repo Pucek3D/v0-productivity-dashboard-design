@@ -223,7 +223,7 @@ function SortableCustomTask({ ct, ctText, ctk, cmeta, category, onToggle, onDele
     <div ref={setNodeRef} {...dndProps} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
       className="py-0.5 cursor-grab active:cursor-grabbing select-none group" onClick={() => openModal(ctk, label)}>
       <div className="flex items-center gap-1.5">
-        <div onPointerDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${ct.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{ct.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
+        <div onPointerDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${ct.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{ct.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         <EditableLabel value={label} onRename={(n: string) => onRename?.(n)} className={`text-[12.5px] leading-[1.35] flex-1 min-w-0 truncate ${ct.done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={ctk} taskLabel={label} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
@@ -245,7 +245,7 @@ function TaskRow({ id, task, done, onClick, onOpen, onStar, isStarred, onBookmar
   return (
     <div ref={setNodeRef} {...dndProps} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }} className="py-0.5 cursor-grab active:cursor-grabbing select-none group" onClick={onOpen}>
       <div className="flex items-center gap-1.5">
-        <div onPointerDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); onClick() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
+        <div onPointerDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); onClick() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         <EditableLabel value={task} onRename={(n: string) => onRename?.(n)} className={`text-[12.5px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={taskKey} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
