@@ -620,7 +620,7 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
   )
 }
 
-/* ─── Week View ─── */
+/* ─── Week View ──��� */
 function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMeeting, onOpenEvent, onAddAt, onRemoveMeeting, onDeleteEvent, beginDrag, dropOnDay }: {
   today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
   customMeetings: CustomMeeting[]; month: number; year: number
@@ -1010,83 +1010,200 @@ function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: ini
   )
 }
 
-/* ── Meeting Detail Modal (location, link, notes, files) ── */
-function MeetingDetail({ meeting, monthName, onClose }: {
-  meeting: CustomMeeting
-  monthName: string
+/* ── Meeting / Event Edit Modal — full details, opens on click ── */
+function MeetingEditModal({ state, today, onChange, onSave, onDelete, onClose }: {
+  state: EditState
+  today: { d: number; m: number; y: number }
+  onChange: (s: EditState) => void
+  onSave: () => void
+  onDelete: () => void
   onClose: () => void
 }) {
-  const timeLabel = meeting.time
-    ? fmtTimeRange(parseInt(meeting.time.split(':')[0]), parseInt(meeting.time.split(':')[1] || '0'), meeting.durationMin)
-    : 'All day'
+  const [navMonth, setNavMonth] = useState(state.month)
+  const [navYear, setNavYear] = useState(state.year)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const set = (patch: Partial<EditState>) => onChange({ ...state, ...patch })
+
+  const hasTime = state.time !== ''
+  const hour = hasTime ? parseInt(state.time.split(':')[0]) : 9
+  const minute = hasTime ? parseInt(state.time.split(':')[1] || '0') : 0
+  const setTime = (h: number, m: number) => set({ time: `${pad2(h)}:${pad2(m)}` })
+
+  const daysInMonth = getDaysInMonth(navMonth, navYear)
+  const firstDay = getFirstDayOfMonth(navMonth, navYear)
+  const prevMonth = () => { if (navMonth === 0) { setNavMonth(11); setNavYear(navYear - 1) } else setNavMonth(navMonth - 1) }
+  const nextMonth = () => { if (navMonth === 11) { setNavMonth(0); setNavYear(navYear + 1) } else setNavMonth(navMonth + 1) }
+
+  const addFiles = (list: FileList | null) => {
+    if (!list) return
+    const added: MeetingFile[] = Array.from(list).map(f => ({ name: f.name, url: URL.createObjectURL(f) }))
+    set({ files: [...state.files, ...added] })
+  }
+
+  const inputBox: React.CSSProperties = {
+    width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 7, padding: '7px 10px', fontSize: 12, color: '#fff', outline: 'none',
+  }
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 9, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5,
+  }
 
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} onClick={onClose} />
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} onClick={onClose} />
       <div style={{
-        position: 'relative', width: '100%', maxWidth: 340,
+        position: 'relative', width: '100%', maxWidth: 360, maxHeight: '88vh', overflowY: 'auto',
         background: '#131c2e', border: '1px solid rgba(255,255,255,0.10)',
         borderRadius: 14, padding: 18, boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
       }}>
         <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 12, color: '#64748b', cursor: 'pointer', display: 'flex' }}>
           <IconX size={16} />
         </button>
-        <div className="flex items-center gap-2" style={{ marginBottom: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 3, background: `${meeting.color}33`, border: `1px solid ${meeting.color}` }} />
-          <span style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{meeting.label}</span>
-        </div>
-        <div style={{ fontSize: 11, color: '#94a3b8', fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
-          {monthName} {meeting.day} · {timeLabel}
+        <div style={{ fontSize: 9, fontWeight: 600, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 10 }}>
+          Edit {state.kind === 'meeting' ? 'meeting' : 'event'}
         </div>
 
-        <div className="flex flex-col gap-2.5">
-          {meeting.location && (
-            <a href={meeting.lat != null && meeting.lon != null
-              ? `https://www.google.com/maps/search/?api=1&query=${meeting.lat},${meeting.lon}`
-              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(meeting.location)}`}
-              target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px', textDecoration: 'none' }}>
-              <IconMapPin size={15} color="#818cf8" style={{ flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 12, color: '#e2e8f0' }}>{meeting.location}</span>
-              <span style={{ fontSize: 8, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Open map</span>
-            </a>
-          )}
-          {meeting.link && (
-            <a href={meeting.link} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px', textDecoration: 'none' }}>
-              <IconLink size={15} color="#2dd4bf" style={{ flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 12, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meeting.link}</span>
-              <span style={{ fontSize: 8, fontWeight: 700, color: '#2dd4bf', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Join</span>
-            </a>
-          )}
-          {meeting.notes && (
-            <div className="flex items-start gap-2"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px' }}>
-              <IconNotes size={15} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
-              <span style={{ flex: 1, fontSize: 12, color: '#cbd5e1', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{meeting.notes}</span>
+        {/* Name */}
+        <input value={state.label} onChange={e => set({ label: e.target.value })} placeholder="Title"
+          style={{ ...inputBox, fontSize: 15, fontWeight: 700, marginBottom: 12 }} />
+
+        {/* Date grid */}
+        <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+          <button onClick={prevMonth} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14, padding: '0 6px' }}>‹</button>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#cbd5e1' }}>{MONTH_NAMES[navMonth]} {navYear}</span>
+          <button onClick={nextMonth} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14, padding: '0 6px' }}>›</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+          {DAY_NAMES.map(dn => <div key={dn} style={{ fontSize: 8, fontWeight: 600, color: '#475569', textAlign: 'center' }}>{dn.slice(0, 1)}</div>)}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 12 }}>
+          {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const d = i + 1
+            const isSelected = state.day === d && state.month === navMonth && state.year === navYear
+            const isToday = d === today.d && navMonth === today.m && navYear === today.y
+            return (
+              <button key={d} onClick={() => set({ day: d, month: navMonth, year: navYear })} style={{
+                aspectRatio: '1', borderRadius: 5, border: 'none', cursor: 'pointer',
+                fontSize: 10, fontWeight: isSelected ? 700 : 500,
+                background: isSelected ? '#6366f1' : 'transparent',
+                color: isSelected ? '#fff' : isToday ? '#fb7185' : '#94a3b8',
+              }}>{d}</button>
+            )
+          })}
+        </div>
+
+        {/* Time */}
+        <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
+          <span style={sectionLabel}>Start time</span>
+          <button onClick={() => set({ time: hasTime ? '' : '09:00' })}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: hasTime ? '#fb7185' : '#818cf8' }}>
+            {hasTime ? 'Clear time (all day)' : 'Add time'}
+          </button>
+        </div>
+        {hasTime && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 12 }}>
+              <ScrollWheel items={HOUR_ITEMS} value={hour} onChange={(h: number) => setTime(h, minute)} width={60} />
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#475569', lineHeight: 1 }}>:</span>
+              <ScrollWheel items={MINUTE_ITEMS} value={minute} onChange={(m: number) => setTime(hour, m)} width={60} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={sectionLabel}>Duration</div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {DURATION_PRESETS.map(p => {
+                  const active = state.durationMin === p.value
+                  return (
+                    <button key={p.value} onClick={() => set({ durationMin: p.value })} style={{
+                      padding: '3px 8px', borderRadius: 5, cursor: 'pointer', fontSize: 9, fontWeight: 700,
+                      background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.04)',
+                      color: active ? '#818cf8' : '#94a3b8',
+                      border: active ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                    }}>{p.label}</button>
+                  )
+                })}
+                <span style={{ fontSize: 9, color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtTimeRange(hour, minute, state.durationMin)}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Color */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={sectionLabel}>Color</div>
+          <div className="flex items-center gap-1.5">
+            {MEETING_COLORS.map(c => (
+              <button key={c} onClick={() => set({ color: c })} style={{
+                width: 20, height: 20, borderRadius: 6, cursor: 'pointer', background: `${c}33`,
+                border: state.color === c ? `1.5px solid ${c}` : `1px solid ${c}44`,
+                boxShadow: state.color === c ? `0 0 8px ${c}66` : 'none',
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Location */}
+        <div style={{ marginBottom: 10 }}>
+          <div style={sectionLabel}>Location</div>
+          <LocationAutocomplete
+            value={state.location}
+            onChange={(v) => set({ location: v, coords: null })}
+            onSelect={(name, lat, lon) => set({ location: name, coords: { lat, lon } })}
+            hasCoords={!!state.coords}
+            coords={state.coords}
+          />
+        </div>
+
+        {/* Link */}
+        <div style={{ marginBottom: 10 }}>
+          <div style={sectionLabel}>Link</div>
+          <input value={state.link} onChange={e => set({ link: e.target.value })} placeholder="https://…" style={inputBox} />
+        </div>
+
+        {/* Notes */}
+        <div style={{ marginBottom: 10 }}>
+          <div style={sectionLabel}>Notes</div>
+          <textarea value={state.notes} onChange={e => set({ notes: e.target.value })} placeholder="Add notes" rows={2}
+            style={{ ...inputBox, resize: 'vertical', lineHeight: 1.5 }} />
+        </div>
+
+        {/* Files */}
+        <div style={{ marginBottom: 16 }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 5 }}>
+            <span style={sectionLabel}>Files</span>
+            <button onClick={() => fileRef.current?.click()}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#818cf8', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <IconPaperclip size={11} /> Attach
+            </button>
+            <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
+          </div>
+          {state.files.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {state.files.map((f, i) => (
+                <div key={i} className="flex items-center gap-2" style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '4px 8px' }}>
+                  <span style={{ flex: 1, fontSize: 11, color: '#a5b4fc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                  <button onClick={() => set({ files: state.files.filter((_, j) => j !== i) })}
+                    style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex' }}><IconX size={11} /></button>
+                </div>
+              ))}
             </div>
           )}
-          {meeting.files && meeting.files.length > 0 && (
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 10px' }}>
-              <div className="flex items-center gap-1.5" style={{ marginBottom: 6 }}>
-                <IconPaperclip size={14} color="#fb7185" />
-                <span style={{ fontSize: 9, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Files</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                {meeting.files.map((f, i) => (
-                  <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" download={f.name}
-                    style={{ fontSize: 11, color: '#a5b4fc', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {f.name}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-          {!meeting.location && !meeting.link && !meeting.notes && !(meeting.files && meeting.files.length) && (
-            <div style={{ fontSize: 11, color: '#64748b', textAlign: 'center', padding: '8px 0' }}>No additional details.</div>
-          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          <button onClick={onDelete} style={{
+            padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.08em', background: 'rgba(244,63,94,0.12)',
+            border: '1px solid rgba(244,63,94,0.3)', color: '#fb7185',
+          }}>Delete</button>
+          <button onClick={onSave} style={{
+            flex: 1, padding: '8px 0', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.1em', background: '#6366f1', color: '#fff',
+            border: 'none', boxShadow: '0 0 12px rgba(99,102,241,0.4)',
+          }}>Save</button>
         </div>
       </div>
     </div>,
