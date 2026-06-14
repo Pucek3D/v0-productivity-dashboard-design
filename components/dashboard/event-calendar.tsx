@@ -6,7 +6,7 @@ import {
   MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth
 } from '@/lib/data'
 import { IconPlus, IconX, IconCalendar, IconMapPin, IconLink, IconNotes, IconPaperclip } from '@tabler/icons-react'
-import type { DeadlineEvent } from '@/lib/task-meta'
+import type { DeadlineEvent, TaskMeta } from '@/lib/task-meta'
 import { ScrollWheel, HOUR_ITEMS, MINUTE_ITEMS } from './task-actions'
 
 const CARD: React.CSSProperties = {
@@ -100,9 +100,29 @@ interface EventCalendarProps {
   deadlineEvents?: DeadlineEvent[]
   completedTasks?: Set<string>
   onDeleteEvent?: (ev: DeadlineEvent) => void
+  onUpdateEvent?: (ev: DeadlineEvent, changes: Partial<TaskMeta>) => void
 }
 
-export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent }: EventCalendarProps) {
+/* unified edit-modal target — used for both custom meetings and task events */
+interface EditState {
+  kind: 'meeting' | 'event'
+  meetingId?: string
+  event?: DeadlineEvent
+  label: string
+  day: number; month: number; year: number
+  time: string            // 'HH:MM' or ''
+  durationMin: number
+  color: string
+  location: string
+  coords: { lat: number; lon: number } | null
+  link: string
+  notes: string
+  files: MeetingFile[]
+}
+
+const pad2 = (n: number) => n.toString().padStart(2, '0')
+
+export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent, onUpdateEvent }: EventCalendarProps) {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
   const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
   const [month, setMonth] = useState(4)
@@ -122,7 +142,9 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
   const [newMeetingNotes, setNewMeetingNotes] = useState('')
   const [newMeetingFiles, setNewMeetingFiles] = useState<MeetingFile[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [openMeetingId, setOpenMeetingId] = useState<string | null>(null)
+  const [editState, setEditState] = useState<EditState | null>(null)
+  // active drag payload (HTML5 DnD) — identifies what is being moved
+  const dragItem = useRef<{ kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent } | null>(null)
 
   useEffect(() => {
     const now = new Date()
@@ -184,6 +206,106 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
     return customMeetings.filter(mtg =>
       mtg.day === day && mtg.month === m && mtg.year === y && !mtg.done
     )
+  }
+
+  // ── open the add form, optionally prefilled for a specific day/time ──
+  const openAddForm = (day: number, m: number, y: number, time?: string) => {
+    setMonth(m); setYear(y)
+    setNewMeetingText(''); setNewMeetingTime(time || ''); setNewMeetingColor('#818cf8')
+    setNewMeetingDuration(30); setCustomDur('')
+    setNewMeetingLocation(''); setNewMeetingCoords(null)
+    setNewMeetingLink(''); setNewMeetingNotes(''); setNewMeetingFiles([])
+    setShowAddForm({ day })
+  }
+
+  // ── open the edit modal for an existing custom meeting ──
+  const openMeetingEdit = (m: CustomMeeting) => setEditState({
+    kind: 'meeting', meetingId: m.id, label: m.label,
+    day: m.day, month: m.month, year: m.year,
+    time: m.time || '', durationMin: m.durationMin || 30, color: m.color,
+    location: m.location || '', coords: (m.lat != null && m.lon != null) ? { lat: m.lat, lon: m.lon } : null,
+    link: m.link || '', notes: m.notes || '', files: m.files || [],
+  })
+
+  // ── open the edit modal for a task-derived event ──
+  const openEventEdit = (ev: DeadlineEvent) => {
+    const d = new Date(ev.date + 'T00:00')
+    setEditState({
+      kind: 'event', event: ev, label: ev.label.replace(/^🔄\s*/, ''),
+      day: d.getDate(), month: d.getMonth(), year: d.getFullYear(),
+      time: ev.hour !== undefined ? `${pad2(ev.hour)}:${pad2(ev.minute ?? 0)}` : '',
+      durationMin: ev.durationMin || 30, color: ev.color,
+      location: ev.location || '', coords: (ev.lat != null && ev.lon != null) ? { lat: ev.lat, lon: ev.lon } : null,
+      link: ev.link || '', notes: ev.notes || '', files: ev.files || [],
+    })
+  }
+
+  // ── persist edits from the modal ──
+  const saveEdit = (s: EditState) => {
+    const hour = s.time ? parseInt(s.time.split(':')[0]) : undefined
+    const minute = s.time ? parseInt(s.time.split(':')[1] || '0') : undefined
+    if (s.kind === 'meeting' && s.meetingId) {
+      setCustomMeetings(prev => prev.map(m => m.id === s.meetingId ? {
+        ...m, label: s.label.trim() || m.label, day: s.day, month: s.month, year: s.year,
+        color: s.color, time: s.time || undefined, durationMin: s.time ? s.durationMin : undefined,
+        location: s.location.trim() || undefined, lat: s.coords?.lat, lon: s.coords?.lon,
+        link: s.link.trim() || undefined, notes: s.notes.trim() || undefined,
+        files: s.files.length ? s.files : undefined,
+      } : m))
+    } else if (s.kind === 'event' && s.event && onUpdateEvent) {
+      onUpdateEvent(s.event, {
+        deadline: `${s.year}-${pad2(s.month + 1)}-${pad2(s.day)}`,
+        hour, minute, durationMin: s.time ? s.durationMin : undefined,
+        location: s.location.trim() || undefined, lat: s.coords?.lat, lon: s.coords?.lon,
+        link: s.link.trim() || undefined, notes: s.notes.trim() || undefined,
+        files: s.files.length ? s.files : undefined, color: s.color, label: s.label.trim(),
+      })
+    }
+    setEditState(null)
+  }
+
+  const deleteEdit = (s: EditState) => {
+    if (s.kind === 'meeting' && s.meetingId) removeMeeting(s.meetingId)
+    else if (s.kind === 'event' && s.event && onDeleteEvent) onDeleteEvent(s.event)
+    setEditState(null)
+  }
+
+  // ── reschedule helpers (used by drag & drop and day-view resize) ──
+  const rescheduleMeeting = (id: string, p: { day: number; month: number; year: number; time?: string | null; durationMin?: number }) => {
+    setCustomMeetings(prev => prev.map(m => {
+      if (m.id !== id) return m
+      const next = { ...m, day: p.day, month: p.month, year: p.year }
+      if (p.time !== undefined) {
+        next.time = p.time || undefined
+        next.durationMin = p.time ? (p.durationMin ?? m.durationMin ?? 30) : undefined
+      } else if (p.durationMin !== undefined) {
+        next.durationMin = p.durationMin
+      }
+      return next
+    }))
+  }
+  const rescheduleEvent = (ev: DeadlineEvent, p: { date?: string; hour?: number | null; minute?: number; durationMin?: number }) => {
+    if (!onUpdateEvent) return
+    const changes: Partial<TaskMeta> = {}
+    if (p.date) changes.deadline = p.date
+    if (p.hour !== undefined) { changes.hour = p.hour === null ? undefined : p.hour; changes.minute = p.hour === null ? undefined : (p.minute ?? 0) }
+    if (p.durationMin !== undefined) changes.durationMin = p.durationMin
+    onUpdateEvent(ev, changes)
+  }
+
+  // ── drag & drop wiring ──
+  const beginDrag = (payload: { kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent }) => { dragItem.current = payload }
+  const dropOnDay = (day: number, m: number, y: number) => {
+    const it = dragItem.current; if (!it) return
+    if (it.kind === 'meeting' && it.id) rescheduleMeeting(it.id, { day, month: m, year: y })
+    else if (it.kind === 'event' && it.ev) rescheduleEvent(it.ev, { date: `${y}-${pad2(m + 1)}-${pad2(day)}` })
+    dragItem.current = null
+  }
+  const dropOnHour = (day: number, m: number, y: number, hour: number) => {
+    const it = dragItem.current; if (!it) return
+    if (it.kind === 'meeting' && it.id) rescheduleMeeting(it.id, { day, month: m, year: y, time: `${pad2(hour)}:00` })
+    else if (it.kind === 'event' && it.ev) rescheduleEvent(it.ev, { date: `${y}-${pad2(m + 1)}-${pad2(day)}`, hour, minute: 0 })
+    dragItem.current = null
   }
 
   return (
@@ -379,30 +501,48 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
         )}
         {view === 'm' && <MonthView month={month} year={year} today={today}
           deadlineEvents={activeDeadlineEvents} customMeetings={customMeetings}
-          onClickDay={(day) => setShowAddForm({ day })} onOpenMeeting={setOpenMeetingId}
-          onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent} />}
+          onClickDay={(day) => openAddForm(day, month, year)}
+          onOpenMeeting={(id) => { const m = customMeetings.find(mm => mm.id === id); if (m) openMeetingEdit(m) }}
+          onOpenEvent={openEventEdit}
+          onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent}
+          beginDrag={beginDrag} dropOnDay={dropOnDay} />}
         {view === 'w' && <WeekView today={today} deadlineEvents={activeDeadlineEvents}
-          customMeetings={customMeetings} month={month} year={year} onOpenMeeting={setOpenMeetingId}
-          onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent} />}
+          customMeetings={customMeetings} month={month} year={year}
+          onOpenMeeting={(id) => { const m = customMeetings.find(mm => mm.id === id); if (m) openMeetingEdit(m) }}
+          onOpenEvent={openEventEdit} onAddAt={openAddForm}
+          onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent}
+          beginDrag={beginDrag} dropOnDay={dropOnDay} />}
         {view === 'd' && <DayView today={today} deadlineEvents={activeDeadlineEvents}
-          customMeetings={customMeetings} month={month} year={year} onOpenMeeting={setOpenMeetingId}
-          onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent} />}
+          customMeetings={customMeetings} month={month} year={year}
+          onOpenMeeting={(id) => { const m = customMeetings.find(mm => mm.id === id); if (m) openMeetingEdit(m) }}
+          onOpenEvent={openEventEdit} onAddAt={openAddForm}
+          onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent}
+          beginDrag={beginDrag} dropOnHour={dropOnHour}
+          rescheduleMeeting={rescheduleMeeting} rescheduleEvent={rescheduleEvent} />}
       </div>
-      {openMeetingId && (() => {
-        const m = customMeetings.find(mm => mm.id === openMeetingId)
-        if (!m) return null
-        return <MeetingDetail meeting={m} monthName={MONTH_NAMES[m.month]} onClose={() => setOpenMeetingId(null)} />
-      })()}
+      {editState && (
+        <MeetingEditModal
+          state={editState}
+          today={today}
+          onChange={setEditState}
+          onSave={() => saveEdit(editState)}
+          onDelete={() => deleteEdit(editState)}
+          onClose={() => setEditState(null)}
+        />
+      )}
     </div>
   )
 }
 
 /* ─── Month View ─── */
-function MonthView({ month, year, today, deadlineEvents, customMeetings, onClickDay, onOpenMeeting, onRemoveMeeting, onDeleteEvent }: {
+function MonthView({ month, year, today, deadlineEvents, customMeetings, onClickDay, onOpenMeeting, onOpenEvent, onRemoveMeeting, onDeleteEvent, beginDrag, dropOnDay }: {
   month: number; year: number; today: { d: number; m: number; y: number }
   deadlineEvents: DeadlineEvent[]; customMeetings: CustomMeeting[]
-  onClickDay: (day: number) => void; onOpenMeeting: (id: string) => void; onRemoveMeeting: (id: string) => void
+  onClickDay: (day: number) => void; onOpenMeeting: (id: string) => void; onOpenEvent: (ev: DeadlineEvent) => void
+  onRemoveMeeting: (id: string) => void
   onDeleteEvent?: (ev: DeadlineEvent) => void
+  beginDrag: (p: { kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent }) => void
+  dropOnDay: (day: number, m: number, y: number) => void
 }) {
   const startDay = getFirstDayOfMonth(month, year)
   const daysInMonth = getDaysInMonth(month, year)
@@ -442,14 +582,20 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
                 isToday ? 'border-rose-400/60' : 'border-transparent hover:bg-white/[0.03] hover:border-white/10'
               }`}
               style={isToday ? { background: 'rgba(244, 63, 94, 0.12)' } : {}}
-              onClick={() => onClickDay(day)}>
+              onClick={() => onClickDay(day)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); dropOnDay(day, month, year) }}>
               <span className={`text-[11px] leading-none mb-[2px] ${
                 isToday ? 'text-rose-300 font-bold' : 'text-slate-300 font-semibold'
               }`} style={{ fontVariantNumeric: 'tabular-nums' }}>{day}</span>
-              {dayEvents.slice(0, 2).map((ev, j) => (
-                <div key={j} className="group/ev relative text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
-                  style={{ background: `${ev.color}22`, color: ev.color, border: `1px solid ${ev.color}44`, cursor: (ev as any).kind === 'meeting' ? 'pointer' : undefined }}
-                  onClick={(ev as any).kind === 'meeting' ? (e) => { e.stopPropagation(); onOpenMeeting((ev as any).id) } : undefined}>
+              {dayEvents.slice(0, 2).map((ev, j) => {
+                const interactive = (ev as any).kind === 'meeting' || (ev as any).kind === 'task'
+                return (
+                <div key={j} draggable={interactive}
+                  onDragStart={interactive ? (e) => { e.stopPropagation(); beginDrag((ev as any).kind === 'meeting' ? { kind: 'meeting', id: (ev as any).id } : { kind: 'event', ev: (ev as any).ev }) } : undefined}
+                  className="group/ev relative text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.3]"
+                  style={{ background: `${ev.color}22`, color: ev.color, border: `1px solid ${ev.color}44`, cursor: interactive ? 'pointer' : undefined }}
+                  onClick={interactive ? (e) => { e.stopPropagation(); if ((ev as any).kind === 'meeting') onOpenMeeting((ev as any).id); else onOpenEvent((ev as any).ev) } : undefined}>
                   {(ev as any).hasDetails && <span style={{ marginRight: 2 }}>•</span>}
                   {ev.label}
                   {(ev.kind === 'meeting' || (ev.kind === 'task' && onDeleteEvent)) && (
@@ -461,7 +607,8 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
                     </button>
                   )}
                 </div>
-              ))}
+                )
+              })}
               {dayEvents.length > 2 && (
                 <div className="text-[9.5px] font-semibold rounded-[3px] px-1 py-[1.5px] bg-white/5 text-slate-500">+{dayEvents.length - 2}</div>
               )}
@@ -474,10 +621,14 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
 }
 
 /* ─── Week View ─── */
-function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMeeting, onRemoveMeeting, onDeleteEvent }: {
+function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMeeting, onOpenEvent, onAddAt, onRemoveMeeting, onDeleteEvent, beginDrag, dropOnDay }: {
   today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
   customMeetings: CustomMeeting[]; month: number; year: number
-  onOpenMeeting: (id: string) => void; onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
+  onOpenMeeting: (id: string) => void; onOpenEvent: (ev: DeadlineEvent) => void
+  onAddAt: (day: number, m: number, y: number, time?: string) => void
+  onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
+  beginDrag: (p: { kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent }) => void
+  dropOnDay: (day: number, m: number, y: number) => void
 }) {
   const cols = (() => {
     const result: { name: string; day: number; dateStr: string; month: number; year: number }[] = []
@@ -519,9 +670,12 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMe
         const events = [...regularEvents, ...taskEvents, ...meetingEvents]
 
         return (
-          <div key={c.day} className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 border overflow-hidden ${
+          <div key={c.day} className={`rounded-lg p-1.5 min-h-[92px] flex flex-col gap-1 border overflow-hidden cursor-pointer ${
             isToday ? 'border-rose-400/60' : 'border-white/5 bg-white/[0.02]'
-          }`} style={isToday ? { background: 'rgba(244, 63, 94, 0.10)' } : {}}>
+          }`} style={isToday ? { background: 'rgba(244, 63, 94, 0.10)' } : {}}
+            onClick={() => onAddAt(c.day, c.month, c.year)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); dropOnDay(c.day, c.month, c.year) }}>
             <div className="text-center mb-1">
               <div className={`text-[9px] font-semibold uppercase tracking-[0.12em] ${isToday ? 'text-rose-300' : 'text-slate-500'}`}>{c.name}</div>
               <div style={{ ...({ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif', fontWeight: 700, letterSpacing: '-0.025em' }), fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}
@@ -529,10 +683,14 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMe
                   isToday ? 'text-rose-300' : 'text-white'
                 }`}>{c.day}</div>
             </div>
-            {events.map((ev, i) => (
-              <div key={i} className="group/ev relative rounded-[5px] px-1.5 py-1"
-                style={{ background: `${ev.color}22`, borderLeft: `2px solid ${ev.color}`, boxShadow: `0 0 8px ${ev.color}33`, cursor: (ev as any).kind === 'meeting' ? 'pointer' : undefined }}
-                onClick={(ev as any).kind === 'meeting' ? (e) => { e.stopPropagation(); onOpenMeeting((ev as any).id) } : undefined}>
+            {events.map((ev, i) => {
+              const interactive = (ev as any).kind === 'meeting' || (ev as any).kind === 'task'
+              return (
+              <div key={i} draggable={interactive}
+                onDragStart={interactive ? (e) => { e.stopPropagation(); beginDrag((ev as any).kind === 'meeting' ? { kind: 'meeting', id: (ev as any).id } : { kind: 'event', ev: (ev as any).ev }) } : undefined}
+                className="group/ev relative rounded-[5px] px-1.5 py-1"
+                style={{ background: `${ev.color}22`, borderLeft: `2px solid ${ev.color}`, boxShadow: `0 0 8px ${ev.color}33`, cursor: interactive ? 'pointer' : undefined }}
+                onClick={interactive ? (e) => { e.stopPropagation(); if ((ev as any).kind === 'meeting') onOpenMeeting((ev as any).id); else onOpenEvent((ev as any).ev) } : undefined}>
                 <div className="text-[9.5px] font-bold" style={{ color: ev.color, fontVariantNumeric: 'tabular-nums' }}>{ev.time}</div>
                 <div className="text-[10px] font-semibold leading-[1.25] text-slate-200 mt-px overflow-hidden"
                   style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
@@ -548,7 +706,8 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMe
                   </button>
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
         )
       })}
@@ -557,10 +716,16 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMe
 }
 
 /* ─── Day View ─── */
-function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMeeting, onRemoveMeeting, onDeleteEvent }: {
+function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMeeting, onOpenEvent, onAddAt, onRemoveMeeting, onDeleteEvent, beginDrag, dropOnHour, rescheduleMeeting, rescheduleEvent }: {
   today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
   customMeetings: CustomMeeting[]; month: number; year: number
-  onOpenMeeting: (id: string) => void; onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
+  onOpenMeeting: (id: string) => void; onOpenEvent: (ev: DeadlineEvent) => void
+  onAddAt: (day: number, m: number, y: number, time?: string) => void
+  onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
+  beginDrag: (p: { kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent }) => void
+  dropOnHour: (day: number, m: number, y: number, hour: number) => void
+  rescheduleMeeting: (id: string, p: { day: number; month: number; year: number; time?: string | null; durationMin?: number }) => void
+  rescheduleEvent: (ev: DeadlineEvent, p: { date?: string; hour?: number | null; minute?: number; durationMin?: number }) => void
 }) {
   const dateStr = new Date(today.y, today.m, today.d).toLocaleDateString('en-US', {
     weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
@@ -582,6 +747,74 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMee
   const allDayMeetings = todayMeetings.filter(m => !m.time)
   const timedMeetings = todayMeetings.filter(m => m.time)
 
+  // ── timeline geometry ──
+  const START_H = 8, END_H = 19, HOUR_PX = 46
+  const TOTAL_MIN = (END_H - START_H) * 60
+  const TL_HEIGHT = TOTAL_MIN / 60 * HOUR_PX
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+  const minToLabel = (min: number) => `${pad2(Math.floor(min / 60))}:${pad2(min % 60)}`
+
+  // in-progress drag / resize (live preview)
+  const [drag, setDrag] = useState<{ key: string; startMin: number; durationMin: number } | null>(null)
+  const gesture = useRef<{ mode: 'move' | 'resize-b' | 'resize-t'; kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent; startY: number; origStart: number; origDur: number; moved: boolean } | null>(null)
+  const live = useRef<{ startMin: number; durationMin: number } | null>(null)
+
+  const startGesture = (e: React.PointerEvent, mode: 'move' | 'resize-b' | 'resize-t', item: { key: string; kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent; startMin: number; durationMin: number }) => {
+    e.preventDefault(); e.stopPropagation()
+    ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+    gesture.current = { mode, kind: item.kind, id: item.id, ev: item.ev, startY: e.clientY, origStart: item.startMin, origDur: item.durationMin, moved: false }
+    live.current = { startMin: item.startMin, durationMin: item.durationMin }
+    setDrag({ key: item.key, startMin: item.startMin, durationMin: item.durationMin })
+  }
+  const moveGesture = (e: React.PointerEvent, key: string) => {
+    const g = gesture.current; if (!g) return
+    const deltaMin = Math.round(((e.clientY - g.startY) / HOUR_PX * 60) / 15) * 15
+    if (Math.abs(e.clientY - g.startY) > 3) g.moved = true
+    let startMin = g.origStart, durationMin = g.origDur
+    if (g.mode === 'move') {
+      startMin = clamp(g.origStart + deltaMin, START_H * 60, END_H * 60 - g.origDur)
+    } else if (g.mode === 'resize-b') {
+      durationMin = clamp(g.origDur + deltaMin, 15, END_H * 60 - g.origStart)
+    } else {
+      startMin = clamp(g.origStart + deltaMin, START_H * 60, g.origStart + g.origDur - 15)
+      durationMin = g.origDur + (g.origStart - startMin)
+    }
+    live.current = { startMin, durationMin }
+    setDrag({ key, startMin, durationMin })
+  }
+  const endGesture = () => {
+    const g = gesture.current, l = live.current
+    if (g && l) {
+      if (!g.moved) {
+        if (g.kind === 'meeting' && g.id) onOpenMeeting(g.id)
+        else if (g.kind === 'event' && g.ev) onOpenEvent(g.ev)
+      } else {
+        const hour = Math.floor(l.startMin / 60), minute = l.startMin % 60
+        if (g.kind === 'meeting' && g.id) rescheduleMeeting(g.id, { day: today.d, month: today.m, year: today.y, time: `${pad2(hour)}:${pad2(minute)}`, durationMin: l.durationMin })
+        else if (g.kind === 'event' && g.ev) rescheduleEvent(g.ev, { hour, minute, durationMin: l.durationMin })
+      }
+    }
+    gesture.current = null; live.current = null; setDrag(null)
+  }
+
+  type TItem = { key: string; kind: 'static' | 'task' | 'meeting'; label: string; color: string; startMin: number; durationMin: number; hasDetails?: boolean; id?: string; ev?: DeadlineEvent }
+  const items: TItem[] = [
+    ...DAY_EVENTS.filter(e => e.hour >= START_H && e.hour < END_H).map(e => ({ key: `s:${e.hour}:${e.label}`, kind: 'static' as const, label: e.label, color: (e as any).color || '#64748b', startMin: e.hour * 60, durationMin: 60 })),
+    ...timedDeadlines.map(e => ({ key: `e:${e.eventId}`, kind: 'task' as const, label: e.label, color: e.color, startMin: (e.hour ?? 0) * 60 + (e.minute ?? 0), durationMin: e.durationMin || 60, hasDetails: !!(e.location || e.link || e.notes || e.files?.length), ev: e })),
+    ...timedMeetings.map(m => ({ key: `m:${m.id}`, kind: 'meeting' as const, label: m.label, color: m.color, startMin: parseInt(m.time!.split(':')[0]) * 60 + parseInt(m.time!.split(':')[1] || '0'), durationMin: m.durationMin || 60, hasDetails: !!(m.location || m.link || m.notes || m.files?.length), id: m.id })),
+  ].map(it => (drag && drag.key === it.key) ? { ...it, startMin: drag.startMin, durationMin: drag.durationMin } : it)
+
+  const now = new Date()
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const showNow = now.getDate() === today.d && now.getMonth() === today.m && now.getFullYear() === today.y && nowMin >= START_H * 60 && nowMin <= END_H * 60
+
+  const onTimelineClick = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const raw = START_H * 60 + Math.floor(((e.clientY - rect.top) / HOUR_PX * 60) / 30) * 30
+    const min = clamp(raw, START_H * 60, (END_H - 1) * 60)
+    onAddAt(today.d, today.m, today.y, `${pad2(Math.floor(min / 60))}:${pad2(min % 60)}`)
+  }
+
   return (
     <>
       <div className="mb-3 flex items-center justify-between">
@@ -599,9 +832,11 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMee
             <div key={i} className="group/ev relative" style={{
               background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`,
               borderRadius: '0 6px 6px 0', padding: '4px 8px', marginBottom: 2,
-              boxShadow: `0 0 12px ${ev.color}33`, cursor: (ev as any).kind === 'meeting' ? 'pointer' : undefined,
+              boxShadow: `0 0 12px ${ev.color}33`, cursor: 'pointer',
             }}
-            onClick={(ev as any).kind === 'meeting' ? (e) => { e.stopPropagation(); onOpenMeeting((ev as any).id) } : undefined}>
+            draggable={(ev as any).kind === 'meeting' || (ev as any).kind === 'task'}
+            onDragStart={(e) => { e.stopPropagation(); beginDrag((ev as any).kind === 'meeting' ? { kind: 'meeting', id: (ev as any).id } : { kind: 'event', ev: (ev as any).ev }) }}
+            onClick={(e) => { e.stopPropagation(); if ((ev as any).kind === 'meeting') onOpenMeeting((ev as any).id); else onOpenEvent((ev as any).ev) }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: ev.color }}>
                 {(ev as any).hasDetails && <span style={{ marginRight: 3 }}>•</span>}
                 {ev.label}
@@ -619,59 +854,75 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMee
         </div>
       )}
 
-      {Array.from({ length: 11 }).map((_, i) => {
-        const hour = i + 8
-        const staticEvents = DAY_EVENTS.filter(e => e.hour === hour)
-        const deadlineAtHour = timedDeadlines.filter(e => e.hour === hour)
-          .map(e => ({ label: e.label, color: e.color, hour, end: hour + 1, timeLabel: `${hour.toString().padStart(2, '0')}:${(e.minute ?? 0).toString().padStart(2, '0')}`, endLabel: e.durationMin ? fmtTimeRange(hour, e.minute ?? 0, e.durationMin).split('–')[1] : `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'task' as const, ev: e }))
-        const meetingAtHour = timedMeetings
-          .filter(m => m.time && parseInt(m.time.split(':')[0]) === hour)
-          .map(m => ({ label: m.label, color: m.color, hour, end: hour + 1, timeLabel: m.time!, endLabel: m.durationMin ? fmtTimeRange(hour, parseInt(m.time!.split(':')[1] || '0'), m.durationMin).split('–')[1] : `${(hour + 1).toString().padStart(2, '0')}:00`, kind: 'meeting' as const, id: m.id, hasDetails: !!(m.location || m.link || m.notes || m.files?.length) }))
-        const events = [
-          ...staticEvents.map(e => ({ ...e, timeLabel: `${e.hour.toString().padStart(2, '0')}:00`, endLabel: `${(e.hour + 1).toString().padStart(2, '0')}:00`, kind: 'static' as const })),
-          ...deadlineAtHour,
-          ...meetingAtHour,
-        ]
-        const isNow = hour === new Date().getHours()
-        const hasContent = events.length > 0 || isNow
-
-        return (
-          <div key={hour} className="flex items-start gap-2 transition-all"
-            style={{ minHeight: hasContent ? '40px' : '10px', opacity: hasContent ? 1 : 0.35 }}>
-            <span className={`text-[10.5px] font-semibold w-[34px] flex-shrink-0 pt-[3px] text-right ${
-              isNow ? 'text-rose-400' : 'text-slate-600'
-            }`} style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {hour.toString().padStart(2, '0')}:00
+      {/* timed timeline — drag a box to move, drag its top/bottom edge to resize, click empty space to add */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ width: 34, flexShrink: 0, position: 'relative', height: TL_HEIGHT }}>
+          {Array.from({ length: END_H - START_H }).map((_, i) => (
+            <span key={i} className="text-[10.5px] font-semibold text-slate-600 text-right"
+              style={{ position: 'absolute', top: i * HOUR_PX - 6, right: 0, fontVariantNumeric: 'tabular-nums' }}>
+              {pad2(START_H + i)}:00
             </span>
-            <div className="flex-1 pt-[3px]" style={{
-              borderTop: `1px solid ${isNow ? 'rgba(251, 113, 133, 0.4)' : 'rgba(255,255,255,0.05)'}`,
-            }}>
-              {isNow && <div className="h-0.5 rounded-sm mb-1" style={{ background: '#fb7185', boxShadow: '0 0 8px #fb7185' }} />}
-              {events.map((ev, j) => (
-                <div key={j} className="group/ev relative rounded-r-md px-2 py-1 mb-1"
-                  style={{ background: `${ev.color}22`, borderLeft: `2.5px solid ${ev.color}`, boxShadow: `0 0 12px ${ev.color}33`, cursor: (ev as any).kind === 'meeting' ? 'pointer' : undefined }}
-                  onClick={(ev as any).kind === 'meeting' ? (e) => { e.stopPropagation(); onOpenMeeting((ev as any).id) } : undefined}>
-                  <div className="text-[12px] font-bold" style={{ color: ev.color }}>
-                    {(ev as any).hasDetails && <span style={{ marginRight: 3 }}>•</span>}
-                    {ev.label}
-                  </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {ev.timeLabel} — {(ev as any).endLabel}
-                  </div>
-                  {((ev as any).kind === 'meeting' || ((ev as any).kind === 'task' && onDeleteEvent)) && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); if ((ev as any).kind === 'meeting') onRemoveMeeting((ev as any).id); else onDeleteEvent!((ev as any).ev) }}
-                      className="absolute right-1 top-1 hidden group-hover/ev:flex items-center justify-center w-4 h-4 rounded bg-black/40 text-white/70 hover:text-rose-300"
-                      title="Delete">
-                      <IconX size={10} />
-                    </button>
-                  )}
+          ))}
+        </div>
+        <div style={{ position: 'relative', flex: 1, height: TL_HEIGHT, cursor: 'copy' }}
+          onClick={onTimelineClick}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); const h = clamp(START_H + Math.floor((e.clientY - rect.top) / HOUR_PX), START_H, END_H - 1); dropOnHour(today.d, today.m, today.y, h) }}>
+          {Array.from({ length: END_H - START_H + 1 }).map((_, i) => (
+            <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: i * HOUR_PX, borderTop: '1px solid rgba(255,255,255,0.05)' }} />
+          ))}
+          {showNow && (
+            <div style={{ position: 'absolute', left: 0, right: 0, top: (nowMin - START_H * 60) / 60 * HOUR_PX, height: 2, background: '#fb7185', boxShadow: '0 0 8px #fb7185', borderRadius: 2, zIndex: 5 }} />
+          )}
+          {items.map(it => {
+            const top = (it.startMin - START_H * 60) / 60 * HOUR_PX
+            const height = Math.max(it.durationMin, 30) / 60 * HOUR_PX
+            const interactive = it.kind === 'meeting' || it.kind === 'task'
+            const isDragging = drag?.key === it.key
+            const handleItem = { key: it.key, kind: it.kind as 'meeting' | 'event', id: it.id, ev: it.ev, startMin: it.startMin, durationMin: it.durationMin }
+            return (
+              <div key={it.key}
+                onPointerDown={interactive ? (e) => startGesture(e, 'move', handleItem) : undefined}
+                onPointerMove={interactive ? (e) => moveGesture(e, it.key) : undefined}
+                onPointerUp={interactive ? endGesture : undefined}
+                onClick={(e) => e.stopPropagation()}
+                className="group/ev"
+                style={{
+                  position: 'absolute', left: 0, right: 4, top, height: height - 2,
+                  background: `${it.color}22`, borderLeft: `2.5px solid ${it.color}`, borderRadius: '0 6px 6px 0',
+                  boxShadow: isDragging ? `0 6px 18px ${it.color}66` : `0 0 12px ${it.color}33`,
+                  padding: '3px 8px', overflow: 'hidden', cursor: interactive ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                  zIndex: isDragging ? 10 : 2, touchAction: 'none', userSelect: 'none',
+                }}>
+                <div className="text-[11.5px] font-bold leading-tight" style={{ color: it.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {it.hasDetails && <span style={{ marginRight: 3 }}>•</span>}
+                  {it.label}
                 </div>
-              ))}
-            </div>
-          </div>
-        )
-      })}
+                <div className="text-[9.5px] text-slate-500" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {minToLabel(it.startMin)}–{minToLabel(it.startMin + it.durationMin)}
+                </div>
+                {interactive && (
+                  <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); if (it.kind === 'meeting') onRemoveMeeting(it.id!); else if (onDeleteEvent) onDeleteEvent(it.ev!) }}
+                    className="absolute right-1 top-1 hidden group-hover/ev:flex items-center justify-center w-4 h-4 rounded bg-black/40 text-white/70 hover:text-rose-300"
+                    title="Delete">
+                    <IconX size={10} />
+                  </button>
+                )}
+                {interactive && (
+                  <>
+                    <div onPointerDown={(e) => startGesture(e, 'resize-t', handleItem)} onPointerMove={(e) => moveGesture(e, it.key)} onPointerUp={endGesture}
+                      style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 7, cursor: 'ns-resize' }} />
+                    <div onPointerDown={(e) => startGesture(e, 'resize-b', handleItem)} onPointerMove={(e) => moveGesture(e, it.key)} onPointerUp={endGesture}
+                      style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 7, cursor: 'ns-resize' }} />
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </>
   )
 }

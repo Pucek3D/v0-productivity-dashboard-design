@@ -132,7 +132,7 @@ export default function Dashboard() {
       // Long-Term Goals (which share identical task text with prio tasks).
       // Uses `'field' in u` presence checks so CLEARING a value (e.g. the
       // "All day" button sending hour:undefined) also propagates.
-      const SHARED_FIELDS = ['priority','recurring','owner','timeEstimate','deadline','hour','minute'] as const
+      const SHARED_FIELDS = ['priority','recurring','owner','timeEstimate','deadline','hour','minute','durationMin','location','lat','lon','link','notes','files','color'] as const
       const changedShared = SHARED_FIELDS.filter(f => f in u)
       if (changedShared.length) {
         const syncFields: Partial<TaskMeta> = {}
@@ -248,7 +248,7 @@ export default function Dashboard() {
   // same text — Top Prio Today, Messages, subtasks (in any task's meta)
   // and the source Project / Goal tasks — and vice-versa. Setting the
   // same value is idempotent, so this is safe to call from any toggle.
-  // ─────────────────────────────────────────────────��────────────────
+  // ─────────────────────────────────────────────────���────────────────
   const propagateDone = useCallback((text:string, done:boolean)=>{
     setPrioTasks(prev=>prev.map(s=>({...s,tasks:s.tasks.map(t=>t.text===text?{...t,done}:t)})))
     setMessages(prev=>prev.map(m=>m.text===text?{...m,done}:m))
@@ -497,10 +497,15 @@ export default function Dashboard() {
       if (existing.hour === undefined && e.hour !== undefined) {
         existing.hour = e.hour; existing.minute = e.minute; existing.durationMin = e.durationMin
       }
+      // merge meeting-style details (first non-empty wins)
+      if (existing.location === undefined && e.location !== undefined) { existing.location = e.location; existing.lat = e.lat; existing.lon = e.lon }
+      if (existing.link === undefined && e.link !== undefined) existing.link = e.link
+      if (existing.notes === undefined && e.notes !== undefined) existing.notes = e.notes
+      if ((!existing.files || !existing.files.length) && e.files && e.files.length) existing.files = e.files
     }
 
     Object.entries(taskMeta).filter(([,m])=>m.deadline).forEach(([k,m])=>{
-      add({date:m.deadline!,label:m.label||'Task',color:'#818cf8',hour:m.hour,minute:m.minute,durationMin:m.durationMin}, k)
+      add({date:m.deadline!,label:m.label||'Task',color:m.color||'#818cf8',hour:m.hour,minute:m.minute,durationMin:m.durationMin,location:m.location,lat:m.lat,lon:m.lon,link:m.link,notes:m.notes,files:m.files}, k)
 
       // Generate recurring instances for the next 90 days
       if (m.recurring && m.deadline) {
@@ -532,6 +537,17 @@ export default function Dashboard() {
     if (!ev.eventId) return
     setHiddenCalendarEvents(p => new Set([...p, ev.eventId!]))
   }, [])
+
+  // Edit / reschedule / resize a task-derived calendar event. Writes the change
+  // to every contributing taskMeta key; updateTaskMeta then propagates shared
+  // fields (deadline/time/details) to all same-label surfaces — Top Prio,
+  // Projects, Goals, Other To-Do and Messages — keeping the whole dashboard in
+  // sync with the calendar.
+  const updateDeadlineEvent = useCallback((ev: DeadlineEvent, changes: Partial<TaskMeta>)=>{
+    const keys = ev.keys && ev.keys.length ? ev.keys : []
+    if (!keys.length) return
+    keys.forEach(k => updateTaskMeta(k, { ...changes, label: ev.label.replace(/^🔄\s*/, '') }))
+  }, [updateTaskMeta])
 
   const completedTasks = useMemo(()=>{const set=new Set<string>();prioTasks.forEach(s=>s.tasks.forEach(t=>{if(t.done)set.add(t.text)}));[...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(projectDone[`${p.key}-task-${i}`])set.add(t)})});return set}, [prioTasks,projectDone])
   const ganttProjectObjs = [...PROJECTS,...LT_GOALS].filter(p=>ganttProjects.has(p.key))
@@ -598,7 +614,7 @@ export default function Dashboard() {
         </div>
         <div className="flex flex-col gap-3">
           <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} onRename={renameTask} onSectionCategoryChange={syncMessageCategory} />
-          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} />
+          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} onUpdateEvent={updateDeadlineEvent} />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
           {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
           <LtGoalsCalendar taskMeta={taskMeta} />

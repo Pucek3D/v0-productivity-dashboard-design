@@ -1,3 +1,8 @@
+export interface MeetingFile {
+  name: string
+  url: string
+}
+
 export interface TaskMeta {
   deadline?: string
   hour?: number
@@ -12,6 +17,14 @@ export interface TaskMeta {
   links?: string[]
   subtasks?: { id: string; text: string; done: boolean; owner?: string; deadline?: string; timeEstimate?: number }[]
   recurring?: 'daily' | 'weekly' | 'monthly' | null
+  // ── meeting-style details (shared with calendar meetings) ──
+  location?: string
+  lat?: number
+  lon?: number
+  link?: string
+  notes?: string
+  files?: MeetingFile[]
+  color?: string
 }
 
 export interface DeadlineEvent {
@@ -21,6 +34,13 @@ export interface DeadlineEvent {
   hour?: number
   minute?: number
   durationMin?: number
+  // ── meeting-style details surfaced from the linked task(s) ──
+  location?: string
+  lat?: number
+  lon?: number
+  link?: string
+  notes?: string
+  files?: MeetingFile[]
   /** taskMeta keys that contribute to this (deduped) event — used for deletion. */
   keys?: string[]
   /** stable per-occurrence id (date + identity) — used to hide from calendar only. */
