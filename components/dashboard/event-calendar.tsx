@@ -1335,7 +1335,7 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
 }
 
 /* ── Date + Time Picker Popover (matches the task date/time picker styling) ── */
-function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: initHour, minute: initMinute, onSelect, onClear, onClose }: {
+export function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: initHour, minute: initMinute, onSelect, onClear, onClose, navigable = false, z = 9998, clearLabel = 'Clear time' }: {
   anchor: DOMRect
   month: number
   year: number
@@ -1343,32 +1343,47 @@ function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: ini
   day: number
   hour: number
   minute: number
-  onSelect: (day: number, h: number, min: number) => void
+  onSelect: (day: number, h: number, min: number, month?: number, year?: number) => void
   onClear: () => void
   onClose: () => void
+  navigable?: boolean
+  z?: number
+  clearLabel?: string
 }) {
+  const [viewMonth, setViewMonth] = useState(month)
+  const [viewYear, setViewYear] = useState(year)
   const [day, setDay] = useState(initDay)
   const [hour, setHour] = useState(initHour)
   const [minute, setMinute] = useState(initMinute)
 
-  const daysInMonth = getDaysInMonth(month, year)
-  const firstDay = getFirstDayOfMonth(month, year)
+  const daysInMonth = getDaysInMonth(viewMonth, viewYear)
+  const firstDay = getFirstDayOfMonth(viewMonth, viewYear)
+
+  const goMonth = (delta: number) => {
+    let m = viewMonth + delta, y = viewYear
+    if (m < 0) { m = 11; y-- } else if (m > 11) { m = 0; y++ }
+    setViewMonth(m); setViewYear(y)
+  }
 
   const top = Math.min(anchor.bottom + 6, window.innerHeight - 360)
   const left = Math.max(8, Math.min(anchor.left - 30, window.innerWidth - 230))
 
   return createPortal(
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={onClose} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: z }} onClick={onClose} />
       <div style={{
-        position: 'fixed', zIndex: 9999, top, left, width: 220,
+        position: 'fixed', zIndex: z + 1, top, left, width: 220,
         background: '#131c2e', border: '1px solid rgba(255,255,255,0.10)',
         borderRadius: 12, padding: 12,
         boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
       }}>
         {/* Date grid */}
-        <div style={{ fontSize: 9, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, textAlign: 'center' }}>
-          {MONTH_NAMES[month]} {year}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8 }}>
+          {navigable && <button onClick={() => goMonth(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', padding: 2 }}><IconChevronRight size={13} style={{ transform: 'rotate(180deg)' }} /></button>}
+          <div style={{ fontSize: 9, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center', minWidth: 88 }}>
+            {MONTH_NAMES[viewMonth]} {viewYear}
+          </div>
+          {navigable && <button onClick={() => goMonth(1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', padding: 2 }}><IconChevronRight size={13} /></button>}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
           {DAY_NAMES.map(dn => (
@@ -1380,7 +1395,7 @@ function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: ini
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1
             const isSelected = day === d
-            const isToday = d === today.d && month === today.m && year === today.y
+            const isToday = d === today.d && viewMonth === today.m && viewYear === today.y
             return (
               <button key={d} onClick={() => setDay(d)} style={{
                 aspectRatio: '1', borderRadius: 5, border: 'none', cursor: 'pointer',
@@ -1400,16 +1415,16 @@ function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: ini
           <span style={{ fontSize: 18, fontWeight: 700, color: '#475569', lineHeight: 1 }}>:</span>
           <ScrollWheel items={MINUTE_ITEMS} value={minute} onChange={setMinute} width={60} />
         </div>
-        <button onClick={() => onSelect(day, hour, minute)} style={{
+        <button onClick={() => onSelect(day, hour, minute, viewMonth, viewYear)} style={{
           width: '100%', padding: '6px 0', borderRadius: 6, cursor: 'pointer',
           fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
           marginTop: 10, background: '#6366f1', color: '#fff', border: 'none',
           boxShadow: '0 0 12px rgba(99,102,241,0.4)',
         }}>
-          Set {MONTH_NAMES[month].slice(0, 3)} {day} · {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')}
+          Set {MONTH_NAMES[viewMonth].slice(0, 3)} {day} · {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')}
         </button>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <button onClick={onClear} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Clear time</button>
+          <button onClick={onClear} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{clearLabel}</button>
         </div>
       </div>
     </>,
@@ -1421,7 +1436,7 @@ function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: ini
 /* ────────────────��─────────────────────────────────────────────────────────
    Create-task decision tree. Shown for standalone meetings/events that aren't
    linked to a dashboard task yet. Flow: section → (Work/Home | project | goal).
-   ────────────────────────────────────��─────────────────────��─────────────── */
+   ────────────────────────────────────��─────────────────────��─────────��───── */
 function CreateTaskPanel({ label, targets, onCreate }: {
   label: string
   targets?: CreateTaskTargets

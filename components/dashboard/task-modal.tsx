@@ -3,6 +3,8 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconPlus, IconTrash, IconPlayerPlay, IconStar, IconBookmark, IconPaperclip, IconCalendarWeek } from '@tabler/icons-react'
 import { type TaskMeta, getDateLabel } from '@/lib/task-meta'
+import { TimePickerPopover } from './event-calendar'
+import { MONTH_NAMES } from '@/lib/data'
 
 interface TaskModalProps { taskKey: string; taskLabel: string; meta: TaskMeta; onUpdate: (u: Partial<TaskMeta>) => void; onClose: () => void; onStartFocus?: (k: string, l: string) => void; starSubtaskToPrio?: (text: string, details?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (text: string, details?: Partial<TaskMeta>) => void; isTaskStarred?: (text: string) => boolean; isTaskBookmarked?: (text: string) => boolean; onRenameTask?: (newName: string) => void }
 const PRIOS = [{ value: 'high', label: 'High', color: '#fb7185' }, { value: 'medium', label: 'Medium', color: '#fbbf24' }, { value: 'low', label: 'Low', color: '#64748b' }]
@@ -37,6 +39,8 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   const [nameDraft, setNameDraft] = useState(taskLabel)
   const nameRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const deadlineBtnRef = useRef<HTMLButtonElement>(null)
+  const [showDeadlinePicker, setShowDeadlinePicker] = useState(false)
 
   // Focus runs as a floating page-level widget (FocusTimer) so the modal can be
   // closed and the user can keep working on the dashboard while the timer runs.
@@ -59,6 +63,15 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   const dateInfo = meta.deadline ? getDateLabel(meta.deadline) : null
   const pad2 = (n: number) => String(n).padStart(2, '0')
   const timeStr = meta.hour !== undefined ? `${pad2(meta.hour)}:${pad2(meta.minute || 0)}` : ''
+  // Combined deadline date+time: parse the stored YYYY-MM-DD so the calendar-style
+  // picker can pre-select the right day, and fall back to today when unset.
+  const nowD = new Date()
+  const dl = meta.deadline ? new Date(meta.deadline + 'T00:00') : null
+  const dlYear = dl ? dl.getFullYear() : nowD.getFullYear()
+  const dlMonth = dl ? dl.getMonth() : nowD.getMonth()
+  const dlDay = dl ? dl.getDate() : nowD.getDate()
+  const todayObj = { d: nowD.getDate(), m: nowD.getMonth(), y: nowD.getFullYear() }
+  const deadlineLabel = dl ? `${MONTH_NAMES[dlMonth].slice(0, 3)} ${dlDay}${timeStr ? ` · ${timeStr}` : ''}` : 'Set deadline'
   const sDone = (meta.subtasks || []).filter(s => s.done).length; const sTotal = (meta.subtasks || []).length
   const focusSessions: { date: string; seconds?: number; minutes?: number }[] = (meta as any).focusSessions || []
   const secsOf = (s: { seconds?: number; minutes?: number }) => s.seconds ?? (s.minutes ? s.minutes * 60 : 0)
@@ -97,7 +110,18 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
 
       <div style={{ padding: '20px 24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
-          <div><div style={S}><IconCalendar size={16} color="#64748b" /> Deadline</div><div style={{ display: 'flex', gap: 6 }}><input type="date" value={meta.deadline || ''} onChange={e => onUpdate({ deadline: e.target.value || undefined, label: taskLabel })} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 10px', fontSize: 13, color: '#e2e8f0', outline: 'none', colorScheme: 'dark', flex: 1, minWidth: 0 }} /><input type="time" value={timeStr} onChange={e => { const v = e.target.value; if (!v) { onUpdate({ hour: undefined, minute: undefined }) } else { const [h, m] = v.split(':').map(Number); onUpdate({ hour: h, minute: m || 0, label: taskLabel }) } }} title="Time (optional)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 8px', fontSize: 13, color: '#e2e8f0', outline: 'none', colorScheme: 'dark', width: 92 }} /></div>{dateInfo && <span style={{ fontSize: 11, fontWeight: 700, display: 'inline-block', marginTop: 4 }} className={`px-2 py-0.5 rounded ${dateInfo.className}`}>{dateInfo.text}{timeStr ? ` · ${timeStr}` : ''}</span>}</div>
+          <div><div style={S}><IconCalendar size={16} color="#64748b" /> Deadline</div><button ref={deadlineBtnRef} onClick={() => setShowDeadlinePicker(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${meta.deadline ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, padding: '6px 10px', fontSize: 13, color: meta.deadline ? '#e2e8f0' : '#64748b', outline: 'none', cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}><IconCalendar size={13} color="#64748b" />{deadlineLabel}</button>{dateInfo && <span style={{ fontSize: 11, fontWeight: 700, display: 'inline-block', marginTop: 4 }} className={`px-2 py-0.5 rounded ${dateInfo.className}`}>{dateInfo.text}{timeStr ? ` · ${timeStr}` : ''}</span>}
+            {showDeadlinePicker && deadlineBtnRef.current && (
+              <TimePickerPopover
+                anchor={deadlineBtnRef.current.getBoundingClientRect()}
+                navigable z={10002} clearLabel="Clear deadline"
+                month={dlMonth} year={dlYear} today={todayObj}
+                day={dlDay} hour={meta.hour ?? 9} minute={meta.minute ?? 0}
+                onSelect={(d, h, mi, m, y) => { onUpdate({ deadline: `${y ?? dlYear}-${pad2((m ?? dlMonth) + 1)}-${pad2(d)}`, hour: h, minute: mi, label: taskLabel }); setShowDeadlinePicker(false) }}
+                onClear={() => { onUpdate({ deadline: undefined, hour: undefined, minute: undefined }); setShowDeadlinePicker(false) }}
+                onClose={() => setShowDeadlinePicker(false)}
+              />
+            )}</div>
           <div><div style={S}><IconUser size={16} color="#64748b" /> Owner</div><input value={meta.owner || ''} onChange={e => onUpdate({ owner: e.target.value || undefined })} placeholder="Assign owner..." style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 10px', fontSize: 13, color: '#e2e8f0', outline: 'none', width: '100%' }} /></div>
           <div><div style={S}><IconFlag size={16} color="#64748b" /> Priority</div><div style={{ display: 'flex', gap: 5 }}>{PRIOS.map(p => <button key={p.value} onClick={() => onUpdate({ priority: meta.priority === p.value ? undefined : p.value as any })} style={{ padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, border: 'none', textTransform: 'uppercase', background: meta.priority === p.value ? `${p.color}22` : 'rgba(255,255,255,0.04)', color: meta.priority === p.value ? p.color : '#475569', boxShadow: meta.priority === p.value ? `inset 0 0 0 1px ${p.color}44` : 'none' }}>{p.label}</button>)}</div></div>
           <div><div style={S}><IconClock size={16} color="#64748b" /> Estimate</div><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>{TIMES.map(t => <button key={t} onClick={() => onUpdate({ timeEstimate: meta.timeEstimate === t ? undefined : t })} style={{ padding: '3px 8px', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 500, border: 'none', background: meta.timeEstimate === t ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)', color: meta.timeEstimate === t ? '#818cf8' : '#475569', boxShadow: meta.timeEstimate === t ? 'inset 0 0 0 1px rgba(99,102,241,0.3)' : 'none' }}>{t >= 60 ? `${t / 60}h` : `${t}m`}</button>)}<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><input type="number" min={0} step={5} value={meta.timeEstimate && !TIMES.includes(meta.timeEstimate) ? meta.timeEstimate : ''} onChange={e => { const v = parseInt(e.target.value, 10); onUpdate({ timeEstimate: Number.isFinite(v) && v > 0 ? v : undefined }) }} placeholder="min" title="Set estimate manually" className="estimate-num" style={{ width: 52, background: '#0f1623', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '3px 6px', fontSize: 12, color: meta.timeEstimate && !TIMES.includes(meta.timeEstimate) ? '#818cf8' : '#94a3b8', outline: 'none', colorScheme: 'dark', boxShadow: meta.timeEstimate && !TIMES.includes(meta.timeEstimate) ? 'inset 0 0 0 1px rgba(99,102,241,0.3)' : 'none' }} /><span style={{ fontSize: 10, color: '#475569' }}>m</span></span></div></div>
