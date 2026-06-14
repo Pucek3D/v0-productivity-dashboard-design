@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { IconTrash, IconStar, IconBookmark, IconPlus, IconGripVertical } from '@tabler/icons-react'
+import { IconTrash, IconStar, IconBookmark, IconPlus } from '@tabler/icons-react'
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
 import { SubtaskPreview } from './subtask-preview'
@@ -108,8 +108,7 @@ function SortableTodoTask({ task, taskKey, meta, firstSub, onToggle, onDelete, o
   const dndProps = mounted ? { ...attributes, ...listeners } : {}
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
-      <div className="flex items-center gap-1.5 py-[3px] group cursor-pointer" onClick={() => openModal(taskKey, task.text)}>
-        <span {...dndProps} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
+      <div {...dndProps} className="flex items-center gap-1.5 py-[3px] group cursor-grab active:cursor-grabbing select-none" onClick={() => openModal(taskKey, task.text)}>
         <div onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${task.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{task.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         <EditableText value={task.text} onChange={onRename} className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${task.done ? 'text-slate-500 line-through' : 'text-slate-300'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>

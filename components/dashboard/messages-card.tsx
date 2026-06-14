@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { IconTrash, IconPlus, IconGripVertical, IconStar, IconBookmark } from '@tabler/icons-react'
+import { IconTrash, IconPlus, IconStar, IconBookmark } from '@tabler/icons-react'
 import { TaskActions } from './task-actions'
 import { EditableLabel } from './editable-label'
 import type { TaskMeta } from '@/lib/task-meta'
@@ -124,9 +124,8 @@ function SortableMsg({ msg, toggle, remove, setCat, taskMeta, updateTaskMeta, st
   )
 
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }} className="py-[3px] group">
+    <div ref={setNodeRef} {...dndProps} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }} className="py-[3px] group cursor-grab active:cursor-grabbing select-none">
       <div className="flex items-center gap-1.5">
-        <span {...dndProps} className="icon-on-hover flex-shrink-0 cursor-grab"><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={() => toggle(msg.id)} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${msg.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{msg.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         {/* Click the W/H tag to flip the message between Work and Home */}
         <button onClick={() => setCat(msg.id, category === 'home' ? 'work' : 'home')} className="bg-transparent border-none cursor-pointer p-0 leading-none flex-shrink-0" title="Toggle Work / Home"><CatTag category={category} /></button>

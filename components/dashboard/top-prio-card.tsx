@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { IconGripVertical, IconTrash, IconPlus } from '@tabler/icons-react'
+import { IconTrash, IconPlus } from '@tabler/icons-react'
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
 import { closestCenter, PointerSensor, useSensor, useSensors, useDroppable, type DragEndEvent, DragOverlay, type DragStartEvent } from '@dnd-kit/core'
@@ -115,8 +115,7 @@ function SortableTask({ task, onToggle, onDelete, onOpen, onRename, taskMeta, up
   const dndProps = mounted ? { ...attributes, ...listeners } : {}
   const meta = taskMeta[`prio-${task.id}`]
   return (
-    <div ref={setNodeRef} style={{transform:CSS.Transform.toString(transform),transition,opacity:isDragging?0.4:1}} className="flex items-start gap-1.5 py-[3px] cursor-pointer select-none group" onClick={onOpen}>
-      <span {...dndProps} className="icon-on-hover flex-shrink-0 mt-[3px] cursor-grab" onClick={(e:any)=>e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
+    <div ref={setNodeRef} {...dndProps} style={{transform:CSS.Transform.toString(transform),transition,opacity:isDragging?0.4:1}} className="flex items-start gap-1.5 py-[3px] cursor-grab active:cursor-grabbing select-none group" onClick={onOpen}>
       <div onClick={(e:any)=>{e.stopPropagation();onToggle()}} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${task.done?'bg-indigo-500/30 border-indigo-400':'border-slate-600 bg-white/5 group-hover:border-slate-400'}`}>{task.done&&<span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
       <div className="flex-1 min-w-0"><div className="flex items-center gap-1">{task.source==='message'&&<span className="flex-shrink-0" style={{fontSize:12,fontWeight:800,color:'#facc15',letterSpacing:'0.02em'}}>M:</span>}<EditableText value={task.text} onChange={onRename} className={`text-[12px] leading-[1.35] min-w-0 truncate ${task.done?'text-slate-500 line-through':'text-slate-200'}`} /><MetaBadges meta={meta} /></div></div>
       <span className="inline-flex items-center gap-0.5 ml-auto flex-shrink-0" onClick={(e:any)=>e.stopPropagation()}>

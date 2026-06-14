@@ -214,10 +214,9 @@ function SortableCustomTask({ ct, ctText, ctk, cmeta, category, onToggle, onDele
   const dndProps = mounted ? { ...attributes, ...listeners } : {}
   const label = ctText ?? ct.text
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-      className="py-0.5 cursor-pointer select-none group" onClick={() => openModal(ctk, label)}>
+    <div ref={setNodeRef} {...dndProps} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      className="py-0.5 cursor-grab active:cursor-grabbing select-none group" onClick={() => openModal(ctk, label)}>
       <div className="flex items-center gap-1.5">
-        <span {...dndProps} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${ct.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{ct.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         <EditableLabel value={label} onRename={(n: string) => onRename?.(n)} className={`text-[12.5px] leading-[1.35] flex-1 min-w-0 truncate ${ct.done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
@@ -238,9 +237,8 @@ function TaskRow({ id, task, done, onClick, onOpen, onStar, isStarred, onBookmar
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const dndProps = mounted ? { ...attributes, ...listeners } : {}
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }} className="py-0.5 cursor-pointer select-none group" onClick={onOpen}>
+    <div ref={setNodeRef} {...dndProps} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }} className="py-0.5 cursor-grab active:cursor-grabbing select-none group" onClick={onOpen}>
       <div className="flex items-center gap-1.5">
-        <span {...dndProps} className="icon-on-hover flex-shrink-0 cursor-grab" onClick={(e: any) => e.stopPropagation()}><IconGripVertical size={10} className="text-slate-600" /></span>
         <div onClick={(e: any) => { e.stopPropagation(); onClick() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         <EditableLabel value={task} onRename={(n: string) => onRename?.(n)} className={`text-[12.5px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
