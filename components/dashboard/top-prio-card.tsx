@@ -52,19 +52,34 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
     }))
   }
   const deleteTask = (sk: string, taskId: string) => { setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s)) }
+  // Tracks the order in which tasks enter the today zone, so the *newest* adds
+  // are the ones grayed out when over the limit — never the ones already there.
+  const addOrderRef = useRef<Record<string, number>>({})
+  const addSeqRef = useRef(1)
   const addTask = (sk: string) => {
     // A 7th+ task is allowed but lands in the "overflow" state (grayed/locked)
     // until the user makes room for it or moves it to Other to-dos.
-    setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: [...s.tasks, { id: `q${Date.now()}`, text: 'New task', done: false }] } : s))
+    const id = `q${Date.now()}`
+    if (isPrioSection(sk)) addOrderRef.current[id] = addSeqRef.current++
+    setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: [...s.tasks, { id, text: 'New task', done: false }] } : s))
   }
 
-  // Tasks beyond the Ivy Lee limit (counting Work then Home) are "overflow":
-  // dimmed and locked from editing until they fit within 6 or move to Other.
+  // Tasks beyond the Ivy Lee limit are "overflow": dimmed and locked from
+  // editing until they fit within 6 or move to Other. We pick the overflow set
+  // by recency of addition (highest add-order first), so the most recently
+  // added tasks gray out — pre-existing priorities stay active.
   const overflowIds = (() => {
     const work = tasks.find(s => s.section === 'Work')?.tasks || []
     const home = tasks.find(s => s.section === 'Home')?.tasks || []
+    const all = [...work, ...home]
     const ids = new Set<string>()
-    ;[...work, ...home].forEach((t, i) => { if (i >= PRIO_LIMIT) ids.add(t.id) })
+    const overflowCount = all.length - PRIO_LIMIT
+    if (overflowCount <= 0) return ids
+    // Sort by add-order desc (newest first); un-tracked seeded tasks rank oldest.
+    const ranked = all
+      .map((t, i) => ({ id: t.id, order: addOrderRef.current[t.id] ?? 0, i }))
+      .sort((a, b) => b.order - a.order || b.i - a.i)
+    ranked.slice(0, overflowCount).forEach(r => ids.add(r.id))
     return ids
   })()
   const renameTask = (sk: string, taskId: string, text: string) => {
