@@ -64,6 +64,9 @@ export const LtGoalsCard = forwardRef<LtGoalsHandle, Props>(function LtGoalsCard
     },
   }))
 
+  // In-card "+ Task" — mirrors Active projects; appends a new task to the goal.
+  const addGoalTask = (goalKey: string) => setExtraGoalTasks(p => ({ ...p, [goalKey]: [...(p[goalKey] || []), 'New task'] }))
+
   const allGoals = [...LT_GOALS, ...extraGoals]
     .filter(g => !deletedGoals.has(g.key))
     .map(g => extraGoalTasks[g.key]?.length ? { ...g, tasks: [...g.tasks, ...extraGoalTasks[g.key]] } : g)
@@ -85,6 +88,7 @@ export const LtGoalsCard = forwardRef<LtGoalsHandle, Props>(function LtGoalsCard
                 starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther}
                 onDelete={() => setDeletedGoals(p => new Set([...p, goal.key]))}
                 onRename={(n: string) => setGoalNames(p => ({ ...p, [goal.key]: n }))}
+                onAddTask={() => addGoalTask(goal.key)}
                 taskOrders={taskOrders}
                 nameOverrides={nameOverrides} onRenameTask={onRename}
                 reorderTasks={(gk: string, oi: number, ni: number, tl: any[]) => setTaskOrders(p => ({ ...p, [gk]: arrayMove(tl.map((t: any) => t.originalIdx), oi, ni) }))} />)}
@@ -102,7 +106,7 @@ function SortableGoal(props: any) {
   return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}><GoalTile {...props} dragHandleProps={mounted ? { ...attributes, ...listeners } : {}} /></div>
 }
 
-function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, onDelete, onRename, dragHandleProps, taskOrders, reorderTasks, nameOverrides, onRenameTask }: any) {
+function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjectCompletion, isExpanded, toggleExpand, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, onDelete, onRename, onAddTask, dragHandleProps, taskOrders, reorderTasks, nameOverrides, onRenameTask }: any) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const pct = getProjectCompletion(goal)
   const autoStatus = computeStatus(goal, projectDone, taskMeta, 'proj')
@@ -148,7 +152,10 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
             </SortableContext>
           </ClientDnd>
         </div>
-        {hiddenCount > 0 && <div className="flex items-center gap-1 mt-1 cursor-pointer text-slate-500 hover:text-[#14b8a6] transition-colors" onClick={() => toggleExpand(goal.key)}><span className="text-[9px] font-semibold uppercase tracking-[0.10em]">{isExpanded ? 'Less' : `+${hiddenCount} more`}</span><span className={`text-[9px] transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span></div>}
+        <div className="flex items-center justify-between mt-1">
+          {hiddenCount > 0 ? <div className="flex items-center gap-1 cursor-pointer text-slate-500 hover:text-[#14b8a6] transition-colors" onClick={() => toggleExpand(goal.key)}><span className="text-[9px] font-semibold uppercase tracking-[0.10em]">{isExpanded ? 'Less' : `+${hiddenCount} more`}</span><span className={`text-[9px] transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span></div> : <span />}
+          <button onClick={onAddTask} className="flex items-center gap-1 text-slate-500 hover:text-[#14b8a6] transition-colors"><IconPlus size={10} /><span className="text-[9px] font-semibold uppercase tracking-[0.08em]">Task</span></button>
+        </div>
       </div>
     </div>
   )

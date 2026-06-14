@@ -133,7 +133,7 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
 
   // ── FIX #5: Week labels with minimum spacing — skip if too close ──
   const weekLabels = useMemo(() => {
-    const labels: { label: string; pct: number }[] = []
+    const labels: { week: string; date: string; pct: number }[] = []
     const d = new Date(minDate)
     d.setDate(d.getDate() - d.getDay() + 1) // start from Monday
     const MIN_GAP_PCT = 8 // minimum 8% gap between labels
@@ -143,8 +143,12 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
       if (d >= minDate) {
         const pct = dayToPercent(d)
         if (pct - lastPct >= MIN_GAP_PCT) {
+          // Label each week column by its ISO week number (W#) so the axis
+          // lines up exactly with the weeks chosen in the Schedule picker,
+          // with the Monday date underneath for context.
           labels.push({
-            label: `${d.getDate()}/${d.getMonth() + 1}`,
+            week: `W${getISOWeekNumber(d)}`,
+            date: `${d.getDate()}/${d.getMonth() + 1}`,
             pct,
           })
           lastPct = pct
@@ -177,23 +181,27 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
         ) : (
           <div style={{ position: 'relative', minWidth: 600 }}>
             {/* Week headers */}
-            <div style={{ height: 20, position: 'relative', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: 4 }}>
+            <div style={{ height: 30, position: 'relative', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: 4 }}>
               {weekLabels.map((w, i) => (
                 <span key={i} style={{
                   position: 'absolute',
                   left: `${w.pct}%`,
-                  fontSize: 9,
-                  color: '#64748b',
-                  fontWeight: 600,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  lineHeight: 1.1,
                   fontVariantNumeric: 'tabular-nums',
                   transform: 'translateX(-50%)',
                   whiteSpace: 'nowrap',
-                }}>{w.label}</span>
+                }}>
+                  <span style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700 }}>{w.week}</span>
+                  <span style={{ fontSize: 8, color: '#64748b', fontWeight: 500 }}>{w.date}</span>
+                </span>
               ))}
             </div>
 
             {/* Today line */}
-            <div style={{ position: 'absolute', left: `${todayPct}%`, top: 20, bottom: 0, width: 1.5, background: '#fb7185', boxShadow: '0 0 8px rgba(251,113,133,0.5)', zIndex: 5 }}>
+            <div style={{ position: 'absolute', left: `${todayPct}%`, top: 30, bottom: 0, width: 1.5, background: '#fb7185', boxShadow: '0 0 8px rgba(251,113,133,0.5)', zIndex: 5 }}>
               <div style={{ position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)', fontSize: 8, fontWeight: 700, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Today</div>
             </div>
 
