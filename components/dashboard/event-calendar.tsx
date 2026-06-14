@@ -965,7 +965,9 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
             // Short meetings (≤15 min) are too thin for two lines, so the start
             // time sits inline right after the title instead of on its own row.
             const compact = it.durationMin <= 15
-            const handleItem = { key: it.key, kind: it.kind as 'meeting' | 'event', id: it.id, ev: it.ev, startMin: it.startMin, durationMin: it.durationMin }
+            // task-linked events use kind 'task' but behave like 'event' for editing/rescheduling
+            const editKind: 'meeting' | 'event' = it.kind === 'meeting' ? 'meeting' : 'event'
+            const handleItem = { key: it.key, kind: editKind, id: it.id, ev: it.ev, startMin: it.startMin, durationMin: it.durationMin }
             return (
               <div key={it.key}
                 onPointerDown={interactive ? (e) => startGesture(e, 'move', handleItem) : undefined}
