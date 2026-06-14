@@ -175,7 +175,7 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
           </button>
         </div>
       </div>
-      <div className="p-4 overflow-x-auto">
+      <div className="p-4 overflow-x-auto modal-scroll">
         {rows.length === 0 ? (
           <div className="text-center text-slate-500 text-[12px] py-6">No tasks yet. Open a task and mark its Schedule (weeks) — or set a deadline — to see it on the Gantt chart.</div>
         ) : (
