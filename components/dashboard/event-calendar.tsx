@@ -60,7 +60,7 @@ interface MeetingFile {
   url: string
 }
 
-interface CustomMeeting {
+export interface CustomMeeting {
   id: string
   day: number
   month: number
@@ -101,6 +101,9 @@ interface EventCalendarProps {
   completedTasks?: Set<string>
   onDeleteEvent?: (ev: DeadlineEvent) => void
   onUpdateEvent?: (ev: DeadlineEvent, changes: Partial<TaskMeta>) => void
+  // Notifies the parent whenever the user's calendar meetings change, so the
+  // dashboard header (Meetings counter) can include them.
+  onMeetingsChange?: (meetings: CustomMeeting[]) => void
 }
 
 /* unified edit-modal target — used for both custom meetings and task events */
@@ -122,7 +125,7 @@ interface EditState {
 
 const pad2 = (n: number) => n.toString().padStart(2, '0')
 
-export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent, onUpdateEvent }: EventCalendarProps) {
+export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent, onUpdateEvent, onMeetingsChange }: EventCalendarProps) {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
   const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
   const [dayDate, setDayDate] = useState({ d: 26, m: 4, y: 2026 })  // day shown in Day view
@@ -152,6 +155,12 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
     const t = { d: now.getDate(), m: now.getMonth(), y: now.getFullYear() }
     setToday(t); setDayDate(t); setMonth(t.m); setYear(t.y)
   }, [])
+
+  // Keep the parent dashboard in sync with the user's calendar meetings so the
+  // header "Meetings" counter reflects meetings created here.
+  useEffect(() => {
+    onMeetingsChange?.(customMeetings)
+  }, [customMeetings, onMeetingsChange])
 
   // shift the Day-view date by N days (handles month/year rollover)
   const shiftDay = (delta: number) => setDayDate(prev => {

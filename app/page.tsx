@@ -27,7 +27,7 @@ const OTHER_TODO_REGISTRY: { key: string; label: string }[] = [
   { key:'todo-personal-os8', label:'Inga — celebrate her promotion!' },
 ]
 import { KpisCard } from '@/components/dashboard/kpis-card'
-import { EventCalendar } from '@/components/dashboard/event-calendar'
+import { EventCalendar, type CustomMeeting } from '@/components/dashboard/event-calendar'
 import { LtGoalsCalendar } from '@/components/dashboard/lt-goals-calendar'
 import { ProgressOverview } from '@/components/dashboard/progress-overview'
 import { ActiveProjectsCard } from '@/components/dashboard/active-projects-card'
@@ -199,6 +199,9 @@ export default function Dashboard() {
   const [showMeetings,setShowMeetings] = useState(false)
   const [focusTask,setFocusTask] = useState<{key:string;label:string}|null>(null)
   const [ganttProjects, setGanttProjects] = useState<Set<string>>(new Set())
+  // Meetings created in the Event Calendar, lifted here so the header
+  // "Meetings" counter can include them.
+  const [calendarMeetings, setCalendarMeetings] = useState<CustomMeeting[]>([])
 
   const openModal = useCallback((k:string,l:string)=>setModalTask({key:k,label:l}), [])
   // Remove any Top Prio Today entry (starred or bookmarked) that mirrors a
@@ -573,10 +576,15 @@ export default function Dashboard() {
     // Planned time is computed ONLY from Top Prio Today. Non-prio tasks with a
     // today deadline still contribute their meeting time, but NOT planned time.
     Object.entries(taskMeta).forEach(([k,m])=>{if(m.deadline===todayStr&&!k.startsWith('prio-')){if(m.hour!==undefined){meetingMin+=60;meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`})}}})
+    // Include meetings created in the Event Calendar that fall on today. Timed
+    // meetings contribute their duration (default 60m); all-day meetings are
+    // listed but add no minutes.
+    const tn=new Date()
+    calendarMeetings.forEach(m=>{if(m.day===tn.getDate()&&m.month===tn.getMonth()&&m.year===tn.getFullYear()){if(m.time){meetingMin+=m.durationMin||60;meetingEvents.push({label:m.label,time:m.time})}else{meetingEvents.push({label:m.label,time:'All day'})}}})
     let focusedMin=0;const td=new Date();const tp=`${td.getDate()}/${td.getMonth()+1}`
     Object.values(taskMeta).forEach(m=>{((m as any).focusSessions||[]).forEach((s:any)=>{const afterReset=s.ts!==undefined?s.ts>=focusResetAt:focusResetAt===0;if(s.date?.startsWith(tp)&&afterReset)focusedMin+=(s.seconds!==undefined?s.seconds/60:(s.minutes||0))})})
     return{plannedMin,meetingMin,overloaded:plannedMin>480,totalTodayTasks,doneTodayTasks,plannedTasks,meetingEvents,focusedMin}
-  }, [taskMeta,prioTasks,focusResetAt])
+  }, [taskMeta,prioTasks,focusResetAt,calendarMeetings])
 
   const fmtTime = (m:number)=>{const mins=Math.round(m||0);const h=Math.floor(mins/60);const mm=mins%60;return h>0?(mm>0?`${h}h ${mm}m`:`${h}h`):`${mm}m`}
 
@@ -614,7 +622,7 @@ export default function Dashboard() {
         </div>
         <div className="flex flex-col gap-3">
           <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} onRename={renameTask} onSectionCategoryChange={syncMessageCategory} />
-          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} onUpdateEvent={updateDeadlineEvent} />
+          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} onUpdateEvent={updateDeadlineEvent} onMeetingsChange={setCalendarMeetings} />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
           {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
           <LtGoalsCalendar taskMeta={taskMeta} />
