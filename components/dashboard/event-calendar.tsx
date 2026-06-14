@@ -811,9 +811,12 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
   const timedMeetings = todayMeetings.filter(m => m.time)
 
   // ── timeline geometry ──
-  const START_H = 8, END_H = 19, HOUR_PX = 46
+  // Full day (midnight → midnight) so meetings can be scheduled at any hour.
+  const START_H = 0, END_H = 24, HOUR_PX = 46
   const TOTAL_MIN = (END_H - START_H) * 60
   const TL_HEIGHT = TOTAL_MIN / 60 * HOUR_PX
+  const timelineScrollRef = useRef<HTMLDivElement>(null)
+  const didInitScroll = useRef(false)
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
   const minToLabel = (min: number) => `${pad2(Math.floor(min / 60))}:${pad2(min % 60)}`
 
@@ -870,6 +873,19 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
   const now = new Date()
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const showNow = now.getDate() === today.d && now.getMonth() === today.m && now.getFullYear() === today.y && nowMin >= START_H * 60 && nowMin <= END_H * 60
+
+  // The timeline now spans the whole day, so on first mount scroll it to the
+  // relevant region: the current time when viewing today, otherwise the earliest
+  // scheduled item, falling back to 08:00.
+  useEffect(() => {
+    const el = timelineScrollRef.current
+    if (!el || didInitScroll.current) return
+    didInitScroll.current = true
+    const earliest = items.length ? Math.min(...items.map(i => i.startMin)) : 8 * 60
+    const focusMin = showNow ? nowMin : earliest
+    el.scrollTop = clamp((focusMin - START_H * 60) / 60 * HOUR_PX - HOUR_PX, 0, TL_HEIGHT)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const onTimelineClick = (e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -938,6 +954,7 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
       )}
 
       {/* timed timeline — drag a box to move, drag its top/bottom edge to resize, click empty space to add */}
+      <div ref={timelineScrollRef} style={{ maxHeight: 460, overflowY: 'auto', overflowX: 'hidden' }}>
       <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ width: 34, flexShrink: 0, position: 'relative', height: TL_HEIGHT }}>
           {Array.from({ length: END_H - START_H }).map((_, i) => (
@@ -962,9 +979,9 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
             const height = Math.max(it.durationMin, 30) / 60 * HOUR_PX
             const interactive = it.kind === 'meeting' || it.kind === 'task'
             const isDragging = drag?.key === it.key
-            // Short meetings (≤15 min) are too thin for two lines, so the start
-            // time sits inline right after the title instead of on its own row.
-            const compact = it.durationMin <= 15
+            // Short meetings (≤30 min) are too thin for two stacked lines, so the
+            // title and time sit inline on a single row instead of stacking.
+            const compact = it.durationMin <= 30
             // task-linked events use kind 'task' but behave like 'event' for editing/rescheduling
             const editKind: 'meeting' | 'event' = it.kind === 'meeting' ? 'meeting' : 'event'
             const handleItem = { key: it.key, kind: editKind, id: it.id, ev: it.ev, startMin: it.startMin, durationMin: it.durationMin }
@@ -988,7 +1005,7 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
                   {it.label}
                 </div>
                 <div className="text-[9.5px] text-slate-500" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  {compact ? minToLabel(it.startMin) : `${minToLabel(it.startMin)}–${minToLabel(it.startMin + it.durationMin)}`}
+                  {`${minToLabel(it.startMin)}–${minToLabel(it.startMin + it.durationMin)}`}
                 </div>
                 {interactive && (
                   <button
@@ -1011,6 +1028,7 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
             )
           })}
         </div>
+      </div>
       </div>
     </>
   )
