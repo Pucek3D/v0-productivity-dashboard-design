@@ -98,8 +98,16 @@ export function ScrollWheel({ items, value, onChange, width }: {
   useEffect(() => {
     const idx = items.findIndex(i => i.value === value)
     if (idx >= 0 && ref.current) {
+      // Position the wheel on the current value. Re-assert on the next frame
+      // because the parent (e.g. a scrollable modal) can shift layout right
+      // after mount and fire a stray scroll that would otherwise snap us to a
+      // neighbouring item and emit a wrong onChange.
       ref.current.scrollTop = idx * ITEM_H
-      isInit.current = false
+      const raf = requestAnimationFrame(() => {
+        if (ref.current) ref.current.scrollTop = idx * ITEM_H
+        isInit.current = false
+      })
+      return () => cancelAnimationFrame(raf)
     }
   }, [])
 
