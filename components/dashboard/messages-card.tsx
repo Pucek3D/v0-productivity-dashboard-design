@@ -4,9 +4,11 @@ import { IconTrash, IconPlus, IconGripVertical, IconStar, IconBookmark } from '@
 import { TaskActions } from './task-actions'
 import { EditableLabel } from './editable-label'
 import type { TaskMeta } from '@/lib/task-meta'
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { ClientDnd } from './client-dnd'
+import { useMounted } from '@/lib/use-mounted'
 
 interface Message { id: string; text: string; done: boolean; category?: 'work' | 'home' }
 interface Props {
@@ -59,11 +61,11 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, 
     <div className="card-base halo-stone">
       <div className="section-header header-stone px-4 py-3"><span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Messages</span></div>
       <div className="px-3 py-3">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sorted.map(m => m.id)} strategy={verticalListSortingStrategy}>
             {sorted.map(msg => <SortableMsg key={msg.id} msg={msg} toggle={toggle} remove={remove} setCat={setCat} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={onRename} />)}
           </SortableContext>
-        </DndContext>
+        </ClientDnd>
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
           <span className="text-slate-600"><IconPlus size={12} /></span>
           {/* Work / Home selector for the new message */}
@@ -79,7 +81,9 @@ export function MessagesCard({ messages, setMessages, taskMeta, updateTaskMeta, 
 }
 
 function SortableMsg({ msg, toggle, remove, setCat, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, onRename }: any) {
+  const mounted = useMounted()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: msg.id })
+  const dndProps = mounted ? { ...attributes, ...listeners } : {}
   const starred = isTaskStarred?.(msg.text)
   const bookmarked = isTaskBookmarked?.(msg.text)
   const meta = taskMeta[`msg-${msg.id}`]
