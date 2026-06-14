@@ -328,14 +328,6 @@ function SortableKpiDay({
             </span>
           )}
           {k.type === 'check' && <ProgressRing done={done} target={target} />}
-          {k.streak > 0 && (
-            <span
-              className="text-[9px] font-bold rounded-full px-1.5 py-[1px] whitespace-nowrap tabular uppercase tracking-wider"
-              style={{ background: `${cat.color}22`, color: cat.color }}
-            >
-              🔥 {k.streak}
-            </span>
-          )}
           <button onPointerDown={(e) => e.stopPropagation()} onClick={() => deleteKpi(cat.id, k.id)}
             className="opacity-0 group-hover/kpi:opacity-100 transition-opacity text-slate-600 hover:text-rose-400 flex-shrink-0" title="Delete KPI">
             <IconTrash size={11} />
@@ -471,11 +463,6 @@ function WeekView({
   sensors: ReturnType<typeof useSensors>
   onDragEnd: (e: DragEndEvent) => void
 }) {
-  let bestStreak = { label: '', streak: 0 }
-  categories.forEach(cat => cat.kpis.forEach(k => {
-    if (k.streak > bestStreak.streak) bestStreak = { label: k.label, streak: k.streak }
-  }))
-
   return (
     <>
       <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -527,17 +514,6 @@ function WeekView({
         </tbody>
       </table>
       </ClientDnd>
-      {bestStreak.streak > 0 && (
-        <div className="mt-3 pt-2 border-t border-white/5 flex gap-2 items-center flex-wrap">
-          <span className="text-[9px] text-slate-500 uppercase tracking-[0.12em] font-semibold">Most done</span>
-          <span
-            className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
-            style={{ color: '#fbbf24', background: 'rgba(245,158,11,0.15)' }}
-          >
-            🔥 {bestStreak.label} — {bestStreak.streak}d
-          </span>
-        </div>
-      )}
     </>
   )
 }

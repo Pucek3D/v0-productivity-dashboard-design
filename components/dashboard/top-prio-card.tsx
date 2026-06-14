@@ -53,10 +53,20 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
   }
   const deleteTask = (sk: string, taskId: string) => { setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s)) }
   const addTask = (sk: string) => {
-    // Never let a manual add push the today zone past the Ivy Lee limit.
-    if (isPrioSection(sk) && prioFull) return
+    // A 7th+ task is allowed but lands in the "overflow" state (grayed/locked)
+    // until the user makes room for it or moves it to Other to-dos.
     setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: [...s.tasks, { id: `q${Date.now()}`, text: 'New task', done: false }] } : s))
   }
+
+  // Tasks beyond the Ivy Lee limit (counting Work then Home) are "overflow":
+  // dimmed and locked from editing until they fit within 6 or move to Other.
+  const overflowIds = (() => {
+    const work = tasks.find(s => s.section === 'Work')?.tasks || []
+    const home = tasks.find(s => s.section === 'Home')?.tasks || []
+    const ids = new Set<string>()
+    ;[...work, ...home].forEach((t, i) => { if (i >= PRIO_LIMIT) ids.add(t.id) })
+    return ids
+  })()
   const renameTask = (sk: string, taskId: string, text: string) => {
     setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: s.tasks.map(t => t.id === taskId ? { ...t, text } : t) } : s))
     // Propagate to synced surfaces (Messages, Projects, Goals, Other To-Do)
@@ -91,8 +101,8 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
           </span>
         </div>
         <div className="px-3 py-2.5"><div className="grid grid-cols-2 gap-2.5">
-          <Quadrant sectionKey="Work" label="WORK" labelColor="#818cf8" isPrio full={prioFull} tasks={tasks.find(s=>s.section==='Work')?.tasks||[]} onToggle={(id)=>toggleTask('Work',id)} onDelete={(id)=>deleteTask('Work',id)} onAdd={()=>addTask('Work')} onRename={(id,t)=>renameTask('Work',id,t)} openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
-          <Quadrant sectionKey="Home" label="HOME" labelColor="#2dd4bf" isPrio full={prioFull} tasks={tasks.find(s=>s.section==='Home')?.tasks||[]} onToggle={(id)=>toggleTask('Home',id)} onDelete={(id)=>deleteTask('Home',id)} onAdd={()=>addTask('Home')} onRename={(id,t)=>renameTask('Home',id,t)} openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+          <Quadrant sectionKey="Work" label="WORK" labelColor="#818cf8" isPrio full={prioFull} overflowIds={overflowIds} tasks={tasks.find(s=>s.section==='Work')?.tasks||[]} onToggle={(id)=>toggleTask('Work',id)} onDelete={(id)=>deleteTask('Work',id)} onAdd={()=>addTask('Work')} onRename={(id,t)=>renameTask('Work',id,t)} openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+          <Quadrant sectionKey="Home" label="HOME" labelColor="#2dd4bf" isPrio full={prioFull} overflowIds={overflowIds} tasks={tasks.find(s=>s.section==='Home')?.tasks||[]} onToggle={(id)=>toggleTask('Home',id)} onDelete={(id)=>deleteTask('Home',id)} onAdd={()=>addTask('Home')} onRename={(id,t)=>renameTask('Home',id,t)} openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
         </div></div>
         <div style={{height:1,background:'linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 20%, rgba(255,255,255,0.08) 80%, transparent)',margin:'0 12px'}} />
         <div className="px-4 py-2"><span className="text-white/50 font-semibold text-[10px] tracking-[0.16em] uppercase">Other to-dos</span></div>
@@ -106,24 +116,24 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
   )
 }
 
-function Quadrant({ sectionKey, label, labelColor, tasks, onToggle, onDelete, onAdd, onRename, openModal, taskMeta, updateTaskMeta, isPrio = false, full = false }: any) {
+function Quadrant({ sectionKey, label, labelColor, tasks, onToggle, onDelete, onAdd, onRename, openModal, taskMeta, updateTaskMeta, isPrio = false, full = false, overflowIds }: any) {
   const { setNodeRef, isOver } = useDroppable({ id: sectionKey })
 
   /* ── Sort: done tasks go to bottom ── */
   const sorted = [...tasks].sort((a: PrioTask, b: PrioTask) => Number(a.done) - Number(b.done))
-  // In the today zone, the "+" disappears once full and the drop hint flips to a
-  // "move one to Other first" prompt — the core of the Ivy Lee constraint.
-  const lockAdd = isPrio && full
+  // Once the today zone is full, surface a muted hint — but adding is still
+  // allowed (the 7th lands in the locked overflow state).
+  const showFullHint = isPrio && full
 
   return (
     <div ref={setNodeRef} className="rounded-lg p-2.5 border transition-colors" style={{background:isOver?'rgba(99,102,241,0.08)':'rgba(255,255,255,0.025)',borderColor:isOver?'rgba(99,102,241,0.25)':'rgba(255,255,255,0.04)'}}>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[10px] font-bold tracking-[0.12em]" style={{color:labelColor}}>{label}</span>
-        {!lockAdd && <button onClick={onAdd} className="w-4 h-4 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/5"><IconPlus size={11} /></button>}
+        <button onClick={onAdd} className="w-4 h-4 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/5"><IconPlus size={11} /></button>
       </div>
       <SortableContext items={sorted.map((t:any)=>t.id)} strategy={verticalListSortingStrategy}>
         {sorted.map((task: PrioTask) => (
-          <SortableTask key={task.id} task={task}
+          <SortableTask key={task.id} task={task} overflow={!!overflowIds?.has(task.id)}
             onToggle={() => onToggle(task.id)}
             onDelete={() => onDelete(task.id)}
             onOpen={() => openModal(`prio-${task.id}`, task.text)}
@@ -132,34 +142,46 @@ function Quadrant({ sectionKey, label, labelColor, tasks, onToggle, onDelete, on
         ))}
       </SortableContext>
       {tasks.length === 0 && (
-        <div className="text-[10px] text-center py-2 italic" style={{ color: lockAdd ? 'rgba(251,191,36,0.7)' : '#475569' }}>
-          {lockAdd ? 'Full — move one to Other first' : 'Drop tasks here'}
+        <div className="text-[10px] text-center py-2 italic" style={{ color: showFullHint ? '#64748b' : '#475569' }}>
+          {showFullHint ? 'Full — move one to Other first' : 'Drop tasks here'}
         </div>
       )}
-      {lockAdd && tasks.length > 0 && (
-        <div className="text-[9px] text-center mt-1 italic" style={{ color: 'rgba(251,191,36,0.6)' }}>Full — move one to Other first</div>
+      {showFullHint && tasks.length > 0 && (
+        <div className="text-[9px] text-center mt-1 italic text-slate-500">Full — move one to Other first</div>
       )}
     </div>
   )
 }
 
-function SortableTask({ task, onToggle, onDelete, onOpen, onRename, taskMeta, updateTaskMeta }: any) {
+function SortableTask({ task, onToggle, onDelete, onOpen, onRename, taskMeta, updateTaskMeta, overflow = false }: any) {
   const mounted = useMounted()
   const {attributes,listeners,setNodeRef,transform,transition,isDragging} = useSortable({id:task.id})
   const dndProps = mounted ? { ...attributes, ...listeners } : {}
   const meta = taskMeta[`prio-${task.id}`]
   return (
-    <div ref={setNodeRef} {...dndProps} style={{transform:CSS.Transform.toString(transform),transition,opacity:isDragging?0.4:1}} className="flex items-start gap-1.5 py-[3px] cursor-grab active:cursor-grabbing select-none group" onClick={onOpen}>
-      <div onClick={(e:any)=>{e.stopPropagation();onToggle()}} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${task.done?'bg-indigo-500/30 border-indigo-400':'border-slate-600 bg-white/5 group-hover:border-slate-400'}`}>{task.done&&<span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
-      <div className="flex-1 min-w-0"><div className="flex items-center gap-1">{task.source==='message'&&<span className="flex-shrink-0" style={{fontSize:12,fontWeight:800,color:'#facc15',letterSpacing:'0.02em'}}>M:</span>}<EditableText value={task.text} onChange={onRename} className={`text-[12px] leading-[1.35] min-w-0 truncate ${task.done?'text-slate-500 line-through':'text-slate-200'}`} /><MetaBadges meta={meta} /></div></div>
+    <div ref={setNodeRef} {...dndProps}
+      style={{transform:CSS.Transform.toString(transform),transition,opacity:isDragging?0.4:(overflow?0.55:1)}}
+      className="flex items-start gap-1.5 py-[3px] cursor-grab active:cursor-grabbing select-none group"
+      title={overflow ? 'Over the 6-priority limit — locked. Drag to Other to-dos or make room to unlock.' : undefined}
+      onClick={overflow ? undefined : onOpen}>
+      <div onClick={overflow ? (e:any)=>e.stopPropagation() : (e:any)=>{e.stopPropagation();onToggle()}} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-all mt-[2px] ${overflow?'border-slate-700 bg-white/[0.02]':task.done?'bg-indigo-500/30 border-indigo-400':'border-slate-600 bg-white/5 group-hover:border-slate-400'}`}>{task.done&&!overflow&&<span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
+      <div className="flex-1 min-w-0"><div className="flex items-center gap-1">{task.source==='message'&&<span className="flex-shrink-0" style={{fontSize:12,fontWeight:800,color:overflow?'#64748b':'#facc15',letterSpacing:'0.02em'}}>M:</span>}{overflow
+        ? <span className="text-[12px] leading-[1.35] min-w-0 truncate text-slate-500">{task.text}</span>
+        : <EditableText value={task.text} onChange={onRename} className={`text-[12px] leading-[1.35] min-w-0 truncate ${task.done?'text-slate-500 line-through':'text-slate-200'}`} />}{!overflow && <MetaBadges meta={meta} />}</div></div>
       <span className="inline-flex items-center gap-0.5 ml-auto flex-shrink-0" onClick={(e:any)=>e.stopPropagation()}>
-        {/* native drag handle: drop onto the calendar to schedule a date/time */}
-        <span draggable
-          onDragStart={(e)=>{ e.stopPropagation(); e.dataTransfer.effectAllowed='copy'; e.dataTransfer.setData(TASK_DND_MIME, JSON.stringify({ key:`prio-${task.id}`, text:task.text })) }}
-          className="icon-on-hover cursor-grab active:cursor-grabbing p-0 leading-none" title="Drag onto the calendar to schedule">
-          <IconCalendarPlus size={11} className="text-slate-500 hover:text-indigo-400" />
-        </span>
-        <TaskActions taskKey={`prio-${task.id}`} taskLabel={task.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
+        {overflow ? (
+          <span className="text-[8px] font-bold uppercase tracking-wider rounded px-1 py-[1px] text-slate-500" style={{ background:'rgba(255,255,255,0.04)' }} title="Locked: exceeds the 6-priority limit">locked</span>
+        ) : (
+          <>
+            {/* native drag handle: drop onto the calendar to schedule a date/time */}
+            <span draggable
+              onDragStart={(e)=>{ e.stopPropagation(); e.dataTransfer.effectAllowed='copy'; e.dataTransfer.setData(TASK_DND_MIME, JSON.stringify({ key:`prio-${task.id}`, text:task.text })) }}
+              className="icon-on-hover cursor-grab active:cursor-grabbing p-0 leading-none" title="Drag onto the calendar to schedule">
+              <IconCalendarPlus size={11} className="text-slate-500 hover:text-indigo-400" />
+            </span>
+            <TaskActions taskKey={`prio-${task.id}`} taskLabel={task.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
+          </>
+        )}
         <button className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none" onClick={onDelete}><IconTrash size={11} className="text-slate-500 hover:text-rose-400" /></button>
       </span>
     </div>

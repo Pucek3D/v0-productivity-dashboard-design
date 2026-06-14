@@ -889,7 +889,7 @@ function DayPickerPopover({ viewDate, realToday, onPick, onClose }: {
 }
 
 /* ── Time-blocking: visual focus / meetings / break background blocks ── */
-export type BlockType = 'deep' | 'meetings' | 'admin' | 'break'
+export type BlockType = 'deep' | 'meetings' | 'admin' | 'break' | 'kuba'
 export interface TimeBlock {
   id: string
   day: number; month: number; year: number
@@ -901,6 +901,7 @@ const BLOCK_PRESETS: { type: BlockType; label: string; color: string }[] = [
   { type: 'meetings', label: 'Meetings', color: '#f59e0b' },
   { type: 'admin', label: 'Admin', color: '#64748b' },
   { type: 'break', label: 'Break', color: '#2dd4bf' },
+  { type: 'kuba', label: 'Kuba', color: '#ec4899' },
 ]
 const blockMeta = (t: BlockType) => BLOCK_PRESETS.find(p => p.type === t)!
 
@@ -1394,10 +1395,10 @@ function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: ini
 }
 
 /* ── Meeting / Event Edit Modal — full details, opens on click ── */
-/* ──────────────────────────────────────────────────────────────────────────
+/* ────────────────��─────────────────────────────────────────────────────────
    Create-task decision tree. Shown for standalone meetings/events that aren't
    linked to a dashboard task yet. Flow: section → (Work/Home | project | goal).
-   ────────────────────────────────────────────────────────────────────────── */
+   ──────────────────────────────────────────────────────────��─────────────── */
 function CreateTaskPanel({ label, targets, onCreate }: {
   label: string
   targets?: CreateTaskTargets
