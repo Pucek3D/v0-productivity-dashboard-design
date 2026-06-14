@@ -163,6 +163,8 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
   const [customMeetings, setCustomMeetings] = useState<CustomMeeting[]>([])
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([])
   const [showAddForm, setShowAddForm] = useState<{ day: number } | null>(null)
+  const addFormRef = useRef<HTMLDivElement>(null)
+  const addToggleRef = useRef<HTMLButtonElement>(null)
   const [newMeetingText, setNewMeetingText] = useState('')
   const [newMeetingTime, setNewMeetingTime] = useState('')
   const [newMeetingColor, setNewMeetingColor] = useState('#818cf8')
@@ -185,6 +187,23 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
     const t = { d: now.getDate(), m: now.getMonth(), y: now.getFullYear() }
     setToday(t); setDayDate(t); setMonth(t.m); setYear(t.y)
   }, [])
+
+  // Close the inline "new meeting" form when the user clicks anywhere outside
+  // of it. We ignore clicks on the toggle "+" button (it handles its own
+  // toggling) and skip while the time picker is open, since that portal renders
+  // outside the form and manages its own dismissal.
+  useEffect(() => {
+    if (!showAddForm) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (showTimePicker) return
+      const target = e.target as Node
+      if (addFormRef.current?.contains(target)) return
+      if (addToggleRef.current?.contains(target)) return
+      setShowAddForm(null)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [showAddForm, showTimePicker])
 
   // Keep the parent dashboard in sync with the user's calendar meetings so the
   // header "Meetings" counter reflects meetings created here.
@@ -371,7 +390,7 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
           <div className="flex items-center gap-2">
             <span style={TITLE}>Event Calendar</span>
             {/* + Meeting button */}
-            <button onClick={() => setShowAddForm(showAddForm ? null : { day: today.d })}
+            <button ref={addToggleRef} onClick={() => setShowAddForm(showAddForm ? null : { day: today.d })}
               className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
               title="Add meeting">
               <IconPlus size={13} />
@@ -389,7 +408,7 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
 
       {/* Add meeting inline form */}
       {showAddForm && (
-        <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+        <div ref={addFormRef} style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
           <div className="flex items-center gap-2 mb-1.5">
             <span style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 600 }}>
               New meeting — {MONTH_NAMES[month]} {showAddForm.day}
@@ -1398,7 +1417,7 @@ function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: ini
 /* ────────────────��─────────────────────────────────────────────────────────
    Create-task decision tree. Shown for standalone meetings/events that aren't
    linked to a dashboard task yet. Flow: section → (Work/Home | project | goal).
-   ──────────────────────────────────────────────────────────��─────────────── */
+   ────────────────────────────────────��─────────────────────��─────────────── */
 function CreateTaskPanel({ label, targets, onCreate }: {
   label: string
   targets?: CreateTaskTargets
