@@ -161,6 +161,8 @@ export interface Kpi {
   checked?: boolean
   val?: string
   target?: string
+  /** Weekly goal for check-KPIs: how many days per week to hit (1-7). Drives the progress ring. */
+  weeklyTarget?: number
   pct?: number
   streak: number
   days: number[]
@@ -171,21 +173,24 @@ export const TODAY_IDX = 1 // Tuesday (fallback — actual today computed at run
 
 export const KPI_CATEGORIES: KpiCategory[] = [
   { id: 'health', label: 'Health', color: '#059669', kpis: [
-    { id: 'sleep', label: 'Sleep 7h', icon: 'moon', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
-    { id: 'workout', label: 'Workout', icon: 'run', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'sleep', label: 'Sleep 7h', icon: 'moon', type: 'check', checked: false, weeklyTarget: 7, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'workout', label: 'Workout', icon: 'run', type: 'check', checked: false, weeklyTarget: 4, streak: 0, days: [0,0,0,0,0,0,0] },
   ]},
   { id: 'work', label: 'Work', color: '#7c3aed', kpis: [
-    { id: 'tasks', label: 'Tasks done', icon: 'checkbox', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'tasks', label: 'Tasks done', icon: 'checkbox', type: 'check', checked: false, weeklyTarget: 5, streak: 0, days: [0,0,0,0,0,0,0] },
   ]},
   { id: 'finance', label: 'Finance', color: '#d97706', kpis: [
-    { id: 'trading', label: 'Trading session', icon: 'chart-candle', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
-    { id: 'savings', label: 'Savings check', icon: 'piggy-bank', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'trading', label: 'Trading session', icon: 'chart-candle', type: 'check', checked: false, weeklyTarget: 3, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'savings', label: 'Savings check', icon: 'piggy-bank', type: 'check', checked: false, weeklyTarget: 1, streak: 0, days: [0,0,0,0,0,0,0] },
   ]},
   { id: 'personal', label: 'Personal', color: '#2563eb', kpis: [
-    { id: 'podcast', label: 'Podcast / learning', icon: 'microphone', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
-    { id: 'message', label: '1 personal message', icon: 'message', type: 'check', checked: false, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'podcast', label: 'Podcast / learning', icon: 'microphone', type: 'check', checked: false, weeklyTarget: 5, streak: 0, days: [0,0,0,0,0,0,0] },
+    { id: 'message', label: '1 personal message', icon: 'message', type: 'check', checked: false, weeklyTarget: 3, streak: 0, days: [0,0,0,0,0,0,0] },
   ]},
 ]
+
+/** Palette cycled through when the user adds a new KPI category. */
+export const KPI_CATEGORY_PALETTE = ['#059669', '#7c3aed', '#d97706', '#2563eb', '#db2777', '#0891b2', '#ca8a04', '#dc2626']
 
 export interface CalendarEvent {
   color: string

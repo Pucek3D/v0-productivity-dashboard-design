@@ -10,6 +10,11 @@ import { ClientDnd } from './client-dnd'
 import { useMounted } from '@/lib/use-mounted'
 import { TASK_DND_MIME } from './event-calendar'
 
+// Ivy Lee method: at most 6 priorities live in the Top Prio "today" zone
+// (Work + Home combined). Overflow is pushed down to the Other to-dos.
+const PRIO_LIMIT = 6
+const isPrioSection = (k: string) => k === 'Work' || k === 'Home'
+
 type PrioTask = { id: string; text: string; done: boolean; priority?: 'red' | 'yellow' | 'gray'; source?: 'message' }
 type PrioSection = { section: string; color: string; tasks: PrioTask[] }
 interface TopPrioCardProps { tasks: PrioSection[]; setTasks: React.Dispatch<React.SetStateAction<PrioSection[]>>; taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; onTaskToggle?: (text: string, done: boolean) => void; onRename?: (key: string, newName: string) => void; onSectionCategoryChange?: (text: string, category: 'work' | 'home') => void }
@@ -33,6 +38,10 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [activeTask, setActiveTask] = useState<PrioTask | null>(null)
 
+  // How many priorities currently occupy the "today" zone, and whether it's full.
+  const prioCount = (tasks.find(s => s.section === 'Work')?.tasks.length || 0) + (tasks.find(s => s.section === 'Home')?.tasks.length || 0)
+  const prioFull = prioCount >= PRIO_LIMIT
+
   const toggleTask = (sk: string, taskId: string) => {
     setTasks(prev => prev.map(s => {
       if (s.section !== sk) return s
@@ -43,7 +52,11 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
     }))
   }
   const deleteTask = (sk: string, taskId: string) => { setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s)) }
-  const addTask = (sk: string) => { setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: [...s.tasks, { id: `q${Date.now()}`, text: 'New task', done: false }] } : s)) }
+  const addTask = (sk: string) => {
+    // Never let a manual add push the today zone past the Ivy Lee limit.
+    if (isPrioSection(sk) && prioFull) return
+    setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: [...s.tasks, { id: `q${Date.now()}`, text: 'New task', done: false }] } : s))
+  }
   const renameTask = (sk: string, taskId: string, text: string) => {
     setTasks(prev => prev.map(s => s.section === sk ? { ...s, tasks: s.tasks.map(t => t.id === taskId ? { ...t, text } : t) } : s))
     // Propagate to synced surfaces (Messages, Projects, Goals, Other To-Do)
@@ -56,6 +69,9 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
     let srcKey='',srcIdx=-1; for (const s of tasks){const i=s.tasks.findIndex(t=>t.id===active.id);if(i>=0){srcKey=s.section;srcIdx=i;break}}; if(!srcKey) return
     let destKey='',destIdx=-1; for (const s of tasks){const i=s.tasks.findIndex(t=>t.id===over.id);if(i>=0){destKey=s.section;destIdx=i;break}}
     if(!destKey){const k=String(over.id);const sec=tasks.find(s=>s.section===k);if(sec){destKey=k;destIdx=sec.tasks.length}}; if(!destKey) return
+    // Ivy Lee overflow: dropping a NEW task (from Other) into a full today zone
+    // redirects it into the matching Other section instead of exceeding 6.
+    if(isPrioSection(destKey)&&!isPrioSection(srcKey)&&prioFull){destKey=destKey==='Work'?'Other Work':'Other Home';const sec=tasks.find(s=>s.section===destKey);destIdx=sec?sec.tasks.length:0}
     // If the task crossed between a Work and a Home column, sync the matching message's W/H category.
     const cat=(k:string):'work'|'home'|null=>k.includes('Work')?'work':k.includes('Home')?'home':null
     const srcCat=cat(srcKey),destCat=cat(destKey)
@@ -66,10 +82,17 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
   return (
     <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="card-base halo-black">
-        <div className="section-header header-black px-4 py-2.5"><span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Top prio today</span></div>
+        <div className="section-header header-black px-4 py-2.5 flex items-center justify-between">
+          <span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Top prio today</span>
+          <span className="text-[10px] font-bold tabular tracking-wider rounded-full px-2 py-[1px]"
+            style={{ background: prioFull ? 'rgba(251,191,36,0.18)' : 'rgba(255,255,255,0.08)', color: prioFull ? '#fbbf24' : 'rgba(255,255,255,0.55)' }}
+            title={prioFull ? 'Today zone is full (Ivy Lee limit) — finish or move one to Other' : `${prioCount} of ${PRIO_LIMIT} priorities chosen`}>
+            {prioCount}/{PRIO_LIMIT}
+          </span>
+        </div>
         <div className="px-3 py-2.5"><div className="grid grid-cols-2 gap-2.5">
-          <Quadrant sectionKey="Work" label="WORK" labelColor="#818cf8" tasks={tasks.find(s=>s.section==='Work')?.tasks||[]} onToggle={(id)=>toggleTask('Work',id)} onDelete={(id)=>deleteTask('Work',id)} onAdd={()=>addTask('Work')} onRename={(id,t)=>renameTask('Work',id,t)} openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
-          <Quadrant sectionKey="Home" label="HOME" labelColor="#2dd4bf" tasks={tasks.find(s=>s.section==='Home')?.tasks||[]} onToggle={(id)=>toggleTask('Home',id)} onDelete={(id)=>deleteTask('Home',id)} onAdd={()=>addTask('Home')} onRename={(id,t)=>renameTask('Home',id,t)} openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+          <Quadrant sectionKey="Work" label="WORK" labelColor="#818cf8" isPrio full={prioFull} tasks={tasks.find(s=>s.section==='Work')?.tasks||[]} onToggle={(id)=>toggleTask('Work',id)} onDelete={(id)=>deleteTask('Work',id)} onAdd={()=>addTask('Work')} onRename={(id,t)=>renameTask('Work',id,t)} openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
+          <Quadrant sectionKey="Home" label="HOME" labelColor="#2dd4bf" isPrio full={prioFull} tasks={tasks.find(s=>s.section==='Home')?.tasks||[]} onToggle={(id)=>toggleTask('Home',id)} onDelete={(id)=>deleteTask('Home',id)} onAdd={()=>addTask('Home')} onRename={(id,t)=>renameTask('Home',id,t)} openModal={openModal} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
         </div></div>
         <div style={{height:1,background:'linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 20%, rgba(255,255,255,0.08) 80%, transparent)',margin:'0 12px'}} />
         <div className="px-4 py-2"><span className="text-white/50 font-semibold text-[10px] tracking-[0.16em] uppercase">Other to-dos</span></div>
@@ -83,17 +106,20 @@ export function TopPrioCard({ tasks, setTasks, taskMeta, updateTaskMeta, openMod
   )
 }
 
-function Quadrant({ sectionKey, label, labelColor, tasks, onToggle, onDelete, onAdd, onRename, openModal, taskMeta, updateTaskMeta }: any) {
+function Quadrant({ sectionKey, label, labelColor, tasks, onToggle, onDelete, onAdd, onRename, openModal, taskMeta, updateTaskMeta, isPrio = false, full = false }: any) {
   const { setNodeRef, isOver } = useDroppable({ id: sectionKey })
 
   /* ── Sort: done tasks go to bottom ── */
   const sorted = [...tasks].sort((a: PrioTask, b: PrioTask) => Number(a.done) - Number(b.done))
+  // In the today zone, the "+" disappears once full and the drop hint flips to a
+  // "move one to Other first" prompt — the core of the Ivy Lee constraint.
+  const lockAdd = isPrio && full
 
   return (
     <div ref={setNodeRef} className="rounded-lg p-2.5 border transition-colors" style={{background:isOver?'rgba(99,102,241,0.08)':'rgba(255,255,255,0.025)',borderColor:isOver?'rgba(99,102,241,0.25)':'rgba(255,255,255,0.04)'}}>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[10px] font-bold tracking-[0.12em]" style={{color:labelColor}}>{label}</span>
-        <button onClick={onAdd} className="w-4 h-4 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/5"><IconPlus size={11} /></button>
+        {!lockAdd && <button onClick={onAdd} className="w-4 h-4 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/5"><IconPlus size={11} /></button>}
       </div>
       <SortableContext items={sorted.map((t:any)=>t.id)} strategy={verticalListSortingStrategy}>
         {sorted.map((task: PrioTask) => (
@@ -105,7 +131,14 @@ function Quadrant({ sectionKey, label, labelColor, tasks, onToggle, onDelete, on
             taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} />
         ))}
       </SortableContext>
-      {tasks.length === 0 && <div className="text-[10px] text-slate-600 text-center py-2 italic">Drop tasks here</div>}
+      {tasks.length === 0 && (
+        <div className="text-[10px] text-center py-2 italic" style={{ color: lockAdd ? 'rgba(251,191,36,0.7)' : '#475569' }}>
+          {lockAdd ? 'Full — move one to Other first' : 'Drop tasks here'}
+        </div>
+      )}
+      {lockAdd && tasks.length > 0 && (
+        <div className="text-[9px] text-center mt-1 italic" style={{ color: 'rgba(251,191,36,0.6)' }}>Full — move one to Other first</div>
+      )}
     </div>
   )
 }
