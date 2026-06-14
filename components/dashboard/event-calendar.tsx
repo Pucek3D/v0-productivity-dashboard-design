@@ -125,6 +125,7 @@ const pad2 = (n: number) => n.toString().padStart(2, '0')
 export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent, onUpdateEvent }: EventCalendarProps) {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
   const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
+  const [dayDate, setDayDate] = useState({ d: 26, m: 4, y: 2026 })  // day shown in Day view
   const [month, setMonth] = useState(4)
   const [year, setYear] = useState(2026)
   const [customMeetings, setCustomMeetings] = useState<CustomMeeting[]>([])
@@ -149,8 +150,14 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
   useEffect(() => {
     const now = new Date()
     const t = { d: now.getDate(), m: now.getMonth(), y: now.getFullYear() }
-    setToday(t); setMonth(t.m); setYear(t.y)
+    setToday(t); setDayDate(t); setMonth(t.m); setYear(t.y)
   }, [])
+
+  // shift the Day-view date by N days (handles month/year rollover)
+  const shiftDay = (delta: number) => setDayDate(prev => {
+    const d = new Date(prev.y, prev.m, prev.d + delta)
+    return { d: d.getDate(), m: d.getMonth(), y: d.getFullYear() }
+  })
 
   const changeMonth = (delta: number) => {
     let newMonth = month + delta; let newYear = year
@@ -512,8 +519,9 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
           onOpenEvent={openEventEdit} onAddAt={openAddForm}
           onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent}
           beginDrag={beginDrag} dropOnDay={dropOnDay} />}
-        {view === 'd' && <DayView today={today} deadlineEvents={activeDeadlineEvents}
-          customMeetings={customMeetings} month={month} year={year}
+        {view === 'd' && <DayView viewDate={dayDate} realToday={today} deadlineEvents={activeDeadlineEvents}
+          customMeetings={customMeetings}
+          onShiftDay={shiftDay} onPickDay={(d, m, y) => setDayDate({ d, m, y })}
           onOpenMeeting={(id) => { const m = customMeetings.find(mm => mm.id === id); if (m) openMeetingEdit(m) }}
           onOpenEvent={openEventEdit} onAddAt={openAddForm}
           onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent}
@@ -715,10 +723,62 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMe
   )
 }
 
+/* ── Compact month-grid popover for jumping to any day in Day view ── */
+function DayPickerPopover({ viewDate, realToday, onPick, onClose }: {
+  viewDate: { d: number; m: number; y: number }
+  realToday: { d: number; m: number; y: number }
+  onPick: (d: number, m: number, y: number) => void
+  onClose: () => void
+}) {
+  const [navMonth, setNavMonth] = useState(viewDate.m)
+  const [navYear, setNavYear] = useState(viewDate.y)
+  const daysInMonth = getDaysInMonth(navMonth, navYear)
+  const firstDay = getFirstDayOfMonth(navMonth, navYear)
+  const prev = () => { if (navMonth === 0) { setNavMonth(11); setNavYear(navYear - 1) } else setNavMonth(navMonth - 1) }
+  const next = () => { if (navMonth === 11) { setNavMonth(0); setNavYear(navYear + 1) } else setNavMonth(navMonth + 1) }
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={onClose} />
+      <div style={{
+        position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, width: 230,
+        background: '#131c2e', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 12,
+        padding: 12, boxShadow: '0 12px 36px rgba(0,0,0,0.55)',
+      }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+          <button onClick={prev} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14, padding: '0 6px' }}>‹</button>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#cbd5e1' }}>{MONTH_NAMES[navMonth]} {navYear}</span>
+          <button onClick={next} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14, padding: '0 6px' }}>›</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+          {DAY_NAMES.map(dn => <div key={dn} style={{ fontSize: 8, fontWeight: 600, color: '#475569', textAlign: 'center' }}>{dn.slice(0, 1)}</div>)}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+          {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const d = i + 1
+            const isSelected = viewDate.d === d && viewDate.m === navMonth && viewDate.y === navYear
+            const isToday = d === realToday.d && navMonth === realToday.m && navYear === realToday.y
+            return (
+              <button key={d} onClick={() => onPick(d, navMonth, navYear)} style={{
+                aspectRatio: '1', borderRadius: 5, border: 'none', cursor: 'pointer',
+                fontSize: 10, fontWeight: isSelected ? 700 : 500,
+                background: isSelected ? '#6366f1' : 'transparent',
+                color: isSelected ? '#fff' : isToday ? '#fb7185' : '#94a3b8',
+              }}>{d}</button>
+            )
+          })}
+        </div>
+      </div>
+    </>
+  )
+}
+
 /* ─── Day View ─── */
-function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMeeting, onOpenEvent, onAddAt, onRemoveMeeting, onDeleteEvent, beginDrag, dropOnHour, rescheduleMeeting, rescheduleEvent }: {
-  today: { d: number; m: number; y: number }; deadlineEvents: DeadlineEvent[]
-  customMeetings: CustomMeeting[]; month: number; year: number
+function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftDay, onPickDay, onOpenMeeting, onOpenEvent, onAddAt, onRemoveMeeting, onDeleteEvent, beginDrag, dropOnHour, rescheduleMeeting, rescheduleEvent }: {
+  viewDate: { d: number; m: number; y: number }; realToday: { d: number; m: number; y: number }
+  deadlineEvents: DeadlineEvent[]
+  customMeetings: CustomMeeting[]
+  onShiftDay: (delta: number) => void; onPickDay: (d: number, m: number, y: number) => void
   onOpenMeeting: (id: string) => void; onOpenEvent: (ev: DeadlineEvent) => void
   onAddAt: (day: number, m: number, y: number, time?: string) => void
   onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
@@ -727,6 +787,9 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMee
   rescheduleMeeting: (id: string, p: { day: number; month: number; year: number; time?: string | null; durationMin?: number }) => void
   rescheduleEvent: (ev: DeadlineEvent, p: { date?: string; hour?: number | null; minute?: number; durationMin?: number }) => void
 }) {
+  const today = viewDate  // the day rendered by this view (may differ from the real today)
+  const isRealToday = viewDate.d === realToday.d && viewDate.m === realToday.m && viewDate.y === realToday.y
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const dateStr = new Date(today.y, today.m, today.d).toLocaleDateString('en-US', {
     weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
   })
@@ -817,9 +880,29 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMee
 
   return (
     <>
-      <div className="mb-3 flex items-center justify-between">
-        <span style={{ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif', fontWeight: 700, letterSpacing: '-0.025em', fontSize: '20px', color: '#ffffff' }}>{dateStr}</span>
-        <span style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.16em', color: '#fb7185' }}>Today</span>
+      <div className="mb-3 flex items-center justify-between" style={{ position: 'relative' }}>
+        <div className="flex items-center gap-2">
+          <button onClick={() => onShiftDay(-1)} aria-label="Previous day"
+            className="bg-white/5 border border-white/10 rounded-md w-6 h-6 cursor-pointer flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition text-[13px]">‹</button>
+          <span style={{ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif', fontWeight: 700, letterSpacing: '-0.025em', fontSize: '20px', color: '#ffffff' }}>{dateStr}</span>
+          <button onClick={() => onShiftDay(1)} aria-label="Next day"
+            className="bg-white/5 border border-white/10 rounded-md w-6 h-6 cursor-pointer flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition text-[13px]">›</button>
+          <button onClick={() => setShowDatePicker(s => !s)} aria-label="Pick a day"
+            className="bg-white/5 border border-white/10 rounded-md w-6 h-6 cursor-pointer flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-indigo-300 transition">
+            <IconCalendar size={13} />
+          </button>
+        </div>
+        {isRealToday
+          ? <span style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.16em', color: '#fb7185' }}>Today</span>
+          : <button onClick={() => onPickDay(realToday.d, realToday.m, realToday.y)}
+              style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#818cf8', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+              Go to today
+            </button>}
+        {showDatePicker && (
+          <DayPickerPopover viewDate={viewDate} realToday={realToday}
+            onPick={(d, m, y) => { onPickDay(d, m, y); setShowDatePicker(false) }}
+            onClose={() => setShowDatePicker(false)} />
+        )}
       </div>
 
       {(allDayEvents.length > 0 || allDayMeetings.length > 0) && (
@@ -879,6 +962,9 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMee
             const height = Math.max(it.durationMin, 30) / 60 * HOUR_PX
             const interactive = it.kind === 'meeting' || it.kind === 'task'
             const isDragging = drag?.key === it.key
+            // Short meetings (≤15 min) are too thin for two lines, so the start
+            // time sits inline right after the title instead of on its own row.
+            const compact = it.durationMin <= 15
             const handleItem = { key: it.key, kind: it.kind as 'meeting' | 'event', id: it.id, ev: it.ev, startMin: it.startMin, durationMin: it.durationMin }
             return (
               <div key={it.key}
@@ -891,15 +977,16 @@ function DayView({ today, deadlineEvents, customMeetings, month, year, onOpenMee
                   position: 'absolute', left: 0, right: 4, top, height: height - 2,
                   background: `${it.color}22`, borderLeft: `2.5px solid ${it.color}`, borderRadius: '0 6px 6px 0',
                   boxShadow: isDragging ? `0 6px 18px ${it.color}66` : `0 0 12px ${it.color}33`,
-                  padding: '3px 8px', overflow: 'hidden', cursor: interactive ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                  padding: compact ? '2px 8px' : '3px 8px', overflow: 'hidden', cursor: interactive ? (isDragging ? 'grabbing' : 'grab') : 'default',
                   zIndex: isDragging ? 10 : 2, touchAction: 'none', userSelect: 'none',
+                  display: 'flex', flexDirection: compact ? 'row' : 'column', alignItems: compact ? 'baseline' : 'stretch', gap: compact ? 6 : 0,
                 }}>
-                <div className="text-[11.5px] font-bold leading-tight" style={{ color: it.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div className="text-[11.5px] font-bold leading-tight" style={{ color: it.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: compact ? '0 1 auto' : undefined }}>
                   {it.hasDetails && <span style={{ marginRight: 3 }}>•</span>}
                   {it.label}
                 </div>
-                <div className="text-[9.5px] text-slate-500" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {minToLabel(it.startMin)}–{minToLabel(it.startMin + it.durationMin)}
+                <div className="text-[9.5px] text-slate-500" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {compact ? minToLabel(it.startMin) : `${minToLabel(it.startMin)}–${minToLabel(it.startMin + it.durationMin)}`}
                 </div>
                 {interactive && (
                   <button
