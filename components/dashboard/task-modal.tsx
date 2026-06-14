@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconPlus, IconTrash, IconPlayerPlay, IconStar, IconBookmark } from '@tabler/icons-react'
+import { IconX, IconCalendar, IconUser, IconClock, IconFlag, IconLink, IconPlus, IconTrash, IconPlayerPlay, IconStar, IconBookmark, IconPaperclip, IconCalendarWeek } from '@tabler/icons-react'
 import { type TaskMeta, getDateLabel } from '@/lib/task-meta'
 
 interface TaskModalProps { taskKey: string; taskLabel: string; meta: TaskMeta; onUpdate: (u: Partial<TaskMeta>) => void; onClose: () => void; onStartFocus?: (k: string, l: string) => void; starSubtaskToPrio?: (text: string, details?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (text: string, details?: Partial<TaskMeta>) => void; isTaskStarred?: (text: string) => boolean; isTaskBookmarked?: (text: string) => boolean; onRenameTask?: (newName: string) => void }
@@ -36,6 +36,7 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(taskLabel)
   const nameRef = useRef<HTMLInputElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   // Focus runs as a floating page-level widget (FocusTimer) so the modal can be
   // closed and the user can keep working on the dashboard while the timer runs.
@@ -45,6 +46,8 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   const saveDesc = () => { if (desc !== (meta.description || '')) onUpdate({ description: desc || undefined }) }
   const addLink = () => { if (!newLink.trim()) return; onUpdate({ links: [...(meta.links || []), newLink.trim()] }); setNewLink('') }
   const removeLink = (i: number) => { const u = [...(meta.links || [])]; u.splice(i, 1); onUpdate({ links: u.length ? u : undefined }) }
+  const addFiles = (list: FileList | null) => { if (!list || !list.length) return; const added = Array.from(list).map(f => ({ name: f.name, url: URL.createObjectURL(f) })); onUpdate({ files: [...(meta.files || []), ...added] }) }
+  const removeFile = (i: number) => { const u = [...(meta.files || [])]; u.splice(i, 1); onUpdate({ files: u.length ? u : undefined }) }
   const addSub = () => { if (!newSub.trim()) return; onUpdate({ subtasks: [...(meta.subtasks || []), { id: `st-${Date.now()}`, text: newSub.trim(), done: false }] }); setNewSub('') }
   const toggleSub = (id: string) => { onUpdate({ subtasks: (meta.subtasks || []).map(s => s.id === id ? { ...s, done: !s.done } : s) }) }
   const removeSub = (id: string) => { const u = (meta.subtasks || []).filter(s => s.id !== id); onUpdate({ subtasks: u.length ? u : undefined }) }
@@ -54,6 +57,8 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
   const saveName = () => { setEditingName(false); if (nameDraft.trim() && nameDraft !== taskLabel && onRenameTask) onRenameTask(nameDraft.trim()) }
 
   const dateInfo = meta.deadline ? getDateLabel(meta.deadline) : null
+  const pad2 = (n: number) => String(n).padStart(2, '0')
+  const timeStr = meta.hour !== undefined ? `${pad2(meta.hour)}:${pad2(meta.minute || 0)}` : ''
   const sDone = (meta.subtasks || []).filter(s => s.done).length; const sTotal = (meta.subtasks || []).length
   const focusSessions: { date: string; seconds?: number; minutes?: number }[] = (meta as any).focusSessions || []
   const secsOf = (s: { seconds?: number; minutes?: number }) => s.seconds ?? (s.minutes ? s.minutes * 60 : 0)
@@ -65,7 +70,7 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
 
   return createPortal(<>
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} />
-    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10001, width: 560, maxHeight: '85vh', overflowY: 'auto', background: '#0f1623', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
+    <div className="modal-scroll" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10001, width: 560, maxHeight: '85vh', overflowY: 'auto', background: '#0f1623', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
       {/* Header */}
       <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -92,30 +97,11 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
 
       <div style={{ padding: '20px 24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
-          <div><div style={S}><IconCalendar size={16} color="#64748b" /> Deadline</div><input type="date" value={meta.deadline || ''} onChange={e => onUpdate({ deadline: e.target.value || undefined, label: taskLabel })} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 10px', fontSize: 13, color: '#e2e8f0', outline: 'none', colorScheme: 'dark', width: '100%' }} />{dateInfo && <span style={{ fontSize: 11, fontWeight: 700, display: 'inline-block', marginTop: 4 }} className={`px-2 py-0.5 rounded ${dateInfo.className}`}>{dateInfo.text}</span>}</div>
+          <div><div style={S}><IconCalendar size={16} color="#64748b" /> Deadline</div><div style={{ display: 'flex', gap: 6 }}><input type="date" value={meta.deadline || ''} onChange={e => onUpdate({ deadline: e.target.value || undefined, label: taskLabel })} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 10px', fontSize: 13, color: '#e2e8f0', outline: 'none', colorScheme: 'dark', flex: 1, minWidth: 0 }} /><input type="time" value={timeStr} onChange={e => { const v = e.target.value; if (!v) { onUpdate({ hour: undefined, minute: undefined }) } else { const [h, m] = v.split(':').map(Number); onUpdate({ hour: h, minute: m || 0, label: taskLabel }) } }} title="Time (optional)" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 8px', fontSize: 13, color: '#e2e8f0', outline: 'none', colorScheme: 'dark', width: 92 }} /></div>{dateInfo && <span style={{ fontSize: 11, fontWeight: 700, display: 'inline-block', marginTop: 4 }} className={`px-2 py-0.5 rounded ${dateInfo.className}`}>{dateInfo.text}{timeStr ? ` · ${timeStr}` : ''}</span>}</div>
           <div><div style={S}><IconUser size={16} color="#64748b" /> Owner</div><input value={meta.owner || ''} onChange={e => onUpdate({ owner: e.target.value || undefined })} placeholder="Assign owner..." style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 10px', fontSize: 13, color: '#e2e8f0', outline: 'none', width: '100%' }} /></div>
           <div><div style={S}><IconFlag size={16} color="#64748b" /> Priority</div><div style={{ display: 'flex', gap: 5 }}>{PRIOS.map(p => <button key={p.value} onClick={() => onUpdate({ priority: meta.priority === p.value ? undefined : p.value as any })} style={{ padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, border: 'none', textTransform: 'uppercase', background: meta.priority === p.value ? `${p.color}22` : 'rgba(255,255,255,0.04)', color: meta.priority === p.value ? p.color : '#475569', boxShadow: meta.priority === p.value ? `inset 0 0 0 1px ${p.color}44` : 'none' }}>{p.label}</button>)}</div></div>
           <div><div style={S}><IconClock size={16} color="#64748b" /> Estimate</div><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>{TIMES.map(t => <button key={t} onClick={() => onUpdate({ timeEstimate: meta.timeEstimate === t ? undefined : t })} style={{ padding: '3px 8px', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 500, border: 'none', background: meta.timeEstimate === t ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)', color: meta.timeEstimate === t ? '#818cf8' : '#475569', boxShadow: meta.timeEstimate === t ? 'inset 0 0 0 1px rgba(99,102,241,0.3)' : 'none' }}>{t >= 60 ? `${t / 60}h` : `${t}m`}</button>)}<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><input type="number" min={0} step={5} value={meta.timeEstimate && !TIMES.includes(meta.timeEstimate) ? meta.timeEstimate : ''} onChange={e => { const v = parseInt(e.target.value, 10); onUpdate({ timeEstimate: Number.isFinite(v) && v > 0 ? v : undefined }) }} placeholder="min" title="Set estimate manually" className="estimate-num" style={{ width: 52, background: '#0f1623', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '3px 6px', fontSize: 12, color: meta.timeEstimate && !TIMES.includes(meta.timeEstimate) ? '#818cf8' : '#94a3b8', outline: 'none', colorScheme: 'dark', boxShadow: meta.timeEstimate && !TIMES.includes(meta.timeEstimate) ? 'inset 0 0 0 1px rgba(99,102,241,0.3)' : 'none' }} /><span style={{ fontSize: 10, color: '#475569' }}>m</span></span></div></div>
         </div>
-
-        {/* Recurring + start date */}
-        <Sec label="🔄 Recurring">
-          <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>{(['daily', 'weekly', 'monthly'] as const).map(f => <button key={f} onClick={() => onUpdate({ recurring: meta.recurring === f ? null : f })} style={{ padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, border: 'none', textTransform: 'uppercase', background: meta.recurring === f ? 'rgba(45,212,191,0.15)' : 'rgba(255,255,255,0.04)', color: meta.recurring === f ? '#2dd4bf' : '#475569', boxShadow: meta.recurring === f ? 'inset 0 0 0 1px rgba(45,212,191,0.3)' : 'none' }}>{f}</button>)}</div>
-          {meta.recurring && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 10, color: '#64748b' }}>Start date:</span>
-            <input type="date" value={(meta as any).recurringStart || ''} onChange={e => onUpdate({ recurringStart: e.target.value || undefined } as any)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none', colorScheme: 'dark' }} />
-          </div>}
-        </Sec>
-
-        {/* Schedule — 6-month week picker */}
-        <Sec label="📅 Schedule (weeks)">
-          <div style={{ marginBottom: 8 }}>
-            <button onClick={() => { const s = (meta as any).schedule || {}; onUpdate({ schedule: { ...s, ongoing: !s.ongoing } } as any) }} style={{ padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, border: 'none', textTransform: 'uppercase', background: (meta as any).schedule?.ongoing ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.04)', color: (meta as any).schedule?.ongoing ? '#34d399' : '#475569', boxShadow: (meta as any).schedule?.ongoing ? 'inset 0 0 0 1px rgba(52,211,153,0.3)' : 'none' }}>Ongoing</button>
-          </div>
-          <MonthWeekPicker selectedWeeks={(meta as any).schedule?.weeks || []} onChange={(weeks: number[]) => { const s = (meta as any).schedule || {}; onUpdate({ schedule: { ...s, weeks } } as any) }} />
-        </Sec>
-
-        <Sec label="Notes"><textarea value={desc} onChange={e => setDesc(e.target.value)} onBlur={saveDesc} placeholder="Add notes..." rows={3} style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '10px 12px', fontSize: 14, color: '#e2e8f0', resize: 'vertical', outline: 'none', lineHeight: 1.5, fontFamily: 'inherit' }} /></Sec>
 
         <Sec label={`Checklist${sTotal > 0 ? ` (${sDone}/${sTotal})` : ''}`}>
           {sTotal > 0 && <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2, marginBottom: 10, overflow: 'hidden' }}><div style={{ height: '100%', width: `${(sDone / sTotal) * 100}%`, background: '#6366f1', borderRadius: 2, transition: 'width 0.3s' }} /></div>}
@@ -127,13 +113,26 @@ export function TaskModal({ taskKey, taskLabel, meta, onUpdate, onClose, onStart
           {(meta.links || []).map((link, i) => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}><IconLink size={14} color="#64748b" /><a href={link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#818cf8', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link}</a><button onClick={() => removeLink(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.4 }}><IconTrash size={14} color="#64748b" /></button></div>)}
           <div style={{ display: 'flex', gap: 8, marginTop: 6 }}><input value={newLink} onChange={e => setNewLink(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLink() }} placeholder="Paste URL..." style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 10px', fontSize: 13, color: '#fff', outline: 'none' }} /><button onClick={addLink} style={{ background: 'rgba(99,102,241,0.15)', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}><IconPlus size={14} color="#818cf8" /></button></div>
         </Sec>
+
+        <Sec label={<><IconPaperclip size={14} color="#64748b" /> Files</>}>
+          {(meta.files || []).map((f, i) => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}><IconPaperclip size={14} color="#64748b" /><a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#818cf8', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</a><button onClick={() => removeFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.4 }}><IconTrash size={14} color="#64748b" /></button></div>)}
+          <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={e => { addFiles(e.target.files); if (fileRef.current) fileRef.current.value = '' }} />
+          <button onClick={() => fileRef.current?.click()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#818cf8' }}><IconPlus size={14} /> Add files</button>
+        </Sec>
+
+        <Sec label="Notes"><textarea value={desc} onChange={e => setDesc(e.target.value)} onBlur={saveDesc} placeholder="Add notes..." rows={3} style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '10px 12px', fontSize: 14, color: '#e2e8f0', resize: 'vertical', outline: 'none', lineHeight: 1.5, fontFamily: 'inherit' }} /></Sec>
+
+        {/* Schedule — 6-month week picker */}
+        <Sec label={<><IconCalendarWeek size={14} color="#64748b" /> Schedule (weeks)</>}>
+          <MonthWeekPicker selectedWeeks={(meta as any).schedule?.weeks || []} onChange={(weeks: number[]) => { const s = (meta as any).schedule || {}; onUpdate({ schedule: { ...s, weeks } } as any) }} />
+        </Sec>
       </div>
     </div>
   </>, document.body)
 }
 
-function Sec({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div style={{ marginBottom: 22 }}><div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 10 }}>{label}</div>{children}</div>
+function Sec({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  return <div style={{ marginBottom: 22 }}><div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>{label}</div>{children}</div>
 }
 
 /* Per-subtask time estimate: manual number + unit (min / h) */
@@ -162,7 +161,7 @@ function SubEstimateInput({ value, onChange }: { value?: number; onChange: (v: n
 function MonthWeekPicker({ selectedWeeks, onChange }: { selectedWeeks: number[]; onChange: (w: number[]) => void }) {
   const months = useMemo(() => {
     const now = new Date()
-    const result: { name: string; year: number; month: number; weeks: { weekNum: number; label: string; dateRange: string }[] }[] = []
+    const result: { name: string; year: number; month: number; weeks: { weekNum: number; label: string; dateRange: string; mondayLabel: string }[] }[] = []
 
     for (let offset = 0; offset < 6; offset++) {
       const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
@@ -171,8 +170,9 @@ function MonthWeekPicker({ selectedWeeks, onChange }: { selectedWeeks: number[];
       const month = d.getMonth()
 
       // Get ISO weeks that overlap this month
-      const weeks: { weekNum: number; label: string; dateRange: string }[] = []
+      const weeks: { weekNum: number; label: string; dateRange: string; mondayLabel: string }[] = []
       const seenWeeks = new Set<number>()
+      let monthWeekIdx = 0 // 1-based position of the week within this month
 
       // Walk through every Monday that has days in this month
       const firstDay = new Date(year, month, 1)
@@ -193,12 +193,15 @@ function MonthWeekPicker({ selectedWeeks, onChange }: { selectedWeeks: number[];
           const weekNum = getISOWeekNumber(current)
           if (!seenWeeks.has(weekNum)) {
             seenWeeks.add(weekNum)
+            monthWeekIdx += 1
             const rangeStart = current.getDate()
             const rangeEnd = Math.min(weekEnd.getDate(), lastDay.getDate())
+            // `current` is the Monday that starts this ISO week
             weeks.push({
               weekNum,
-              label: `W${weekNum}`,
-              dateRange: `${rangeStart}–${rangeEnd}`
+              label: `W${monthWeekIdx}`,
+              dateRange: `${rangeStart}–${rangeEnd}`,
+              mondayLabel: current.toLocaleString('en', { day: 'numeric', month: 'short' }),
             })
           }
         }
@@ -232,13 +235,17 @@ function MonthWeekPicker({ selectedWeeks, onChange }: { selectedWeeks: number[];
                 const isCurrent = w.weekNum === currentWeek
                 return (
                   <button key={w.weekNum} onClick={() => toggle(w.weekNum)}
-                    title={`ISO Week ${w.weekNum} (${w.dateRange})`}
+                    title={`${w.label} · starts Mon ${w.mondayLabel} (ISO week ${w.weekNum}, ${w.dateRange})`}
                     style={{
-                      height: 22, borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 600,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+                      minHeight: 34, padding: '3px 2px', borderRadius: 4, border: 'none', cursor: 'pointer', fontWeight: 600,
                       background: isSelected ? '#818cf8' : isCurrent ? 'rgba(251,113,133,0.15)' : 'rgba(255,255,255,0.04)',
                       color: isSelected ? '#fff' : isCurrent ? '#fb7185' : '#64748b',
                       boxShadow: isSelected ? '0 0 6px rgba(99,102,241,0.4)' : 'none',
-                    }}>{w.label}</button>
+                    }}>
+                    <span style={{ fontSize: 10, lineHeight: 1 }}>{w.label}</span>
+                    <span style={{ fontSize: 8, lineHeight: 1, opacity: isSelected ? 0.85 : 0.7 }}>{w.mondayLabel}</span>
+                  </button>
                 )
               })}
             </div>
