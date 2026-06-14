@@ -954,7 +954,7 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
       )}
 
       {/* timed timeline — drag a box to move, drag its top/bottom edge to resize, click empty space to add */}
-      <div ref={timelineScrollRef} style={{ maxHeight: 460, overflowY: 'auto', overflowX: 'hidden' }}>
+      <div ref={timelineScrollRef} className="timeline-scroll" style={{ maxHeight: 460, overflowY: 'auto', overflowX: 'hidden' }}>
       <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ width: 34, flexShrink: 0, position: 'relative', height: TL_HEIGHT }}>
           {Array.from({ length: END_H - START_H }).map((_, i) => (
