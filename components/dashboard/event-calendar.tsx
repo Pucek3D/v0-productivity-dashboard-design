@@ -346,14 +346,13 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
               )}
             </div>
           </div>
-          {/* Add button — full width, transparent */}
+          {/* Add button — solid indigo, matches the time picker's Set button */}
           <button onClick={() => addMeeting(showAddForm.day)}
             style={{
-              width: '100%', marginTop: 10, padding: '7px 0', borderRadius: 7, cursor: 'pointer',
-              fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em',
-              background: 'rgba(99,102,241,0.12)',
-              border: '1px solid rgba(99,102,241,0.3)',
-              color: '#a5b4fc',
+              width: '100%', marginTop: 10, padding: '8px 0', borderRadius: 8, cursor: 'pointer',
+              fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em',
+              background: '#6366f1', color: '#fff', border: 'none',
+              boxShadow: '0 0 12px rgba(99,102,241,0.4)',
             }}>
             Add meeting
           </button>
