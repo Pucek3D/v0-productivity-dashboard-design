@@ -249,7 +249,7 @@ export default function Dashboard() {
     };if(nd) handleRecurringAfterToggle(metaKey,true)}return{...prev,[key]:nd}})
   }, [handleRecurringAfterToggle])
 
-  // ────────────────────────────────────────────────�����─────────────────
+  // ────────────────────────────────────────────────�������─────────────────
   // Bi-directional done sync by task text.
   // Marking a task / subtask / message done anywhere on the dashboard
   // propagates the done state to every linked surface that shares the
@@ -666,7 +666,7 @@ export default function Dashboard() {
         <div className="flex flex-col gap-3">
           <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} onRename={renameTask} onSectionCategoryChange={syncMessageCategory} />
           <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} onUpdateEvent={updateDeadlineEvent} onMeetingsChange={setCalendarMeetings} createTaskTargets={createTaskTargets} onCreateTask={handleCreateTask} onScheduleTask={handleScheduleTask} />
-          {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
+          {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} onClose={()=>toggleGantt(p.key)} />)}
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
           <LtGoalsCalendar taskMeta={taskMeta} />
           <LtGoalsCard ref={ltGoalsRef} projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} nameOverrides={nameOverrides} onRename={renameTask} />

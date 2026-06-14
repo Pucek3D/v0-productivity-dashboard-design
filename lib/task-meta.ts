@@ -25,6 +25,8 @@ export interface TaskMeta {
   notes?: string
   files?: MeetingFile[]
   color?: string
+  // ISO-week schedule picked in the task modal; drives the Gantt bars.
+  schedule?: { weeks?: number[]; ongoing?: boolean }
 }
 
 export interface DeadlineEvent {
