@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { LT_GOALS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
 import { EditableLabel } from './editable-label'
@@ -42,7 +42,9 @@ interface Props {
   nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void
 }
 
-export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename }: Props) {
+export type LtGoalsHandle = { addTask: (goalKey: string, text: string) => void }
+
+export const LtGoalsCard = forwardRef<LtGoalsHandle, Props>(function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename }: Props, ref) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [extraGoals, setExtraGoals] = useState<Project[]>([])
@@ -50,8 +52,21 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
   const [goalOrder, setGoalOrder] = useState<string[]>([])
   const [goalNames, setGoalNames] = useState<Record<string, string>>({})
   const [taskOrders, setTaskOrders] = useState<Record<string, number[]>>({})
+  // Tasks appended to a goal from the calendar's "Create task" flow. They are
+  // merged into each goal's `tasks` array at render time, so they reuse the
+  // existing index-based toggle / rename / star / modal machinery.
+  const [extraGoalTasks, setExtraGoalTasks] = useState<Record<string, string[]>>({})
 
-  const allGoals = [...LT_GOALS, ...extraGoals].filter(g => !deletedGoals.has(g.key))
+  useImperativeHandle(ref, () => ({
+    addTask: (goalKey: string, text: string) => {
+      const t = text.trim(); if (!t) return
+      setExtraGoalTasks(p => ({ ...p, [goalKey]: [...(p[goalKey] || []), t] }))
+    },
+  }))
+
+  const allGoals = [...LT_GOALS, ...extraGoals]
+    .filter(g => !deletedGoals.has(g.key))
+    .map(g => extraGoalTasks[g.key]?.length ? { ...g, tasks: [...g.tasks, ...extraGoalTasks[g.key]] } : g)
   const orderedGoals = (() => { if (!goalOrder.length) return allGoals; const o: Project[] = []; goalOrder.forEach(k => { const g = allGoals.find(p => p.key === k); if (g) o.push(g) }); allGoals.forEach(g => { if (!goalOrder.includes(g.key)) o.push(g) }); return o })()
 
   const handleGoalDragEnd = (e: DragEndEvent) => { const { active, over } = e; if (!over || active.id === over.id) return; const keys = orderedGoals.map(g => g.key); const oi = keys.indexOf(String(active.id)); const ni = keys.indexOf(String(over.id)); if (oi >= 0 && ni >= 0) setGoalOrder(arrayMove(keys, oi, ni)) }
@@ -79,7 +94,7 @@ export function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompleti
       </div>
     </div>
   )
-}
+})
 
 function SortableGoal(props: any) {
   const mounted = useMounted()

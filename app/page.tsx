@@ -203,6 +203,11 @@ export default function Dashboard() {
   // "Meetings" counter can include them.
   const [calendarMeetings, setCalendarMeetings] = useState<CustomMeeting[]>([])
 
+  // Imperative handles into the project / goal cards so the calendar's
+  // "Create task" flow can append a task directly to a chosen project or goal.
+  const activeProjectsRef = useRef<{ addTask: (key: string, text: string) => void }>(null)
+  const ltGoalsRef = useRef<{ addTask: (key: string, text: string) => void }>(null)
+
   const openModal = useCallback((k:string,l:string)=>setModalTask({key:k,label:l}), [])
   // Remove any Top Prio Today entry (starred or bookmarked) that mirrors a
   // task/subtask/message by text. Called whenever the source item is fully
@@ -552,6 +557,23 @@ export default function Dashboard() {
     keys.forEach(k => updateTaskMeta(k, { ...changes, label: ev.label.replace(/^🔄\s*/, '') }))
   }, [updateTaskMeta])
 
+  // Create a brand-new dashboard task from a calendar event/meeting that isn't
+  // linked to any task yet. The calendar drives a small decision tree
+  // (section → project) and calls this with the chosen destination.
+  const handleCreateTask = useCallback((p: { dest:'prio'|'project'|'goal'; category?:'work'|'home'; targetKey?:string; label:string })=>{
+    const label = p.label.trim()
+    if (!label) return
+    if (p.dest === 'prio') starToPrio(label, p.category || 'work')
+    else if (p.dest === 'project' && p.targetKey) activeProjectsRef.current?.addTask(p.targetKey, label)
+    else if (p.dest === 'goal' && p.targetKey) ltGoalsRef.current?.addTask(p.targetKey, label)
+  }, [starToPrio])
+
+  // Static destination lists for the calendar's "Create task" decision tree.
+  const createTaskTargets = useMemo(()=>({
+    projects: PROJECTS.map(p=>({ key:p.key, name:p.name, color:p.color, category:(p.category ?? 'work') as 'work'|'home' })),
+    goals: LT_GOALS.map(g=>({ key:g.key, name:g.name, color:g.color })),
+  }), [])
+
   const completedTasks = useMemo(()=>{const set=new Set<string>();prioTasks.forEach(s=>s.tasks.forEach(t=>{if(t.done)set.add(t.text)}));[...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(projectDone[`${p.key}-task-${i}`])set.add(t)})});return set}, [prioTasks,projectDone])
   const ganttProjectObjs = [...PROJECTS,...LT_GOALS].filter(p=>ganttProjects.has(p.key))
 
@@ -575,7 +597,17 @@ export default function Dashboard() {
     prioTasks.forEach(s=>s.tasks.forEach(t=>{totalTodayTasks++;if(t.done)doneTodayTasks++;const m=taskMeta[`prio-${t.id}`];if(m?.timeEstimate){plannedMin+=m.timeEstimate;plannedTasks.push({label:t.text,time:m.timeEstimate})}}))
     // Planned time is computed ONLY from Top Prio Today. Non-prio tasks with a
     // today deadline still contribute their meeting time, but NOT planned time.
-    Object.entries(taskMeta).forEach(([k,m])=>{if(m.deadline===todayStr&&!k.startsWith('prio-')){if(m.hour!==undefined){meetingMin+=60;meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`})}}})
+    // Events the user deleted from the calendar (tracked in hiddenCalendarEvents
+    // by their occurrence identity) are excluded so the top counter reduces to
+    // reflect only what's actually still on the calendar for today.
+    const countedToday = new Set<string>()
+    const evIdentity = (label:string, date:string) => {
+      const base = (label||'').replace(/^🔄\s*/, '')
+      const ppl = extractPeople(base)
+      const who = ppl.length ? ppl.map(p=>p.toLowerCase()).sort().join('+') : base.trim().toLowerCase()
+      return `${date}|${who}`
+    }
+    Object.entries(taskMeta).forEach(([k,m])=>{if(m.deadline===todayStr&&!k.startsWith('prio-')&&m.hour!==undefined){const id=evIdentity(m.label||k,m.deadline!);if(hiddenCalendarEvents.has(id)||countedToday.has(id))return;countedToday.add(id);meetingMin+=(m.durationMin||60);meetingEvents.push({label:m.label||k,time:`${m.hour.toString().padStart(2,'0')}:${(m.minute??0).toString().padStart(2,'0')}`})}})
     // Include meetings created in the Event Calendar that fall on today. Timed
     // meetings contribute their duration (default 60m); all-day meetings are
     // listed but add no minutes.
@@ -584,7 +616,7 @@ export default function Dashboard() {
     let focusedMin=0;const td=new Date();const tp=`${td.getDate()}/${td.getMonth()+1}`
     Object.values(taskMeta).forEach(m=>{((m as any).focusSessions||[]).forEach((s:any)=>{const afterReset=s.ts!==undefined?s.ts>=focusResetAt:focusResetAt===0;if(s.date?.startsWith(tp)&&afterReset)focusedMin+=(s.seconds!==undefined?s.seconds/60:(s.minutes||0))})})
     return{plannedMin,meetingMin,overloaded:plannedMin>480,totalTodayTasks,doneTodayTasks,plannedTasks,meetingEvents,focusedMin}
-  }, [taskMeta,prioTasks,focusResetAt,calendarMeetings])
+  }, [taskMeta,prioTasks,focusResetAt,calendarMeetings,hiddenCalendarEvents])
 
   const fmtTime = (m:number)=>{const mins=Math.round(m||0);const h=Math.floor(mins/60);const mm=mins%60;return h>0?(mm>0?`${h}h ${mm}m`:`${h}h`):`${mm}m`}
 
@@ -622,14 +654,14 @@ export default function Dashboard() {
         </div>
         <div className="flex flex-col gap-3">
           <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} onRename={renameTask} onSectionCategoryChange={syncMessageCategory} />
-          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} onUpdateEvent={updateDeadlineEvent} onMeetingsChange={setCalendarMeetings} />
+          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} onUpdateEvent={updateDeadlineEvent} onMeetingsChange={setCalendarMeetings} createTaskTargets={createTaskTargets} onCreateTask={handleCreateTask} />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
           {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
           <LtGoalsCalendar taskMeta={taskMeta} />
-          <LtGoalsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} nameOverrides={nameOverrides} onRename={renameTask} />
+          <LtGoalsCard ref={ltGoalsRef} projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} nameOverrides={nameOverrides} onRename={renameTask} />
         </div>
         <div className="flex flex-col gap-3">
-          <ActiveProjectsCard projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} onToggleGantt={toggleGantt} activeGanttProjects={ganttProjects} nameOverrides={nameOverrides} onRename={renameTask} onRemoveLinked={removeFromPrioByText} />
+          <ActiveProjectsCard ref={activeProjectsRef} projectDone={projectDone} toggleProjectTask={toggleProjectTask} getProjectCompletion={getProjectCompletion} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} hideTask={hideTask} hiddenTasks={hiddenTasks} onToggleGantt={toggleGantt} activeGanttProjects={ganttProjects} nameOverrides={nameOverrides} onRename={renameTask} onRemoveLinked={removeFromPrioByText} />
           <OtherTodoCard taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} nameOverrides={nameOverrides} onRename={renameTask} onRemoveLinked={removeFromPrioByText} />
         </div>
       </div>

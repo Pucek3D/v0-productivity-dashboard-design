@@ -5,7 +5,7 @@ import {
   MONTH_EVENTS, WEEK_EVENTS, DAY_EVENTS,
   MONTH_NAMES, DAY_NAMES, getDaysInMonth, getFirstDayOfMonth
 } from '@/lib/data'
-import { IconPlus, IconX, IconCalendar, IconMapPin, IconLink, IconNotes, IconPaperclip } from '@tabler/icons-react'
+import { IconPlus, IconX, IconCalendar, IconMapPin, IconLink, IconNotes, IconPaperclip, IconArrowLeft, IconCheck, IconChevronRight } from '@tabler/icons-react'
 import type { DeadlineEvent, TaskMeta } from '@/lib/task-meta'
 import { ScrollWheel, HOUR_ITEMS, MINUTE_ITEMS } from './task-actions'
 
@@ -104,6 +104,21 @@ interface EventCalendarProps {
   // Notifies the parent whenever the user's calendar meetings change, so the
   // dashboard header (Meetings counter) can include them.
   onMeetingsChange?: (meetings: CustomMeeting[]) => void
+  // Destination lists + handler for the "Create task" flow, used when a
+  // standalone meeting/event isn't linked to a dashboard task yet.
+  createTaskTargets?: CreateTaskTargets
+  onCreateTask?: (p: CreateTaskPayload) => void
+}
+
+export type CreateTaskTargets = {
+  projects: { key: string; name: string; color: string; category: 'work' | 'home' }[]
+  goals: { key: string; name: string; color: string }[]
+}
+export type CreateTaskPayload = {
+  dest: 'prio' | 'project' | 'goal'
+  category?: 'work' | 'home'
+  targetKey?: string
+  label: string
 }
 
 /* unified edit-modal target — used for both custom meetings and task events */
@@ -125,7 +140,7 @@ interface EditState {
 
 const pad2 = (n: number) => n.toString().padStart(2, '0')
 
-export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent, onUpdateEvent, onMeetingsChange }: EventCalendarProps) {
+export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent, onUpdateEvent, onMeetingsChange, createTaskTargets, onCreateTask }: EventCalendarProps) {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
   const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
   const [dayDate, setDayDate] = useState({ d: 26, m: 4, y: 2026 })  // day shown in Day view
@@ -494,6 +509,10 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
             }}>
             Add meeting
           </button>
+          {/* Create a dashboard task from this (not-yet-linked) meeting */}
+          {onCreateTask && (
+            <CreateTaskPanel label={newMeetingText} targets={createTaskTargets} onCreate={onCreateTask} />
+          )}
         </div>
       )}
 
@@ -545,6 +564,8 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
           onSave={() => saveEdit(editState)}
           onDelete={() => deleteEdit(editState)}
           onClose={() => setEditState(null)}
+          createTaskTargets={createTaskTargets}
+          onCreateTask={onCreateTask}
         />
       )}
     </div>
@@ -1127,13 +1148,163 @@ function TimePickerPopover({ anchor, month, year, today, day: initDay, hour: ini
 }
 
 /* ── Meeting / Event Edit Modal — full details, opens on click ── */
-function MeetingEditModal({ state, today, onChange, onSave, onDelete, onClose }: {
+/* ──────────────────────────────────────────────────────────────────────────
+   Create-task decision tree. Shown for standalone meetings/events that aren't
+   linked to a dashboard task yet. Flow: section → (Work/Home | project | goal).
+   ────────────────────────────────────────────────────────────────────────── */
+function CreateTaskPanel({ label, targets, onCreate }: {
+  label: string
+  targets?: CreateTaskTargets
+  onCreate?: (p: CreateTaskPayload) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [step, setStep] = useState<'section' | 'prioCat' | 'projCat' | 'project' | 'goal'>('section')
+  const [projCat, setProjCat] = useState<'work' | 'home'>('work')
+  const [done, setDone] = useState<string | null>(null)
+
+  const trimmed = (label || '').trim()
+  if (!onCreate) return null
+
+  const reset = () => { setStep('section'); setProjCat('work') }
+  const close = () => { setOpen(false); reset(); setDone(null) }
+  const fire = (p: CreateTaskPayload, msg: string) => { onCreate(p); setDone(msg); setTimeout(close, 1200) }
+
+  const panelStyle: React.CSSProperties = {
+    marginTop: 8, padding: 10, borderRadius: 8,
+    background: 'rgba(45,212,191,0.06)', border: '1px solid rgba(45,212,191,0.22)',
+  }
+  const optBtn: React.CSSProperties = {
+    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    gap: 8, padding: '7px 9px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
+    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+    color: '#e2e8f0', fontSize: 11, fontWeight: 600,
+  }
+  const tab = (active: boolean): React.CSSProperties => ({
+    flex: 1, padding: '5px 0', borderRadius: 6, cursor: 'pointer', fontSize: 10, fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '0.06em',
+    background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.04)',
+    color: active ? '#818cf8' : '#94a3b8',
+    border: active ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(255,255,255,0.06)',
+  })
+
+  if (!open) {
+    return (
+      <button onClick={() => { if (trimmed) setOpen(true) }} disabled={!trimmed} title={trimmed ? 'Create a task from this event' : 'Add a name first'}
+        style={{
+          width: '100%', marginTop: 8, padding: '7px 0', borderRadius: 8,
+          cursor: trimmed ? 'pointer' : 'not-allowed', fontSize: 10, fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.1em',
+          background: 'rgba(45,212,191,0.10)', color: trimmed ? '#2dd4bf' : '#475569',
+          border: '1px solid rgba(45,212,191,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        }}>
+        <IconPlus size={12} /> Create task
+      </button>
+    )
+  }
+
+  if (done) {
+    return (
+      <div style={panelStyle}>
+        <div className="flex items-center gap-2" style={{ color: '#2dd4bf', fontSize: 11, fontWeight: 600 }}>
+          <IconCheck size={14} /> {done}
+        </div>
+      </div>
+    )
+  }
+
+  const projectsFor = (targets?.projects || []).filter(p => p.category === projCat)
+  const goals = targets?.goals || []
+
+  return (
+    <div style={panelStyle}>
+      <div className="flex items-center gap-1.5" style={{ marginBottom: 8 }}>
+        {step !== 'section' && (
+          <button onClick={() => setStep(step === 'project' ? 'projCat' : 'section')}
+            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 0 }}>
+            <IconArrowLeft size={13} />
+          </button>
+        )}
+        <span style={{ flex: 1, fontSize: 9, fontWeight: 700, color: '#2dd4bf', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          {step === 'section' ? 'Create task in…'
+            : step === 'prioCat' ? 'Top Prio Today — section'
+            : step === 'projCat' || step === 'project' ? 'Active Projects'
+            : 'Long-Term Goals'}
+        </span>
+        <button onClick={close} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', padding: 0 }}>
+          <IconX size={13} />
+        </button>
+      </div>
+
+      <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        “{trimmed}”
+      </div>
+
+      {step === 'section' && (
+        <div className="flex flex-col gap-1.5">
+          <button style={optBtn} onClick={() => setStep('prioCat')}>Top Prio Today <IconChevronRight size={13} color="#64748b" /></button>
+          <button style={optBtn} onClick={() => setStep('projCat')}>Active Projects <IconChevronRight size={13} color="#64748b" /></button>
+          <button style={optBtn} onClick={() => setStep('goal')}>Long-Term Goals <IconChevronRight size={13} color="#64748b" /></button>
+        </div>
+      )}
+
+      {step === 'prioCat' && (
+        <div className="flex gap-1.5">
+          <button style={tab(false)} onClick={() => fire({ dest: 'prio', category: 'work', label: trimmed }, 'Added to Top Prio · Work')}>Work</button>
+          <button style={tab(false)} onClick={() => fire({ dest: 'prio', category: 'home', label: trimmed }, 'Added to Top Prio · Home')}>Home</button>
+        </div>
+      )}
+
+      {(step === 'projCat' || step === 'project') && (
+        <>
+          <div className="flex gap-1.5" style={{ marginBottom: 8 }}>
+            <button style={tab(projCat === 'work')} onClick={() => { setProjCat('work'); setStep('project') }}>Work</button>
+            <button style={tab(projCat === 'home')} onClick={() => { setProjCat('home'); setStep('project') }}>Home</button>
+          </div>
+          {step === 'project' && (
+            <div className="flex flex-col gap-1.5" style={{ maxHeight: 168, overflowY: 'auto' }}>
+              {projectsFor.length === 0 && <div style={{ fontSize: 10, color: '#475569', padding: '4px 0' }}>No {projCat} projects.</div>}
+              {projectsFor.map(p => (
+                <button key={p.key} style={optBtn} onClick={() => fire({ dest: 'project', targetKey: p.key, label: trimmed }, `Added to ${p.name}`)}>
+                  <span className="flex items-center gap-2">
+                    <span style={{ width: 7, height: 7, borderRadius: 999, background: p.color, flexShrink: 0 }} />
+                    {p.name}
+                  </span>
+                  <IconPlus size={12} color="#64748b" />
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {step === 'goal' && (
+        <div className="flex flex-col gap-1.5" style={{ maxHeight: 168, overflowY: 'auto' }}>
+          {goals.length === 0 && <div style={{ fontSize: 10, color: '#475569', padding: '4px 0' }}>No goals.</div>}
+          {goals.map(g => (
+            <button key={g.key} style={optBtn} onClick={() => fire({ dest: 'goal', targetKey: g.key, label: trimmed }, `Added to ${g.name}`)}>
+              <span className="flex items-center gap-2">
+                <span style={{ width: 7, height: 7, borderRadius: 999, background: g.color, flexShrink: 0 }} />
+                {g.name}
+              </span>
+              <IconPlus size={12} color="#64748b" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MeetingEditModal({ state, today, onChange, onSave, onDelete, onClose, createTaskTargets, onCreateTask }: {
   state: EditState
   today: { d: number; m: number; y: number }
   onChange: (s: EditState) => void
   onSave: () => void
   onDelete: () => void
   onClose: () => void
+  createTaskTargets?: CreateTaskTargets
+  onCreateTask?: (p: CreateTaskPayload) => void
 }) {
   const [navMonth, setNavMonth] = useState(state.month)
   const [navYear, setNavYear] = useState(state.year)
@@ -1307,6 +1478,13 @@ function MeetingEditModal({ state, today, onChange, onSave, onDelete, onClose }:
             </div>
           )}
         </div>
+
+        {/* Create task — only for standalone meetings not yet linked to a task */}
+        {state.kind === 'meeting' && onCreateTask && (
+          <div style={{ marginBottom: 12 }}>
+            <CreateTaskPanel label={state.label} targets={createTaskTargets} onCreate={onCreateTask} />
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center gap-2">

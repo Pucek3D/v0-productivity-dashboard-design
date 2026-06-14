@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { PROJECTS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
 import { EditableLabel } from './editable-label'
@@ -45,7 +45,9 @@ interface Props {
   onRemoveLinked?: (text: string) => void
 }
 
-export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, hideTask, hiddenTasks, onToggleGantt, activeGanttProjects, nameOverrides, onRename, onRemoveLinked }: Props) {
+export type ActiveProjectsHandle = { addTask: (projectKey: string, text: string) => void }
+
+export const ActiveProjectsCard = forwardRef<ActiveProjectsHandle, Props>(function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, hideTask, hiddenTasks, onToggleGantt, activeGanttProjects, nameOverrides, onRename, onRemoveLinked }: Props, ref) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [taskOrders, setTaskOrders] = useState<Record<string, number[]>>({})
@@ -66,9 +68,13 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
     setExtraProjects(p => [...p, { key: `c-${Date.now()}`, name: 'New Project', color: COLORS[Math.floor(Math.random() * COLORS.length)], status: 'planning', next: '', tasks: [], doneTasks: [], category }])
   }
 
-  const addCustomTask = (projectKey: string) => {
-    setCustomTasks(p => ({ ...p, [projectKey]: [...(p[projectKey] || []), { id: `ct-${Date.now()}`, text: 'New task', done: false }] }))
+  const addCustomTask = (projectKey: string, text = 'New task') => {
+    setCustomTasks(p => ({ ...p, [projectKey]: [...(p[projectKey] || []), { id: `ct-${Date.now()}`, text, done: false }] }))
   }
+
+  // Imperative handle: lets the calendar's "Create task" flow append a task to a
+  // chosen project. Re-uses the same custom-task store as the in-card + button.
+  useImperativeHandle(ref, () => ({ addTask: (projectKey: string, text: string) => addCustomTask(projectKey, text) }))
 
   const deleteCustomTask = (projectKey: string, taskId: string) => {
     const ct = (customTasks[projectKey] || []).find(t => t.id === taskId)
@@ -124,7 +130,7 @@ export function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectC
       </div>
     </div>
   )
-}
+})
 
 function SortableProjectWrap(props: any) {
   const mounted = useMounted()
