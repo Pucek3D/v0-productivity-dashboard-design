@@ -98,7 +98,9 @@ export function ProjectGantt({ project, projectDone, taskMeta, onClose }: Projec
       }
     }
     project.tasks.forEach((task, i) => {
-      const key = `proj-${project.key}-task-${i}`
+      // Task meta is stored under `proj-<key>-<index>` (matching the modal/open
+      // handler in active-projects-card), while completion uses `-task-<index>`.
+      const key = `proj-${project.key}-${i}`
       const meta = taskMeta[key]
       const done = !!projectDone[`${project.key}-task-${i}`]
       result.push(buildRow(task, meta, done, false, project.color, 7))
