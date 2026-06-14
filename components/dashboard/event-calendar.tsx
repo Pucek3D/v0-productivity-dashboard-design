@@ -908,7 +908,7 @@ function DayPickerPopover({ viewDate, realToday, onPick, onClose }: {
 }
 
 /* ── Time-blocking: visual focus / meetings / break background blocks ── */
-export type BlockType = 'deep' | 'meetings' | 'admin' | 'break' | 'kuba'
+export type BlockType = 'deep' | 'meetings' | 'admin' | 'break' | 'kuba' | 'workout' | 'learning' | 'trading' | 'home'
 export interface TimeBlock {
   id: string
   day: number; month: number; year: number
@@ -919,8 +919,12 @@ const BLOCK_PRESETS: { type: BlockType; label: string; color: string }[] = [
   { type: 'deep', label: 'Deep Work', color: '#6366f1' },
   { type: 'meetings', label: 'Meetings', color: '#f59e0b' },
   { type: 'admin', label: 'Admin', color: '#64748b' },
-  { type: 'break', label: 'Break', color: '#2dd4bf' },
+  { type: 'break', label: 'Relaks', color: '#2dd4bf' },
   { type: 'kuba', label: 'Kuba', color: '#ec4899' },
+  { type: 'workout', label: 'Workout', color: '#ef4444' },
+  { type: 'learning', label: 'Learning', color: '#38bdf8' },
+  { type: 'trading', label: 'Trading', color: '#22c55e' },
+  { type: 'home', label: 'Home', color: '#f97316' },
 ]
 const blockMeta = (t: BlockType) => BLOCK_PRESETS.find(p => p.type === t)!
 
