@@ -249,7 +249,7 @@ export default function Dashboard() {
     };if(nd) handleRecurringAfterToggle(metaKey,true)}return{...prev,[key]:nd}})
   }, [handleRecurringAfterToggle])
 
-  // ──────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────���─────────────────
   // Bi-directional done sync by task text.
   // Marking a task / subtask / message done anywhere on the dashboard
   // propagates the done state to every linked surface that shares the
@@ -557,6 +557,17 @@ export default function Dashboard() {
     keys.forEach(k => updateTaskMeta(k, { ...changes, label: ev.label.replace(/^🔄\s*/, '') }))
   }, [updateTaskMeta])
 
+  // Schedule a dashboard task (dragged from Top Prio onto the calendar) by
+  // writing a deadline + optional time onto its taskMeta. The deadlineEvents
+  // memo then renders it on the calendar and the top counters pick it up.
+  const handleScheduleTask = useCallback((taskKey: string, label: string, when: { date: string; hour?: number; minute?: number })=>{
+    updateTaskMeta(taskKey, {
+      label: (label || '').replace(/^🔄\s*/, ''),
+      deadline: when.date,
+      ...(when.hour !== undefined ? { hour: when.hour, minute: when.minute ?? 0 } : {}),
+    })
+  }, [updateTaskMeta])
+
   // Create a brand-new dashboard task from a calendar event/meeting that isn't
   // linked to any task yet. The calendar drives a small decision tree
   // (section → project) and calls this with the chosen destination.
@@ -654,7 +665,7 @@ export default function Dashboard() {
         </div>
         <div className="flex flex-col gap-3">
           <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} onRename={renameTask} onSectionCategoryChange={syncMessageCategory} />
-          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} onUpdateEvent={updateDeadlineEvent} onMeetingsChange={setCalendarMeetings} createTaskTargets={createTaskTargets} onCreateTask={handleCreateTask} />
+          <EventCalendar deadlineEvents={deadlineEvents} completedTasks={completedTasks} onDeleteEvent={deleteDeadlineEvent} onUpdateEvent={updateDeadlineEvent} onMeetingsChange={setCalendarMeetings} createTaskTargets={createTaskTargets} onCreateTask={handleCreateTask} onScheduleTask={handleScheduleTask} />
           <ProgressOverview projectDone={projectDone} getProjectCompletion={getProjectCompletion} />
           {ganttProjectObjs.map(p=><ProjectGantt key={p.key} project={p} projectDone={projectDone} taskMeta={taskMeta} onClose={()=>toggleGantt(p.key)} />)}
           <LtGoalsCalendar taskMeta={taskMeta} />

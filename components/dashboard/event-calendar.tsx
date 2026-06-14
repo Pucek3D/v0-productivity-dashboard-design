@@ -108,6 +108,20 @@ interface EventCalendarProps {
   // standalone meeting/event isn't linked to a dashboard task yet.
   createTaskTargets?: CreateTaskTargets
   onCreateTask?: (p: CreateTaskPayload) => void
+  // Schedule an existing dashboard task (dragged in from Top Prio) by giving it
+  // a deadline date and optional time.
+  onScheduleTask?: (taskKey: string, label: string, when: { date: string; hour?: number; minute?: number }) => void
+}
+
+// MIME type used to carry a Top Prio task across the native drag boundary.
+export const TASK_DND_MIME = 'application/x-prio-task'
+function readExtTask(e: React.DragEvent): { key: string; text: string } | null {
+  try {
+    const raw = e.dataTransfer.getData(TASK_DND_MIME)
+    if (!raw) return null
+    const p = JSON.parse(raw)
+    return p && p.key ? { key: p.key, text: p.text || '' } : null
+  } catch { return null }
 }
 
 export type CreateTaskTargets = {
@@ -140,7 +154,7 @@ interface EditState {
 
 const pad2 = (n: number) => n.toString().padStart(2, '0')
 
-export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent, onUpdateEvent, onMeetingsChange, createTaskTargets, onCreateTask }: EventCalendarProps) {
+export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEvent, onUpdateEvent, onMeetingsChange, createTaskTargets, onCreateTask, onScheduleTask }: EventCalendarProps) {
   const [view, setView] = useState<'d' | 'm' | 'w'>('m')
   const [today, setToday] = useState({ d: 26, m: 4, y: 2026 })
   const [dayDate, setDayDate] = useState({ d: 26, m: 4, y: 2026 })  // day shown in Day view
@@ -332,13 +346,17 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
 
   // ── drag & drop wiring ──
   const beginDrag = (payload: { kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent }) => { dragItem.current = payload }
-  const dropOnDay = (day: number, m: number, y: number) => {
+  const dropOnDay = (day: number, m: number, y: number, ext?: { key: string; text: string } | null) => {
+    // External task dragged in from Top Prio → schedule it on this day (all-day).
+    if (ext) { onScheduleTask?.(ext.key, ext.text, { date: `${y}-${pad2(m + 1)}-${pad2(day)}` }); dragItem.current = null; return }
     const it = dragItem.current; if (!it) return
     if (it.kind === 'meeting' && it.id) rescheduleMeeting(it.id, { day, month: m, year: y })
     else if (it.kind === 'event' && it.ev) rescheduleEvent(it.ev, { date: `${y}-${pad2(m + 1)}-${pad2(day)}` })
     dragItem.current = null
   }
-  const dropOnHour = (day: number, m: number, y: number, hour: number) => {
+  const dropOnHour = (day: number, m: number, y: number, hour: number, ext?: { key: string; text: string } | null) => {
+    // External task dragged in from Top Prio → schedule it at this exact hour.
+    if (ext) { onScheduleTask?.(ext.key, ext.text, { date: `${y}-${pad2(m + 1)}-${pad2(day)}`, hour, minute: 0 }); dragItem.current = null; return }
     const it = dragItem.current; if (!it) return
     if (it.kind === 'meeting' && it.id) rescheduleMeeting(it.id, { day, month: m, year: y, time: `${pad2(hour)}:00` })
     else if (it.kind === 'event' && it.ev) rescheduleEvent(it.ev, { date: `${y}-${pad2(m + 1)}-${pad2(day)}`, hour, minute: 0 })
@@ -587,11 +605,15 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
   onRemoveMeeting: (id: string) => void
   onDeleteEvent?: (ev: DeadlineEvent) => void
   beginDrag: (p: { kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent }) => void
-  dropOnDay: (day: number, m: number, y: number) => void
+  dropOnDay: (day: number, m: number, y: number, ext?: { key: string; text: string } | null) => void
 }) {
   const startDay = getFirstDayOfMonth(month, year)
   const daysInMonth = getDaysInMonth(month, year)
   const events = MONTH_EVENTS[`${year}-${month}`] || {}
+
+  // Hover mini-agenda: which day is hovered + an anchor rect to position the
+  // floating preview. Cleared on mouse leave.
+  const [hover, setHover] = useState<{ day: number; rect: DOMRect; items: AgendaItem[] } | null>(null)
 
   return (
     <>
@@ -620,6 +642,12 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
             .filter(m => m.day === day && m.month === month && m.year === year && !m.done)
             .map(m => ({ label: m.label, color: m.color, kind: 'meeting' as const, id: m.id, hasDetails: !!(m.location || m.link || m.notes || m.files?.length) }))
           const dayEvents = [...regularEvents, ...taskEvents, ...meetingEvents]
+          // Full agenda for the hover preview — includes times, sorted timed-first.
+          const agendaItems: AgendaItem[] = [
+            ...taskEvents.map(e => ({ label: e.label.replace(/^🔄\s*/, ''), color: e.color, time: e.ev.hour !== undefined ? `${pad2(e.ev.hour)}:${pad2(e.ev.minute ?? 0)}` : null })),
+            ...meetingEvents.map(m => { const cm = customMeetings.find(x => x.id === m.id); return { label: m.label, color: m.color, time: cm?.time || null } }),
+            ...regularEvents.map(e => ({ label: e.label, color: e.color, time: null as string | null })),
+          ].sort((a, b) => (a.time ? 0 : 1) - (b.time ? 0 : 1) || (a.time || '').localeCompare(b.time || ''))
 
           return (
             <div key={day}
@@ -628,8 +656,10 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
               }`}
               style={isToday ? { background: 'rgba(244, 63, 94, 0.12)' } : {}}
               onClick={() => onClickDay(day)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => { e.preventDefault(); dropOnDay(day, month, year) }}>
+              onMouseEnter={(e) => { if (agendaItems.length) setHover({ day, rect: (e.currentTarget as HTMLElement).getBoundingClientRect(), items: agendaItems }) }}
+              onMouseLeave={() => setHover(h => h?.day === day ? null : h)}
+                onDragOver={(e) => { e.preventDefault(); if (e.dataTransfer.types.includes(TASK_DND_MIME)) e.dataTransfer.dropEffect = 'copy' }}
+                onDrop={(e) => { e.preventDefault(); dropOnDay(day, month, year, readExtTask(e)) }}>
               <span className={`text-[11px] leading-none mb-[2px] ${
                 isToday ? 'text-rose-300 font-bold' : 'text-slate-300 font-semibold'
               }`} style={{ fontVariantNumeric: 'tabular-nums' }}>{day}</span>
@@ -661,7 +691,55 @@ function MonthView({ month, year, today, deadlineEvents, customMeetings, onClick
           )
         })}
       </div>
+      {hover && <MonthHoverAgenda day={hover.day} month={month} rect={hover.rect} items={hover.items} />}
     </>
+  )
+}
+
+type AgendaItem = { label: string; color: string; time: string | null }
+
+/* Floating mini-agenda shown on month-cell hover. Positioned with fixed
+   coordinates derived from the hovered cell's bounding rect, flipping to the
+   left/top when near the viewport edge so it never clips off-screen. */
+function MonthHoverAgenda({ day, month, rect, items }: { day: number; month: number; rect: DOMRect; items: AgendaItem[] }) {
+  const W = 230
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  let left = rect.right + 8
+  if (left + W > vw - 8) left = rect.left - W - 8
+  if (left < 8) left = Math.min(rect.left, vw - W - 8)
+  const estH = 44 + items.length * 22
+  let top = rect.top
+  if (top + estH > vh - 8) top = Math.max(8, vh - estH - 8)
+  const timed = items.filter(i => i.time).length
+  return (
+    <div style={{
+      position: 'fixed', left, top, width: W, zIndex: 60, pointerEvents: 'none',
+      background: 'rgba(15,18,30,0.97)', border: '1px solid rgba(255,255,255,0.12)',
+      borderRadius: 10, padding: 10, boxShadow: '0 12px 32px rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
+    }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          {MONTH_NAMES[month].slice(0, 3)} {day}
+        </span>
+        <span style={{ fontSize: 9, fontWeight: 600, color: '#64748b' }}>
+          {items.length} item{items.length !== 1 ? 's' : ''}{timed ? ` · ${timed} timed` : ''}
+        </span>
+      </div>
+      <div className="flex flex-col" style={{ gap: 5, maxHeight: 260, overflow: 'hidden' }}>
+        {items.map((it, i) => (
+          <div key={i} className="flex items-center" style={{ gap: 7 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: it.color, flexShrink: 0 }} />
+            {it.time
+              ? <span style={{ fontSize: 10, fontWeight: 700, color: it.color, fontVariantNumeric: 'tabular-nums', flexShrink: 0, width: 34 }}>{it.time}</span>
+              : <span style={{ fontSize: 9, fontWeight: 600, color: '#475569', flexShrink: 0, width: 34, textTransform: 'uppercase' }}>all-day</span>}
+            <span style={{ fontSize: 11, color: '#cbd5e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {it.label.replace(/^🔄\s*/, '')}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -673,7 +751,7 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMe
   onAddAt: (day: number, m: number, y: number, time?: string) => void
   onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
   beginDrag: (p: { kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent }) => void
-  dropOnDay: (day: number, m: number, y: number) => void
+  dropOnDay: (day: number, m: number, y: number, ext?: { key: string; text: string } | null) => void
 }) {
   const cols = (() => {
     const result: { name: string; day: number; dateStr: string; month: number; year: number }[] = []
@@ -719,8 +797,8 @@ function WeekView({ today, deadlineEvents, customMeetings, month, year, onOpenMe
             isToday ? 'border-rose-400/60' : 'border-white/5 bg-white/[0.02]'
           }`} style={isToday ? { background: 'rgba(244, 63, 94, 0.10)' } : {}}
             onClick={() => onAddAt(c.day, c.month, c.year)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); dropOnDay(c.day, c.month, c.year) }}>
+                onDragOver={(e) => { e.preventDefault(); if (e.dataTransfer.types.includes(TASK_DND_MIME)) e.dataTransfer.dropEffect = 'copy' }}
+                onDrop={(e) => { e.preventDefault(); dropOnDay(c.day, c.month, c.year, readExtTask(e)) }}>
             <div className="text-center mb-1">
               <div className={`text-[9px] font-semibold uppercase tracking-[0.12em] ${isToday ? 'text-rose-300' : 'text-slate-500'}`}>{c.name}</div>
               <div style={{ ...({ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif', fontWeight: 700, letterSpacing: '-0.025em' }), fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}
@@ -870,7 +948,7 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
   onAddAt: (day: number, m: number, y: number, time?: string) => void
   onRemoveMeeting: (id: string) => void; onDeleteEvent?: (ev: DeadlineEvent) => void
   beginDrag: (p: { kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent }) => void
-  dropOnHour: (day: number, m: number, y: number, hour: number) => void
+  dropOnHour: (day: number, m: number, y: number, hour: number, ext?: { key: string; text: string } | null) => void
   rescheduleMeeting: (id: string, p: { day: number; month: number; year: number; time?: string | null; durationMin?: number }) => void
   rescheduleEvent: (ev: DeadlineEvent, p: { date?: string; hour?: number | null; minute?: number; durationMin?: number }) => void
   timeBlocks: TimeBlock[]
@@ -1092,8 +1170,8 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
         </div>
         <div style={{ position: 'relative', flex: 1, height: TL_HEIGHT, cursor: 'copy' }}
           onClick={onTimelineClick}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); const h = clamp(START_H + Math.floor((e.clientY - rect.top) / HOUR_PX), START_H, END_H - 1); dropOnHour(today.d, today.m, today.y, h) }}>
+          onDragOver={(e) => { e.preventDefault(); if (e.dataTransfer.types.includes(TASK_DND_MIME)) e.dataTransfer.dropEffect = 'copy' }}
+          onDrop={(e) => { e.preventDefault(); const ext = readExtTask(e); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); const h = clamp(START_H + Math.floor((e.clientY - rect.top) / HOUR_PX), START_H, END_H - 1); dropOnHour(today.d, today.m, today.y, h, ext) }}>
           {Array.from({ length: END_H - START_H + 1 }).map((_, i) => (
             <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: i * HOUR_PX, borderTop: '1px solid rgba(255,255,255,0.05)' }} />
           ))}
