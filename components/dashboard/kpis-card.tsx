@@ -5,6 +5,11 @@ import {
   IconPigMoney, IconMicrophone, IconMessage
 } from '@tabler/icons-react'
 import { KPI_CATEGORIES, KPI_DAYS, pastel, KpiCategory, Kpi } from '@/lib/data'
+import { closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { ClientDnd } from './client-dnd'
+import { useMounted } from '@/lib/use-mounted'
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   moon: IconMoon,
@@ -37,6 +42,8 @@ export function KpisCard() {
     }))
   )
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
   const toggleDay = (catId: string, kpiId: string, dayIdx: number) => {
     setCategories(prev => prev.map(cat => {
       if (cat.id !== catId) return cat
@@ -51,6 +58,39 @@ export function KpisCard() {
         }),
       }
     }))
+  }
+
+  // Reorder KPIs within a single category (cross-category moves are intentionally
+  // not allowed — each category keeps its own ordering). Used by the Day view,
+  // which has one DndContext per category.
+  const handleDragEnd = (catId: string) => (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    setCategories(prev => prev.map(cat => {
+      if (cat.id !== catId) return cat
+      const oi = cat.kpis.findIndex(k => k.id === active.id)
+      const ni = cat.kpis.findIndex(k => k.id === over.id)
+      return oi >= 0 && ni >= 0 ? { ...cat, kpis: arrayMove([...cat.kpis], oi, ni) } : cat
+    }))
+  }
+
+  // The Week view is a single table wrapped in ONE DndContext (a DndContext
+  // renders a hidden <div> inline, which is invalid inside <tbody>). This unified
+  // handler resolves the category from the dragged id and only reorders when the
+  // drop target is in the same category.
+  const handleWeekDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    setCategories(prev => {
+      const cat = prev.find(c => c.kpis.some(k => k.id === active.id))
+      if (!cat || !cat.kpis.some(k => k.id === over.id)) return prev
+      return prev.map(c => {
+        if (c.id !== cat.id) return c
+        const oi = c.kpis.findIndex(k => k.id === active.id)
+        const ni = c.kpis.findIndex(k => k.id === over.id)
+        return oi >= 0 && ni >= 0 ? { ...c, kpis: arrayMove([...c.kpis], oi, ni) } : c
+      })
+    })
   }
 
   return (
@@ -82,9 +122,9 @@ export function KpisCard() {
       </div>
       <div className="px-3.5 py-3">
         {view === 'day' ? (
-          <DayView categories={categories} toggleDay={toggleDay} todayIdx={todayIdx} />
+          <DayView categories={categories} toggleDay={toggleDay} todayIdx={todayIdx} sensors={sensors} handleDragEnd={handleDragEnd} />
         ) : (
-          <WeekView categories={categories} toggleDay={toggleDay} todayIdx={todayIdx} />
+          <WeekView categories={categories} toggleDay={toggleDay} todayIdx={todayIdx} sensors={sensors} onDragEnd={handleWeekDragEnd} />
         )}
       </div>
     </div>
@@ -133,12 +173,77 @@ function DotRow({
   )
 }
 
+function SortableKpiDay({
+  kpi: k, cat, ki, toggleDay, todayIdx,
+}: {
+  kpi: Kpi
+  cat: KpiCategory
+  ki: number
+  toggleDay: (catId: string, kpiId: string, dayIdx: number) => void
+  todayIdx: number
+}) {
+  const mounted = useMounted()
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: k.id })
+  const dndProps = mounted ? { ...attributes, ...listeners } : {}
+  const Icon = ICONS[k.icon]
+  return (
+    <div
+      ref={setNodeRef}
+      {...dndProps}
+      className="cursor-grab active:cursor-grabbing select-none"
+      style={{
+        marginTop: ki > 0 ? '8px' : '0',
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+    >
+      <div className="flex justify-between items-center mb-1">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {Icon && (
+            <span style={{ color: cat.color, opacity: 0.7 }}>
+              <Icon size={12} />
+            </span>
+          )}
+          <span className="text-[12px] font-medium text-slate-200 truncate">{k.label}</span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {k.type === 'num' && k.val && k.target && (
+            <span className="font-display text-[13px] tabular leading-none" style={{ color: cat.color }}>
+              {k.val}<span className="text-slate-500"> / {k.target}</span>
+            </span>
+          )}
+          {k.streak > 0 && (
+            <span
+              className="text-[9px] font-bold rounded-full px-1.5 py-[1px] whitespace-nowrap tabular uppercase tracking-wider"
+              style={{ background: `${cat.color}22`, color: cat.color }}
+            >
+              🔥 {k.streak}
+            </span>
+          )}
+        </div>
+      </div>
+      <DotRow kpi={k} cat={cat} toggleDay={toggleDay} todayIdx={todayIdx} />
+      {k.type === 'num' && k.val && k.target && (
+        <div className="h-[3px] bg-white/5 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${k.pct}%`, background: cat.color }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function DayView({
-  categories, toggleDay, todayIdx,
+  categories, toggleDay, todayIdx, sensors, handleDragEnd,
 }: {
   categories: KpiCategory[]
   toggleDay: (catId: string, kpiId: string, dayIdx: number) => void
   todayIdx: number
+  sensors: ReturnType<typeof useSensors>
+  handleDragEnd: (catId: string) => (e: DragEndEvent) => void
 }) {
   return (
     <>
@@ -152,64 +257,86 @@ function DayView({
             <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cat.color }} />
             {cat.label}
           </div>
-          {cat.kpis.map((k, ki) => {
-            const Icon = ICONS[k.icon]
-            return (
-              <div key={k.id} style={{ marginTop: ki > 0 ? '8px' : '0' }}>
-                <div className="flex justify-between items-center mb-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {Icon && (
-                      <span style={{ color: cat.color, opacity: 0.7 }}>
-                        <Icon size={12} />
-                      </span>
-                    )}
-                    <span className="text-[12px] font-medium text-slate-200 truncate">{k.label}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {k.type === 'num' && k.val && k.target && (
-                      <span className="font-display text-[13px] tabular leading-none" style={{ color: cat.color }}>
-                        {k.val}<span className="text-slate-500"> / {k.target}</span>
-                      </span>
-                    )}
-                    {k.streak > 0 && (
-                      <span
-                        className="text-[9px] font-bold rounded-full px-1.5 py-[1px] whitespace-nowrap tabular uppercase tracking-wider"
-                        style={{ background: `${cat.color}22`, color: cat.color }}
-                      >
-                        🔥 {k.streak}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <DotRow kpi={k} cat={cat} toggleDay={toggleDay} todayIdx={todayIdx} />
-                {k.type === 'num' && k.val && k.target && (
-                  <div className="h-[3px] bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${k.pct}%`, background: cat.color }}
-                    />
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd(cat.id)}>
+            <SortableContext items={cat.kpis.map(k => k.id)} strategy={verticalListSortingStrategy}>
+              {cat.kpis.map((k, ki) => (
+                <SortableKpiDay key={k.id} kpi={k} cat={cat} ki={ki} toggleDay={toggleDay} todayIdx={todayIdx} />
+              ))}
+            </SortableContext>
+          </ClientDnd>
         </div>
       ))}
     </>
   )
 }
 
+function SortableKpiWeek({
+  kpi: k, cat, toggleDay, todayIdx,
+}: {
+  kpi: Kpi
+  cat: KpiCategory
+  toggleDay: (catId: string, kpiId: string, dayIdx: number) => void
+  todayIdx: number
+}) {
+  const mounted = useMounted()
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: k.id })
+  const dndProps = mounted ? { ...attributes, ...listeners } : {}
+  const done = k.days.filter(Boolean).length
+  const pct = Math.round((done / k.days.length) * 100)
+  const pctColor = pct >= 80 ? '#2dd4bf' : pct >= 50 ? '#fbbf24' : '#64748b'
+  return (
+    <tr
+      ref={setNodeRef}
+      {...dndProps}
+      className="cursor-grab active:cursor-grabbing select-none"
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+    >
+      <td className="text-[10.5px] font-medium text-slate-200 py-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
+        {k.label}
+      </td>
+      {k.days.map((d, i) => (
+        <td key={i} className="text-center py-0.5 px-0">
+          <button
+            onClick={() => toggleDay(cat.id, k.id, i)}
+            className="w-[9px] h-[9px] rounded-full mx-auto cursor-pointer hover:scale-125 transition-transform block"
+            style={{
+              background: d ? cat.color : 'rgba(255,255,255,0.08)',
+              boxShadow: i === todayIdx ? `0 0 0 1.5px ${pastel(cat.color, 0.65)}` : 'none',
+            }}
+          />
+        </td>
+      ))}
+      <td
+        className="text-right text-[10px] font-bold py-0.5 tabular"
+        style={{ color: pctColor }}
+      >
+        {pct}%
+      </td>
+    </tr>
+  )
+}
+
 function WeekView({
-  categories, toggleDay, todayIdx,
+  categories, toggleDay, todayIdx, sensors, onDragEnd,
 }: {
   categories: KpiCategory[]
   toggleDay: (catId: string, kpiId: string, dayIdx: number) => void
   todayIdx: number
+  sensors: ReturnType<typeof useSensors>
+  onDragEnd: (e: DragEndEvent) => void
 }) {
   let bestStreak = { label: '', streak: 0 }
+  categories.forEach(cat => cat.kpis.forEach(k => {
+    if (k.streak > bestStreak.streak) bestStreak = { label: k.label, streak: k.streak }
+  }))
 
   return (
     <>
+      <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <table className="w-full border-collapse table-fixed">
         <colgroup>
           <col style={{ width: '50px' }} />
@@ -248,41 +375,16 @@ function WeekView({
                   </span>
                 </td>
               </tr>
-              {cat.kpis.map(k => {
-                const done = k.days.filter(Boolean).length
-                const pct = Math.round((done / k.days.length) * 100)
-                const pctColor = pct >= 80 ? '#2dd4bf' : pct >= 50 ? '#fbbf24' : '#64748b'
-                if (k.streak > bestStreak.streak) bestStreak = { label: k.label, streak: k.streak }
-                return (
-                  <tr key={k.id}>
-                    <td className="text-[10.5px] font-medium text-slate-200 py-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
-                      {k.label}
-                    </td>
-                    {k.days.map((d, i) => (
-                      <td key={i} className="text-center py-0.5 px-0">
-                        <button
-                          onClick={() => toggleDay(cat.id, k.id, i)}
-                          className="w-[9px] h-[9px] rounded-full mx-auto cursor-pointer hover:scale-125 transition-transform block"
-                          style={{
-                            background: d ? cat.color : 'rgba(255,255,255,0.08)',
-                            boxShadow: i === todayIdx ? `0 0 0 1.5px ${pastel(cat.color, 0.65)}` : 'none',
-                          }}
-                        />
-                      </td>
-                    ))}
-                    <td
-                      className="text-right text-[10px] font-bold py-0.5 tabular"
-                      style={{ color: pctColor }}
-                    >
-                      {pct}%
-                    </td>
-                  </tr>
-                )
-              })}
+              <SortableContext items={cat.kpis.map(k => k.id)} strategy={verticalListSortingStrategy}>
+                {cat.kpis.map(k => (
+                  <SortableKpiWeek key={k.id} kpi={k} cat={cat} toggleDay={toggleDay} todayIdx={todayIdx} />
+                ))}
+              </SortableContext>
             </React.Fragment>
           ))}
         </tbody>
       </table>
+      </ClientDnd>
       {bestStreak.streak > 0 && (
         <div className="mt-3 pt-2 border-t border-white/5 flex gap-2 items-center flex-wrap">
           <span className="text-[9px] text-slate-500 uppercase tracking-[0.12em] font-semibold">Most done</span>
