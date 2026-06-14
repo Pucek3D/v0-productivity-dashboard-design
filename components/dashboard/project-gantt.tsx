@@ -299,8 +299,8 @@ export function ProjectGantt({ project, projectDone, taskMeta, updateTaskMeta, o
           <div className="text-center text-slate-500 text-[12px] py-6">No tasks yet. Open a task and mark its Schedule (weeks) — or set a deadline — to see it on the Gantt chart.</div>
         ) : (
           <div style={{ position: 'relative', minWidth: 600, userSelect: drag ? 'none' : 'auto' }}>
-            {/* Week headers */}
-            <div style={{ height: 30, position: 'relative', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: 4 }}>
+            {/* Week headers — offset by the label column so the calendar starts at the bars */}
+            <div style={{ height: 30, position: 'relative', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: 4, marginLeft: LABEL_W }}>
               {weekLabels.map((w, i) => (
                 <span key={i} style={{
                   position: 'absolute', left: `${w.pct}%`, display: 'flex', flexDirection: 'column',
@@ -313,9 +313,11 @@ export function ProjectGantt({ project, projectDone, taskMeta, updateTaskMeta, o
               ))}
             </div>
 
-            {/* Today line */}
-            <div style={{ position: 'absolute', left: `${todayPct}%`, top: 30, bottom: 0, width: 1.5, background: '#fb7185', boxShadow: '0 0 8px rgba(251,113,133,0.5)', zIndex: 5 }}>
-              <div style={{ position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)', fontSize: 8, fontWeight: 700, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Today</div>
+            {/* Today line — confined to the bar area (right of the label column) */}
+            <div style={{ position: 'absolute', left: LABEL_W, right: 0, top: 30, bottom: 0, pointerEvents: 'none', zIndex: 5 }}>
+              <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: 1.5, background: '#fb7185', boxShadow: '0 0 8px rgba(251,113,133,0.5)' }}>
+                <div style={{ position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)', fontSize: 8, fontWeight: 700, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Today</div>
+              </div>
             </div>
 
             {/* Rows */}
