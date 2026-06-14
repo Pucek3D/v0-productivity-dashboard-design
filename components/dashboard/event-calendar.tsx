@@ -147,6 +147,7 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
   const [month, setMonth] = useState(4)
   const [year, setYear] = useState(2026)
   const [customMeetings, setCustomMeetings] = useState<CustomMeeting[]>([])
+  const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([])
   const [showAddForm, setShowAddForm] = useState<{ day: number } | null>(null)
   const [newMeetingText, setNewMeetingText] = useState('')
   const [newMeetingTime, setNewMeetingTime] = useState('')
@@ -323,6 +324,11 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
     if (p.durationMin !== undefined) changes.durationMin = p.durationMin
     onUpdateEvent(ev, changes)
   }
+
+  // ── time-block helpers ──
+  const addTimeBlock = (b: { day: number; month: number; year: number; startMin: number; durationMin: number; type: BlockType }) =>
+    setTimeBlocks(prev => [...prev, { ...b, id: `blk-${Date.now()}` }])
+  const removeTimeBlock = (id: string) => setTimeBlocks(prev => prev.filter(b => b.id !== id))
 
   // ── drag & drop wiring ──
   const beginDrag = (payload: { kind: 'meeting' | 'event'; id?: string; ev?: DeadlineEvent }) => { dragItem.current = payload }
@@ -554,6 +560,7 @@ export function EventCalendar({ deadlineEvents = [], completedTasks, onDeleteEve
           onOpenEvent={openEventEdit} onAddAt={openAddForm}
           onRemoveMeeting={removeMeeting} onDeleteEvent={onDeleteEvent}
           beginDrag={beginDrag} dropOnHour={dropOnHour}
+          timeBlocks={timeBlocks} onAddBlock={addTimeBlock} onRemoveBlock={removeTimeBlock}
           rescheduleMeeting={rescheduleMeeting} rescheduleEvent={rescheduleEvent} />}
       </div>
       {editState && (
@@ -803,8 +810,58 @@ function DayPickerPopover({ viewDate, realToday, onPick, onClose }: {
   )
 }
 
+/* ── Time-blocking: visual focus / meetings / break background blocks ── */
+export type BlockType = 'deep' | 'meetings' | 'admin' | 'break'
+export interface TimeBlock {
+  id: string
+  day: number; month: number; year: number
+  startMin: number; durationMin: number
+  type: BlockType
+}
+const BLOCK_PRESETS: { type: BlockType; label: string; color: string }[] = [
+  { type: 'deep', label: 'Deep Work', color: '#6366f1' },
+  { type: 'meetings', label: 'Meetings', color: '#f59e0b' },
+  { type: 'admin', label: 'Admin', color: '#64748b' },
+  { type: 'break', label: 'Break', color: '#2dd4bf' },
+]
+const blockMeta = (t: BlockType) => BLOCK_PRESETS.find(p => p.type === t)!
+
+/* Compute side-by-side columns for overlapping timeline items. Items that
+   share any time range are grouped into a cluster; within a cluster each item
+   gets a column index and the cluster's total column count, so two overlapping
+   events each take 1/2 width, three take 1/3, etc. */
+function computeOverlapLayout<T extends { key: string; startMin: number; durationMin: number }>(
+  items: T[],
+): Map<string, { col: number; cols: number }> {
+  const result = new Map<string, { col: number; cols: number }>()
+  const sorted = [...items].sort((a, b) => a.startMin - b.startMin || a.durationMin - b.durationMin)
+  let cluster: T[] = []
+  let clusterEnd = -1
+  const flush = (group: T[]) => {
+    const cols: T[][] = []
+    for (const it of group) {
+      let placed = false
+      for (let c = 0; c < cols.length; c++) {
+        const last = cols[c][cols[c].length - 1]
+        if (it.startMin >= last.startMin + last.durationMin) {
+          cols[c].push(it); result.set(it.key, { col: c, cols: 0 }); placed = true; break
+        }
+      }
+      if (!placed) { cols.push([it]); result.set(it.key, { col: cols.length - 1, cols: 0 }) }
+    }
+    for (const it of group) { const r = result.get(it.key)!; r.cols = cols.length }
+  }
+  for (const it of sorted) {
+    if (cluster.length && it.startMin >= clusterEnd) { flush(cluster); cluster = []; clusterEnd = -1 }
+    cluster.push(it)
+    clusterEnd = Math.max(clusterEnd, it.startMin + it.durationMin)
+  }
+  if (cluster.length) flush(cluster)
+  return result
+}
+
 /* ─── Day View ─── */
-function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftDay, onPickDay, onOpenMeeting, onOpenEvent, onAddAt, onRemoveMeeting, onDeleteEvent, beginDrag, dropOnHour, rescheduleMeeting, rescheduleEvent }: {
+function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftDay, onPickDay, onOpenMeeting, onOpenEvent, onAddAt, onRemoveMeeting, onDeleteEvent, beginDrag, dropOnHour, rescheduleMeeting, rescheduleEvent, timeBlocks, onAddBlock, onRemoveBlock }: {
   viewDate: { d: number; m: number; y: number }; realToday: { d: number; m: number; y: number }
   deadlineEvents: DeadlineEvent[]
   customMeetings: CustomMeeting[]
@@ -816,6 +873,9 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
   dropOnHour: (day: number, m: number, y: number, hour: number) => void
   rescheduleMeeting: (id: string, p: { day: number; month: number; year: number; time?: string | null; durationMin?: number }) => void
   rescheduleEvent: (ev: DeadlineEvent, p: { date?: string; hour?: number | null; minute?: number; durationMin?: number }) => void
+  timeBlocks: TimeBlock[]
+  onAddBlock: (b: { day: number; month: number; year: number; startMin: number; durationMin: number; type: BlockType }) => void
+  onRemoveBlock: (id: string) => void
 }) {
   const today = viewDate  // the day rendered by this view (may differ from the real today)
   const isRealToday = viewDate.d === realToday.d && viewDate.m === realToday.m && viewDate.y === realToday.y
@@ -899,6 +959,19 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
     ...timedDeadlines.map(e => ({ key: `e:${e.eventId}`, kind: 'task' as const, label: e.label, color: e.color, startMin: (e.hour ?? 0) * 60 + (e.minute ?? 0), durationMin: e.durationMin || 60, hasDetails: !!(e.location || e.link || e.notes || e.files?.length), ev: e })),
     ...timedMeetings.map(m => ({ key: `m:${m.id}`, kind: 'meeting' as const, label: m.label, color: m.color, startMin: parseInt(m.time!.split(':')[0]) * 60 + parseInt(m.time!.split(':')[1] || '0'), durationMin: m.durationMin || 60, hasDetails: !!(m.location || m.link || m.notes || m.files?.length), id: m.id })),
   ].map(it => (drag && drag.key === it.key) ? { ...it, startMin: drag.startMin, durationMin: drag.durationMin } : it)
+  // Recomputed every render (cheap) so overlaps reflow live during drag/resize.
+  const overlapLayout = computeOverlapLayout(items)
+
+  // ── time-blocking draw gesture (only active when a preset is armed) ──
+  const [armedBlock, setArmedBlock] = useState<BlockType | null>(null)
+  const [drawBlock, setDrawBlock] = useState<{ startMin: number; endMin: number } | null>(null)
+  const drawRef = useRef<{ startMin: number; endMin: number } | null>(null)
+  const yToMin = (clientY: number, el: HTMLElement) => {
+    const rect = el.getBoundingClientRect()
+    const raw = START_H * 60 + (clientY - rect.top) / HOUR_PX * 60
+    return clamp(Math.round(raw / 15) * 15, START_H * 60, END_H * 60)
+  }
+  const blocksToday = timeBlocks.filter(b => b.day === today.d && b.month === today.m && b.year === today.y)
 
   const now = new Date()
   const nowMin = now.getHours() * 60 + now.getMinutes()
@@ -983,6 +1056,29 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
         </div>
       )}
 
+      {/* time-blocking preset bar — arm a type, then drag on the timeline to paint a block */}
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+        <span style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginRight: 2 }}>Block</span>
+        {BLOCK_PRESETS.map(p => {
+          const active = armedBlock === p.type
+          const mins = blocksToday.filter(b => b.type === p.type).reduce((s, b) => s + b.durationMin, 0)
+          return (
+            <button key={p.type} onClick={() => setArmedBlock(active ? null : p.type)} title={active ? 'Click & drag on the timeline to paint a block' : `Add a ${p.label} block`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
+                fontSize: 10, fontWeight: 600, letterSpacing: '0.02em',
+                background: active ? `${p.color}26` : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${active ? p.color : 'rgba(255,255,255,0.08)'}`,
+                color: active ? p.color : '#94a3b8', transition: 'all 0.15s',
+              }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, flexShrink: 0 }} />
+              {p.label}{mins > 0 && <span style={{ opacity: 0.7, fontVariantNumeric: 'tabular-nums' }}>{mins >= 60 ? `${(mins / 60).toFixed(mins % 60 ? 1 : 0)}h` : `${mins}m`}</span>}
+            </button>
+          )
+        })}
+        {armedBlock && <span style={{ fontSize: 9, color: blockMeta(armedBlock).color, fontWeight: 600 }}>Drag on the timeline to paint…</span>}
+      </div>
+
       {/* timed timeline — drag a box to move, drag its top/bottom edge to resize, click empty space to add */}
       <div ref={timelineScrollRef} className="timeline-scroll" style={{ maxHeight: 460, overflowY: 'auto', overflowX: 'hidden' }}>
       <div style={{ display: 'flex', gap: 8 }}>
@@ -1001,6 +1097,71 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
           {Array.from({ length: END_H - START_H + 1 }).map((_, i) => (
             <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: i * HOUR_PX, borderTop: '1px solid rgba(255,255,255,0.05)' }} />
           ))}
+          {/* time-blocks rendered as translucent full-width background behind events */}
+          {blocksToday.map(b => {
+            const meta = blockMeta(b.type)
+            const bTop = (b.startMin - START_H * 60) / 60 * HOUR_PX
+            const bH = b.durationMin / 60 * HOUR_PX
+            return (
+              <div key={b.id} className="group/blk" style={{
+                position: 'absolute', left: 0, right: 0, top: bTop, height: bH,
+                background: `${meta.color}14`, borderLeft: `3px solid ${meta.color}`,
+                borderTop: `1px solid ${meta.color}26`, borderBottom: `1px solid ${meta.color}26`,
+                zIndex: 1, overflow: 'hidden',
+              }}>
+                <span style={{ position: 'absolute', top: 2, left: 6, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: meta.color, opacity: 0.85 }}>
+                  {meta.label}
+                </span>
+                <button onClick={(e) => { e.stopPropagation(); onRemoveBlock(b.id) }} onPointerDown={(e) => e.stopPropagation()}
+                  className="absolute right-1 top-1 hidden group-hover/blk:flex items-center justify-center w-4 h-4 rounded bg-black/40 text-white/70 hover:text-rose-300"
+                  title="Remove block">
+                  <IconX size={9} />
+                </button>
+              </div>
+            )
+          })}
+          {/* live preview while painting a new block */}
+          {drawBlock && armedBlock && (() => {
+            const s = Math.min(drawBlock.startMin, drawBlock.endMin)
+            const e2 = Math.max(drawBlock.startMin, drawBlock.endMin)
+            const meta = blockMeta(armedBlock)
+            return (
+              <div style={{
+                position: 'absolute', left: 0, right: 0, top: (s - START_H * 60) / 60 * HOUR_PX,
+                height: Math.max(e2 - s, 15) / 60 * HOUR_PX, background: `${meta.color}26`,
+                border: `1.5px dashed ${meta.color}`, zIndex: 6, borderRadius: 2,
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', padding: 4,
+                fontSize: 9, fontWeight: 700, color: meta.color, pointerEvents: 'none',
+              }}>
+                {minToLabel(s)}–{minToLabel(e2)}
+              </div>
+            )
+          })()}
+          {/* draw overlay: when a preset is armed it captures pointer events so a
+              drag paints a block instead of adding a meeting */}
+          {armedBlock && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 15, cursor: 'crosshair', touchAction: 'none' }}
+              onPointerDown={(e) => {
+                e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+                const min = yToMin(e.clientY, e.currentTarget as HTMLElement)
+                drawRef.current = { startMin: min, endMin: min + 15 }; setDrawBlock({ startMin: min, endMin: min + 15 })
+              }}
+              onPointerMove={(e) => {
+                if (!drawRef.current) return
+                const min = yToMin(e.clientY, e.currentTarget as HTMLElement)
+                drawRef.current = { startMin: drawRef.current.startMin, endMin: min }
+                setDrawBlock({ startMin: drawRef.current.startMin, endMin: min })
+              }}
+              onPointerUp={() => {
+                const d = drawRef.current
+                if (d) {
+                  const s = Math.min(d.startMin, d.endMin)
+                  const e2 = Math.max(d.startMin, d.endMin)
+                  if (e2 - s >= 15) onAddBlock({ day: today.d, month: today.m, year: today.y, startMin: s, durationMin: e2 - s, type: armedBlock })
+                }
+                drawRef.current = null; setDrawBlock(null); setArmedBlock(null)
+              }} />
+          )}
           {showNow && (
             <div style={{ position: 'absolute', left: 0, right: 0, top: (nowMin - START_H * 60) / 60 * HOUR_PX, height: 2, background: '#fb7185', boxShadow: '0 0 8px #fb7185', borderRadius: 2, zIndex: 5 }} />
           )}
@@ -1009,6 +1170,13 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
             const height = Math.max(it.durationMin, 30) / 60 * HOUR_PX
             const interactive = it.kind === 'meeting' || it.kind === 'task'
             const isDragging = drag?.key === it.key
+            // Side-by-side geometry for overlapping events. The dragged item is
+            // pulled to full width and on top so it stays easy to read.
+            const lay = overlapLayout.get(it.key) || { col: 0, cols: 1 }
+            const cols = isDragging ? 1 : lay.cols
+            const col = isDragging ? 0 : lay.col
+            const leftPct = (col / cols) * 100
+            const widthCalc = `calc(${100 / cols}% - 4px)`
             // Short meetings (≤30 min) are too thin for two stacked lines, so the
             // title and time sit inline on a single row instead of stacking.
             const compact = it.durationMin <= 30
@@ -1023,7 +1191,7 @@ function DayView({ viewDate, realToday, deadlineEvents, customMeetings, onShiftD
                 onClick={(e) => e.stopPropagation()}
                 className="group/ev"
                 style={{
-                  position: 'absolute', left: 0, right: 4, top, height: height - 2,
+                  position: 'absolute', left: `${leftPct}%`, width: widthCalc, top, height: height - 2,
                   background: `${it.color}22`, borderLeft: `2.5px solid ${it.color}`, borderRadius: '0 6px 6px 0',
                   boxShadow: isDragging ? `0 6px 18px ${it.color}66` : `0 0 12px ${it.color}33`,
                   padding: compact ? '2px 8px' : '3px 8px', overflow: 'hidden', cursor: interactive ? (isDragging ? 'grabbing' : 'grab') : 'default',
