@@ -24,10 +24,10 @@ export function SubtaskPreview({ sub, pl = 'pl-[28px]', onToggleDone, isTaskStar
     <div className={`flex items-center gap-1.5 ${pl} pb-0.5 -mt-0.5 group/sub`}>
       <span className="text-[11px] text-slate-600">→</span>
       <div
-        className="w-3 h-3 rounded-[3px] border border-slate-600 bg-white/5 flex-shrink-0 cursor-pointer hover:border-slate-400"
+        className={`w-3 h-3 rounded-[3px] border flex-shrink-0 cursor-pointer flex items-center justify-center ${sub.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5 hover:border-slate-400'}`}
         onClick={(e) => { e.stopPropagation(); onToggleDone() }}
-      />
-      <span className="text-[11px] text-slate-500 truncate min-w-0">{sub.text}</span>
+      >{sub.done && <span className="text-indigo-300 text-[7px] font-bold leading-none">✓</span>}</div>
+      <span className={`text-[11px] truncate min-w-0 ${sub.done ? 'text-slate-600 line-through' : 'text-slate-500'}`}>{sub.text}</span>
       {dateInfo && <span className={`text-[7px] font-bold uppercase tracking-wider px-1 py-[1px] rounded flex-shrink-0 ${dateInfo.className}`}>{dateInfo.text}</span>}
       {sub.owner && <span className="text-[7px] font-medium text-teal-300 bg-teal-500/15 px-1 py-[1px] rounded tracking-wider flex-shrink-0">{sub.owner}</span>}
       <span className="inline-flex items-center gap-0.5 ml-auto flex-shrink-0" onClick={(e) => e.stopPropagation()}>

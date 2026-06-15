@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 're
 import { LT_GOALS, statusStyle, Project } from '@/lib/data'
 import { TaskActions } from './task-actions'
 import { EditableLabel } from './editable-label'
-import { IconStar, IconBookmark, IconGripVertical, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconStar, IconBookmark, IconGripVertical, IconPlus, IconTrash, IconChevronRight } from '@tabler/icons-react'
 import { computeStatus, type TaskMeta } from '@/lib/task-meta'
 import { SubtaskPreview } from './subtask-preview'
 import { closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
@@ -143,9 +143,9 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
           <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
             <SortableContext items={visible.map((t: any) => t.originalIdx)} strategy={verticalListSortingStrategy}>
               {visible.map((t: any) => {
-                const tk = `proj-${goal.key}-${t.originalIdx}`; const meta = taskMeta[tk]; const firstSub = meta?.subtasks?.find((s: any) => !s.done)
+                const tk = `proj-${goal.key}-${t.originalIdx}`; const meta = taskMeta[tk]
                 const label = nameOverrides?.[tk] ?? (meta as any)?.label ?? t.task
-                return <SortableGoalTask key={t.originalIdx} id={t.originalIdx} task={label} done={t.done} tk={tk} meta={meta} firstSub={firstSub}
+                return <SortableGoalTask key={t.originalIdx} id={t.originalIdx} task={label} done={t.done} tk={tk} meta={meta}
                   onToggle={() => toggleProjectTask(goal.key, 'task', t.originalIdx)} openModal={openModal}
                   taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} onRename={(n: string) => onRenameTask?.(tk, n)} />
               })}
@@ -161,15 +161,27 @@ function GoalTile({ goal, displayName, projectDone, toggleProjectTask, getProjec
   )
 }
 
-function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, onRename }: any) {
+function SortableGoalTask({ id, task, done, tk, meta, onToggle, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, onRename }: any) {
   const mounted = useMounted()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const dndProps = mounted ? { ...attributes, ...listeners } : {}
+  const subs: any[] = meta?.subtasks || []
+  const hasSubs = subs.length > 0
+  const doneSubs = subs.filter(s => s.done).length
+  // Show the full subtask branch by default so the tree is visible; collapsible per task.
+  const [subOpen, setSubOpen] = useState(true)
+  const toggleSubDone = (sid: string) => updateTaskMeta(tk, { subtasks: subs.map(s => s.id === sid ? { ...s, done: !s.done } : s) })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
       <div {...dndProps} className="flex items-center gap-1.5 py-0.5 cursor-grab active:cursor-grabbing select-none group" onClick={() => openModal(tk, task)}>
         <div onPointerDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
         <EditableLabel value={task} onRename={(n: string) => onRename?.(n)} className={`text-[12px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
+        {hasSubs && (
+          <button onPointerDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); setSubOpen(o => !o) }} className="flex items-center gap-0.5 flex-shrink-0 cursor-pointer text-slate-500 hover:text-[#14b8a6]" title={subOpen ? 'Collapse subtasks' : 'Expand subtasks'}>
+            <IconChevronRight size={10} className={`transition-transform ${subOpen ? 'rotate-90' : ''}`} />
+            <span className="text-[8px] font-bold tabular leading-none">{doneSubs}/{subs.length}</span>
+          </button>
+        )}
         <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
           <TaskActions taskKey={tk} taskLabel={task} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
           <button className={`bg-transparent border-none cursor-pointer p-0 ${isTaskStarred?.(task) ? 'order-last' : ''}`} onClick={() => starToPrio(task, 'work')}><IconStar size={11} className={isTaskStarred?.(task) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>
@@ -177,7 +189,13 @@ function SortableGoalTask({ id, task, done, tk, meta, firstSub, onToggle, openMo
         </span>
       </div>
       {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}
-      {firstSub && <SubtaskPreview sub={firstSub} onToggleDone={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(tk, { subtasks: subs }) }} isTaskStarred={isTaskStarred} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} />}
+      {hasSubs && subOpen && (
+        <div className="ml-[7px] pl-[10px] border-l border-white/10">
+          {subs.map(sub => (
+            <SubtaskPreview key={sub.id} sub={sub} pl="pl-0" onToggleDone={() => toggleSubDone(sub.id)} isTaskStarred={isTaskStarred} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
