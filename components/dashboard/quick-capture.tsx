@@ -11,7 +11,7 @@ import {
   type ProposedTask, type CaptureDest, type AnalyzeContext,
 } from '@/lib/capture-analyze'
 import {
-  isSpeechSupported, startVoiceCapture, ocrImage, parseSpreadsheetFile, parsePastedCells,
+  isSpeechSupported, isInIframe, startVoiceCapture, ocrImage, parseSpreadsheetFile, parsePastedCells,
   type VoiceSession,
 } from '@/lib/capture-inputs'
 
@@ -56,11 +56,13 @@ export function SmartCapture({ context, onCommit }: Props) {
   // ── Voice ──
   const toggleVoice = useCallback(() => {
     if (recording) { voiceRef.current?.stop(); voiceRef.current = null; setRecording(false); return }
-    if (!isSpeechSupported()) { setNotice('Voice input is not supported in this browser.'); return }
+    if (!isSpeechSupported()) { setNotice('Voice input is not supported in this browser. Try Chrome or Edge.'); return }
+    if (isInIframe()) { setNotice('Microphone is blocked inside the preview. Open the app in its own browser tab to use voice.'); return }
     const baseLen = text.length
     const session = startVoiceCapture(
       (transcript) => setText(prev => prev.slice(0, baseLen) + (baseLen && transcript ? '\n' : '') + transcript),
       () => { setRecording(false); voiceRef.current = null },
+      (message) => { setNotice(message); setRecording(false); voiceRef.current = null },
     )
     if (session) { voiceRef.current = session; setRecording(true); setNotice('') }
   }, [recording, text])

@@ -20,17 +20,46 @@ export interface VoiceSession {
   stop: () => void
 }
 
+/** True when the app is running inside an iframe (e.g. the v0 preview). */
+export function isInIframe(): boolean {
+  if (typeof window === 'undefined') return false
+  try { return window.self !== window.top } catch { return true }
+}
+
+/** Map a SpeechRecognition error code to a human-friendly message. */
+function voiceErrorMessage(code: string): string {
+  switch (code) {
+    case 'not-allowed':
+    case 'service-not-allowed':
+      return isInIframe()
+        ? 'Microphone is blocked in the preview. Open the app in its own browser tab, then allow mic access.'
+        : 'Microphone access was denied. Allow it in your browser’s site settings and try again.'
+    case 'no-speech':
+      return 'No speech detected — try speaking a bit louder.'
+    case 'audio-capture':
+      return 'No microphone found. Check that one is connected and enabled.'
+    case 'network':
+      return 'Voice recognition needs a network connection and works best in Chrome or Edge.'
+    case 'aborted':
+      return ''
+    default:
+      return `Voice input failed (${code}).`
+  }
+}
+
 /**
  * Start live voice transcription. `onText` is called with the running
- * transcript; `onEnd` fires when recognition stops. Returns a session you can
- * stop manually. Returns null if unsupported.
+ * transcript; `onEnd` fires when recognition stops; `onError` reports a
+ * human-friendly reason. Returns a session you can stop manually, or null if
+ * unsupported.
  */
 export function startVoiceCapture(
   onText: (transcript: string, isFinal: boolean) => void,
   onEnd: () => void,
+  onError?: (message: string) => void,
   lang = 'en-US',
 ): VoiceSession | null {
-  if (!isSpeechSupported()) return null
+  if (!isSpeechSupported()) { onError?.('Voice input is not supported in this browser. Try Chrome or Edge.'); return null }
   const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   const rec: SpeechRec = new Ctor()
   rec.continuous = true
@@ -46,9 +75,18 @@ export function startVoiceCapture(
     }
     onText((finalText + ' ' + interim).trim(), !interim)
   }
-  rec.onerror = () => { try { rec.stop() } catch {} }
+  rec.onerror = (e: any) => {
+    const msg = voiceErrorMessage(e?.error || 'unknown')
+    if (msg) onError?.(msg)
+    try { rec.stop() } catch {}
+  }
   rec.onend = () => onEnd()
-  try { rec.start() } catch {}
+  try {
+    rec.start()
+  } catch (err: any) {
+    onError?.('Could not start the microphone. Open the app in its own tab and allow mic access.')
+    return null
+  }
   return { stop: () => { try { rec.stop() } catch {} } }
 }
 
