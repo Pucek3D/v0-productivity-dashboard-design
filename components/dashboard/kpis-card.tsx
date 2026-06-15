@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import {
   IconMoon, IconRun, IconCheckbox, IconChartCandle,
   IconPigMoney, IconMicrophone, IconMessage, IconPlus, IconTrash, IconTargetArrow,
@@ -103,7 +103,9 @@ function TargetEditor({ value, color, onChange }: { value: number; color: string
   )
 }
 
-export function KpisCard() {
+export interface KpisHandle { addKpi: (label: string, category: 'work' | 'home') => void }
+
+export const KpisCard = forwardRef<KpisHandle, {}>(function KpisCard(_props, ref) {
   const [view, setView] = useState<'day' | 'week'>('day')
   const [todayIdx, setTodayIdx] = useState(0)
   const [loaded, setLoaded] = useState(false)
@@ -171,6 +173,24 @@ export function KpisCard() {
       { id: `c${Date.now()}`, label: 'New category', color: KPI_CATEGORY_PALETTE[prev.length % KPI_CATEGORY_PALETTE.length], kpis: [] },
     ])
 
+  // Imperative handle so Smart Capture can add a habit/metric to track. The
+  // category hint (work/home) picks a sensible existing column; falls back to
+  // the first category, or creates one if none exist yet.
+  useImperativeHandle(ref, () => ({
+    addKpi: (label: string, category: 'work' | 'home') => {
+      const clean = label.trim()
+      if (!clean) return
+      const newKpi = (): Kpi => ({ id: `k${Date.now()}`, label: clean, icon: 'checkbox', type: 'check', checked: false, weeklyTarget: 7, streak: 0, days: [0, 0, 0, 0, 0, 0, 0] })
+      setCategories(prev => {
+        if (!prev.length) return [{ id: `c${Date.now()}`, label: category === 'home' ? 'Personal' : 'Work', color: KPI_CATEGORY_PALETTE[0], kpis: [newKpi()] }]
+        const re = category === 'home' ? /health|personal|home|life|family|wellbeing/i : /work|career|job|prof/i
+        let idx = prev.findIndex(c => re.test(c.label))
+        if (idx < 0) idx = 0
+        return prev.map((c, i) => i === idx ? { ...c, kpis: [...c.kpis, newKpi()] } : c)
+      })
+    },
+  }), [])
+
   // Reorder KPIs within a single category (cross-category moves are intentionally
   // not allowed — each category keeps its own ordering). Used by the Day view,
   // which has one DndContext per category.
@@ -237,7 +257,7 @@ export function KpisCard() {
       </div>
     </div>
   )
-}
+})
 
 function DotRow({
   kpi, cat, toggleDay, todayIdx,

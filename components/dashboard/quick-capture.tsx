@@ -258,12 +258,19 @@ function ProposalRow({ p, context, onChange, onRemove }: {
   onRemove: () => void
 }) {
   const dotColor = p.confidence >= 0.7 ? '#34d399' : p.confidence >= 0.5 ? '#fbbf24' : '#94a3b8'
+  const todoSections = context.todoSections ?? []
   const onDest = (dest: CaptureDest) => {
     if (dest === 'project') { const t = context.projects[0]; onChange({ dest, targetKey: t?.key, targetName: t?.name, targetColor: t?.color }) }
     else if (dest === 'goal') { const t = context.goals[0]; onChange({ dest, targetKey: t?.key, targetName: t?.name, targetColor: t?.color }) }
+    else if (dest === 'todo') { const t = todoSections[0]; onChange({ dest, targetKey: t?.key, targetName: t?.name, targetColor: undefined }) }
     else onChange({ dest, targetKey: undefined, targetName: undefined })
   }
-  const targets = p.dest === 'project' ? context.projects : p.dest === 'goal' ? context.goals : []
+  const targets: { key: string; name: string; color?: string }[] =
+    p.dest === 'project' ? context.projects : p.dest === 'goal' ? context.goals : p.dest === 'todo' ? todoSections : []
+  // Priority badge cycles high → medium → low on click.
+  const PRI_NEXT: Record<'high' | 'medium' | 'low', 'high' | 'medium' | 'low'> = { high: 'medium', medium: 'low', low: 'high' }
+  const priColor = p.priority === 'high' ? '#fb7185' : p.priority === 'medium' ? '#fbbf24' : '#94a3b8'
+  const showCategory = p.dest === 'prio' || p.dest === 'message' || p.dest === 'meeting' || p.dest === 'todo' || p.dest === 'kpi'
   return (
     <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 10, background: 'rgba(255,255,255,0.02)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -279,15 +286,33 @@ function ProposalRow({ p, context, onChange, onRemove }: {
         <select value={p.dest} onChange={e => onDest(e.target.value as CaptureDest)} style={selStyle}>
           {(Object.keys(DEST_META) as CaptureDest[]).map(d => <option key={d} value={d}>{DEST_META[d].label}</option>)}
         </select>
-        {(p.dest === 'project' || p.dest === 'goal') && (
+        {(p.dest === 'project' || p.dest === 'goal' || p.dest === 'todo') && (
           <select value={p.targetKey || ''} onChange={e => { const t = targets.find(x => x.key === e.target.value); onChange({ targetKey: t?.key, targetName: t?.name, targetColor: t?.color }) }} style={selStyle}>
             {targets.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
           </select>
         )}
-        {(p.dest === 'prio' || p.dest === 'other' || p.dest === 'message' || p.dest === 'meeting') && (
+        {/* Priority badge — click to cycle */}
+        <button
+          onClick={() => onChange({ priority: PRI_NEXT[p.priority] })}
+          title="Click to change priority"
+          style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', background: `${priColor}22`, color: priColor, border: `1px solid ${priColor}55`, borderRadius: 5, padding: '2px 7px', cursor: 'pointer' }}
+        >{p.priority}</button>
+        {/* Owner / delegate */}
+        {p.owner && (
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.30)', borderRadius: 5, padding: '2px 7px' }}>@{p.owner}</span>
+        )}
+        {showCategory && (
           <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.10)' }}>
             {(['work', 'home'] as const).map(c => (
               <button key={c} onClick={() => onChange({ category: c })} style={{ padding: '3px 9px', fontSize: 10, fontWeight: 600, textTransform: 'capitalize', cursor: 'pointer', border: 'none', background: p.category === c ? 'rgba(45,212,191,0.18)' : 'transparent', color: p.category === c ? TEAL : '#64748b' }}>{c}</button>
+            ))}
+          </div>
+        )}
+        {/* Prio half — top (urgent) vs other */}
+        {p.dest === 'prio' && (
+          <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.10)' }}>
+            {([['top', 'Top'], ['other', 'Other']] as const).map(([s, lbl]) => (
+              <button key={s} onClick={() => onChange({ section: s })} style={{ padding: '3px 9px', fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none', background: (p.section ?? 'top') === s ? 'rgba(129,140,248,0.20)' : 'transparent', color: (p.section ?? 'top') === s ? '#818cf8' : '#64748b' }}>{lbl}</button>
             ))}
           </div>
         )}

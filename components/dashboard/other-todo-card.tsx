@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { IconTrash, IconStar, IconBookmark, IconPlus } from '@tabler/icons-react'
 import { TaskActions } from './task-actions'
 import type { TaskMeta } from '@/lib/task-meta'
@@ -36,9 +36,25 @@ const INITIAL_SECTIONS: OtherSection[] = [
 
 interface Props { taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; starToPrio?: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean; bookmarkToOther?: (t: string, c: 'work' | 'home') => void; isTaskBookmarked?: (t: string) => boolean; starSubtaskToPrio?: (t: string, d?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (t: string, d?: Partial<TaskMeta>) => void; nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void; onRemoveLinked?: (text: string) => void }
 
-export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename, onRemoveLinked }: Props) {
+export interface OtherTodoHandle { addTask: (sectionId: string, text: string) => void }
+
+export const OtherTodoCard = forwardRef<OtherTodoHandle, Props>(function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename, onRemoveLinked }: Props, ref) {
   const [sections, setSections] = useState<OtherSection[]>(INITIAL_SECTIONS)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  // Imperative handle so Smart Capture can drop a delegated/monitored task
+  // straight into a section by id (falls back to the first section).
+  useImperativeHandle(ref, () => ({
+    addTask: (sectionId: string, text: string) => {
+      const clean = text.trim()
+      if (!clean) return
+      setSections(p => {
+        if (!p.length) return p
+        const targetId = p.some(s => s.id === sectionId) ? sectionId : p[0].id
+        return p.map(s => s.id === targetId ? { ...s, tasks: [...s.tasks, { id: `ot${Date.now()}`, text: clean, done: false }] } : s)
+      })
+    },
+  }), [])
 
   const toggleTask = (sid: string, tid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.map(t => t.id === tid ? { ...t, done: !t.done } : t) } : s))
   const deleteTask = (sid: string, tid: string) => {
@@ -100,7 +116,7 @@ export function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio,
       </div>
     </div>
   )
-}
+})
 
 function SortableTodoTask({ task, taskKey, meta, firstSub, onToggle, onDelete, onRename, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther }: any) {
   const mounted = useMounted()
