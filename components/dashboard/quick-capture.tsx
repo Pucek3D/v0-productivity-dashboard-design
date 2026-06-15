@@ -292,14 +292,18 @@ function ProposalRow({ p, context, onChange, onRemove }: {
         <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', display: 'flex', padding: 2 }}><IconTrash size={14} /></button>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap', paddingLeft: 16 }}>
-        <select value={p.dest} onChange={e => onDest(e.target.value as CaptureDest)} style={selStyle}>
-          {(Object.keys(DEST_META) as CaptureDest[]).map(d => <option key={d} value={d} style={optStyle}>{DEST_META[d].label}</option>)}
-        </select>
+        <ThemedSelect
+          value={p.dest}
+          onChange={v => onDest(v as CaptureDest)}
+          options={(Object.keys(DEST_META) as CaptureDest[]).map(d => ({ value: d, label: DEST_META[d].label }))}
+        />
         {hasTargets && (
-          <select value={isNew ? NEW_TARGET : (p.targetKey || '')} onChange={e => onTarget(e.target.value)} style={selStyle}>
-            {targets.map(t => <option key={t.key} value={t.key} style={optStyle}>{t.name}</option>)}
-            <option value={NEW_TARGET} style={optStyle}>{newLabel}</option>
-          </select>
+          <ThemedSelect
+            value={isNew ? NEW_TARGET : (p.targetKey || '')}
+            onChange={onTarget}
+            minWidth={130}
+            options={[...targets.map(t => ({ value: t.key, label: t.name })), { value: NEW_TARGET, label: newLabel }]}
+          />
         )}
         {hasTargets && isNew && (
           <input
@@ -334,13 +338,102 @@ function ProposalRow({ p, context, onChange, onRemove }: {
             ))}
           </div>
         )}
-        {p.dest === 'meeting' && p.hour !== undefined && (
-          <span style={{ fontSize: 10.5, color: '#94a3b8' }}>{String(p.hour).padStart(2, '0')}:{String(p.minute ?? 0).padStart(2, '0')}</span>
+        {p.dest === 'meeting' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, color: '#64748b' }}>on</span>
+            <input
+              type="date"
+              value={p.deadline ?? todayISO()}
+              onChange={e => onChange({ deadline: e.target.value })}
+              style={dateTimeStyle}
+            />
+            <input
+              type="time"
+              value={`${String(p.hour ?? 9).padStart(2, '0')}:${String(p.minute ?? 0).padStart(2, '0')}`}
+              onChange={e => { const [h, m] = e.target.value.split(':').map(Number); onChange({ hour: h, minute: m }) }}
+              style={dateTimeStyle}
+            />
+          </div>
         )}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: '#475569', fontStyle: 'italic' }}>{p.reason}</span>
       </div>
     </div>
+  )
+}
+
+function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// ── Themed dropdown ──
+// Replaces the native <select> so the popup list uses the dark app background
+// instead of the OS default (white), which can't be styled reliably.
+function ThemedSelect({ value, options, onChange, minWidth }: {
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (value: string) => void
+  minWidth?: number
+}) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [hover, setHover] = useState<string | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  const openMenu = () => {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, minWidth ?? 0) })
+    setOpen(true)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => { window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close) }
+  }, [open])
+
+  const current = options.find(o => o.value === value)
+  return (
+    <>
+      <button ref={btnRef} type="button" onClick={openMenu} style={{ ...selStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current?.label ?? '—'}</span>
+        <span style={{ color: '#64748b', fontSize: 9 }}>▾</span>
+      </button>
+      {open && pos && typeof document !== 'undefined' && createPortal(
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10060 }} />
+          <div style={{
+            position: 'fixed', top: pos.top, left: pos.left, minWidth: pos.width, zIndex: 10061,
+            background: PANEL_BG, border: '1px solid rgba(45,212,191,0.25)', borderRadius: 8,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.6)', padding: 4, maxHeight: 280, overflowY: 'auto',
+          }}>
+            {options.map(o => {
+              const selected = o.value === value
+              const hovered = hover === o.value
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => { onChange(o.value); setOpen(false) }}
+                  onMouseEnter={() => setHover(o.value)}
+                  onMouseLeave={() => setHover(h => (h === o.value ? null : h))}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', borderRadius: 6,
+                    border: 'none', cursor: 'pointer', fontSize: 11.5, fontFamily: 'inherit',
+                    background: selected ? 'rgba(45,212,191,0.16)' : hovered ? 'rgba(255,255,255,0.06)' : 'transparent',
+                    color: selected ? TEAL : '#e2e8f0',
+                  }}
+                >{o.label}</button>
+              )
+            })}
+          </div>
+        </>,
+        document.body,
+      )}
+    </>
   )
 }
 
@@ -360,6 +453,5 @@ function ToolBtn({ icon, label, onClick, active, disabled, accentColor }: { icon
 const btnGhost: React.CSSProperties = { background: 'none', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#94a3b8' }
 const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: TEAL, border: 'none', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#04211c' }
 const selStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 7, padding: '3px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none', fontFamily: 'inherit', cursor: 'pointer', colorScheme: 'dark' }
-// Native <option> popup background — matches the app/panel background so the
-// dropdown list is dark instead of the default white.
-const optStyle: React.CSSProperties = { background: PANEL_BG, color: '#e2e8f0' }
+// Native date/time inputs — colorScheme dark keeps their picker/popups dark too.
+const dateTimeStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 7, padding: '3px 6px', fontSize: 10.5, color: '#e2e8f0', outline: 'none', fontFamily: 'inherit', colorScheme: 'dark' }
