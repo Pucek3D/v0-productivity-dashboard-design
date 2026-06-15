@@ -26,27 +26,18 @@ export function LtGoalsCalendar({ taskMeta = {} }: Props) {
   // ── FIX: ISO week calculation ──
   const currentWeek = getISOWeekNumber(new Date())
 
-  // Get the ISO weeks visible in current month
+  // Always start at the CURRENT week's Monday and walk 6 weeks forward.
+  // Each entry carries the ISO week number plus a day/month label (matching
+  // the projects Gantt header, e.g. W25 / 15/6).
   const weeksInView = useMemo(() => {
-    const firstDay = new Date(today.y, today.m, 1)
-    const lastDay = new Date(today.y, today.m + 1, 0)
-    const weeks: number[] = []
-    const seen = new Set<number>()
-
-    // Walk Mondays that overlap this month
-    let current = new Date(firstDay)
-    const dayOfWeek = current.getDay() || 7
-    current.setDate(current.getDate() - (dayOfWeek - 1)) // back to Monday
-
-    while (current <= lastDay && weeks.length < 6) {
-      const weekEnd = new Date(current)
-      weekEnd.setDate(weekEnd.getDate() + 6)
-
-      if (weekEnd >= firstDay && current <= lastDay) {
-        const wn = getISOWeekNumber(current)
-        if (!seen.has(wn)) { seen.add(wn); weeks.push(wn) }
-      }
-      current.setDate(current.getDate() + 7)
+    const start = new Date()
+    const dayOfWeek = start.getDay() || 7
+    start.setDate(start.getDate() - (dayOfWeek - 1)) // back to this week's Monday
+    const weeks: { week: number; date: string }[] = []
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(start)
+      d.setDate(d.getDate() + i * 7)
+      weeks.push({ week: getISOWeekNumber(d), date: `${d.getDate()}/${d.getMonth() + 1}` })
     }
     return weeks
   }, [today])
@@ -99,11 +90,12 @@ export function LtGoalsCalendar({ taskMeta = {} }: Props) {
 
         {view === 'gantt' ? (
           <>
-            {/* Week headers */}
+            {/* Week headers — W## with day/month below, like the projects Gantt */}
             <div style={{ display: 'flex', marginBottom: 6, paddingLeft: 80 }}>
               {weeksInView.map(w => (
-                <div key={w} style={{ flex: 1, textAlign: 'center', fontSize: 9, fontWeight: 600, color: w === currentWeek ? '#fb7185' : '#475569', textTransform: 'uppercase' }}>
-                  W{w}
+                <div key={w.week} style={{ flex: 1, textAlign: 'center', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: w.week === currentWeek ? '#fb7185' : '#94a3b8', textTransform: 'uppercase' }}>W{w.week}</div>
+                  <div style={{ fontSize: 8, fontWeight: 500, color: w.week === currentWeek ? '#fb7185' : '#64748b' }}>{w.date}</div>
                 </div>
               ))}
             </div>
@@ -114,10 +106,10 @@ export function LtGoalsCalendar({ taskMeta = {} }: Props) {
                 <span style={{ width: 72, fontSize: 10, fontWeight: 700, color: goal.color, textTransform: 'uppercase', textAlign: 'right', flexShrink: 0 }}>{goal.name}</span>
                 <div style={{ flex: 1, display: 'flex', gap: 2 }}>
                   {weeksInView.map(w => {
-                    const isActive = goal.ongoing || goal.weeks.includes(w)
-                    const isCurrent = w === currentWeek
+                    const isActive = goal.ongoing || goal.weeks.includes(w.week)
+                    const isCurrent = w.week === currentWeek
                     return (
-                      <div key={w} style={{
+                      <div key={w.week} style={{
                         flex: 1, height: 16, borderRadius: 4,
                         background: isActive ? `${goal.color}40` : 'rgba(255,255,255,0.03)',
                         border: isActive ? `1px solid ${goal.color}60` : '1px solid rgba(255,255,255,0.04)',
