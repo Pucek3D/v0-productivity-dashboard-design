@@ -29,7 +29,7 @@ const OTHER_TODO_REGISTRY: { key: string; label: string }[] = [
 import { KpisCard } from '@/components/dashboard/kpis-card'
 import { EventCalendar, type CustomMeeting } from '@/components/dashboard/event-calendar'
 import { SmartCapture } from '@/components/dashboard/quick-capture'
-import type { ProposedTask } from '@/lib/capture-analyze'
+import { NEW_TARGET, type ProposedTask } from '@/lib/capture-analyze'
 import { LtGoalsCalendar } from '@/components/dashboard/lt-goals-calendar'
 import { ProgressOverview } from '@/components/dashboard/progress-overview'
 import { ActiveProjectsCard } from '@/components/dashboard/active-projects-card'
@@ -207,12 +207,10 @@ export default function Dashboard() {
 
   // Imperative handles into the project / goal cards so the calendar's
   // "Create task" flow can append a task directly to a chosen project or goal.
-  const activeProjectsRef = useRef<{ addTask: (key: string, text: string) => void }>(null)
-  const ltGoalsRef = useRef<{ addTask: (key: string, text: string) => void }>(null)
-  // Imperative handles for the remaining Smart Capture destinations: Other
-  // To-Do sections and the KPI tracker.
-  const otherTodoRef = useRef<{ addTask: (sectionId: string, text: string) => void }>(null)
-  const kpisRef = useRef<{ addKpi: (label: string, category: 'work' | 'home') => void }>(null)
+  const activeProjectsRef = useRef<{ addTask: (key: string, text: string) => void; addToNewProject: (category: 'work' | 'home', name: string | undefined, text: string) => void }>(null)
+  const ltGoalsRef = useRef<{ addTask: (key: string, text: string) => void; addToNewGoal: (name: string | undefined, text: string) => void }>(null)
+  // Imperative handle for the Other To-Do card (delegated/monitored sections).
+  const otherTodoRef = useRef<{ addTask: (sectionId: string, text: string) => void; addToNewSection: (name: string | undefined, text: string) => void }>(null)
 
   const openModal = useCallback((k:string,l:string)=>setModalTask({key:k,label:l}), [])
   // Remove any Top Prio Today entry (starred or bookmarked) that mirrors a
@@ -611,33 +609,37 @@ export default function Dashboard() {
           if (p.section === 'other') bookmarkToOther(label, category)
           else starToPrio(label, category)
           break
-        case 'project': {
-          const key = p.targetKey ?? createTaskTargets.projects.find(x=>x.category===category)?.key ?? createTaskTargets.projects[0]?.key
-          if (key) activeProjectsRef.current?.addTask(key, label)
+        case 'project':
+          if (p.targetKey === NEW_TARGET) activeProjectsRef.current?.addToNewProject(category, p.newTargetName?.trim() || undefined, label)
+          else {
+            const key = p.targetKey ?? createTaskTargets.projects.find(x=>x.category===category)?.key ?? createTaskTargets.projects[0]?.key
+            if (key) activeProjectsRef.current?.addTask(key, label)
+          }
           break
-        }
-        case 'goal': {
-          const key = p.targetKey ?? createTaskTargets.goals[0]?.key
-          if (key) ltGoalsRef.current?.addTask(key, label)
+        case 'goal':
+          if (p.targetKey === NEW_TARGET) ltGoalsRef.current?.addToNewGoal(p.newTargetName?.trim() || undefined, label)
+          else {
+            const key = p.targetKey ?? createTaskTargets.goals[0]?.key
+            if (key) ltGoalsRef.current?.addTask(key, label)
+          }
           break
-        }
         case 'message':
           setMessages(prev=>[...prev, { id:`cap${Date.now()}${i}`, text:label, done:false, category }])
           break
-        case 'todo': {
-          const key = p.targetKey ?? createTaskTargets.todoSections[0]?.key
-          if (key) otherTodoRef.current?.addTask(key, label)
+        case 'todo':
+          if (p.targetKey === NEW_TARGET) otherTodoRef.current?.addToNewSection(p.newTargetName?.trim() || undefined, label)
+          else {
+            const key = p.targetKey ?? createTaskTargets.todoSections[0]?.key
+            if (key) otherTodoRef.current?.addTask(key, label)
+          }
           break
-        }
         case 'meeting': {
+          // Adds a new meeting to the calendar (surfaces via the deadlineEvents memo).
           const today = new Date()
           const date = p.deadline || `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
           updateTaskMeta(`cap-${Date.now()}-${i}`, { label, deadline:date, hour:p.hour, minute:p.minute, color: category==='home' ? '#2dd4bf' : '#818cf8' })
           break
         }
-        case 'kpi':
-          kpisRef.current?.addKpi(label, category)
-          break
       }
     })
   }, [starToPrio, bookmarkToOther, setMessages, updateTaskMeta, createTaskTargets])
@@ -718,7 +720,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-[240px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="flex flex-col gap-3">
           <MessagesCard messages={messages} setMessages={setMessages} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} onRename={renameTask} onToggleDone={propagateDone} onMoveCategory={moveCategory} onRemoveLinked={removeFromPrioByText} />
-          <KpisCard ref={kpisRef} />
+          <KpisCard />
         </div>
         <div className="flex flex-col gap-3">
           <TopPrioCard tasks={prioTasks} setTasks={setPrioTasks} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} openModal={openModal} onTaskToggle={onPrioTaskToggle} onRename={renameTask} onSectionCategoryChange={syncMessageCategory} />

@@ -7,7 +7,7 @@ import {
   IconCheck, IconTrash, IconLoader2, IconPlayerStopFilled, IconWand,
 } from '@tabler/icons-react'
 import {
-  analyzeCapture, splitIntoItems, DEST_META,
+  analyzeCapture, splitIntoItems, DEST_META, NEW_TARGET,
   type ProposedTask, type CaptureDest, type AnalyzeContext,
 } from '@/lib/capture-analyze'
 import {
@@ -269,10 +269,17 @@ function ProposalRow({ p, context, onChange, onRemove }: {
   }
   const targets: { key: string; name: string; color?: string }[] =
     p.dest === 'project' ? context.projects : p.dest === 'goal' ? context.goals : p.dest === 'todo' ? todoSections : []
+  const hasTargets = p.dest === 'project' || p.dest === 'goal' || p.dest === 'todo'
+  const isNew = p.targetKey === NEW_TARGET
+  const newLabel = p.dest === 'project' ? '+ New project' : p.dest === 'goal' ? '+ New goal' : '+ New section'
+  const onTarget = (val: string) => {
+    if (val === NEW_TARGET) onChange({ targetKey: NEW_TARGET, targetName: undefined, targetColor: undefined })
+    else { const t = targets.find(x => x.key === val); onChange({ targetKey: t?.key, targetName: t?.name, targetColor: t?.color }) }
+  }
   // Priority badge cycles high → medium → low on click.
   const PRI_NEXT: Record<'high' | 'medium' | 'low', 'high' | 'medium' | 'low'> = { high: 'medium', medium: 'low', low: 'high' }
   const priColor = p.priority === 'high' ? '#fb7185' : p.priority === 'medium' ? '#fbbf24' : '#94a3b8'
-  const showCategory = p.dest === 'prio' || p.dest === 'message' || p.dest === 'meeting' || p.dest === 'todo' || p.dest === 'kpi'
+  const showCategory = p.dest === 'prio' || p.dest === 'message' || p.dest === 'meeting' || p.dest === 'todo'
   return (
     <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 10, background: 'rgba(255,255,255,0.02)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -286,12 +293,21 @@ function ProposalRow({ p, context, onChange, onRemove }: {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap', paddingLeft: 16 }}>
         <select value={p.dest} onChange={e => onDest(e.target.value as CaptureDest)} style={selStyle}>
-          {(Object.keys(DEST_META) as CaptureDest[]).map(d => <option key={d} value={d}>{DEST_META[d].label}</option>)}
+          {(Object.keys(DEST_META) as CaptureDest[]).map(d => <option key={d} value={d} style={optStyle}>{DEST_META[d].label}</option>)}
         </select>
-        {(p.dest === 'project' || p.dest === 'goal' || p.dest === 'todo') && (
-          <select value={p.targetKey || ''} onChange={e => { const t = targets.find(x => x.key === e.target.value); onChange({ targetKey: t?.key, targetName: t?.name, targetColor: t?.color }) }} style={selStyle}>
-            {targets.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
+        {hasTargets && (
+          <select value={isNew ? NEW_TARGET : (p.targetKey || '')} onChange={e => onTarget(e.target.value)} style={selStyle}>
+            {targets.map(t => <option key={t.key} value={t.key} style={optStyle}>{t.name}</option>)}
+            <option value={NEW_TARGET} style={optStyle}>{newLabel}</option>
           </select>
+        )}
+        {hasTargets && isNew && (
+          <input
+            value={p.newTargetName ?? ''}
+            onChange={e => onChange({ newTargetName: e.target.value })}
+            placeholder={p.dest === 'todo' ? 'New section name…' : p.dest === 'goal' ? 'New goal name…' : 'New project name…'}
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(45,212,191,0.30)', borderRadius: 7, padding: '3px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none', fontFamily: 'inherit', minWidth: 130 }}
+          />
         )}
         {/* Priority badge — click to cycle */}
         <button
@@ -343,4 +359,7 @@ function ToolBtn({ icon, label, onClick, active, disabled, accentColor }: { icon
 
 const btnGhost: React.CSSProperties = { background: 'none', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#94a3b8' }
 const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: TEAL, border: 'none', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#04211c' }
-const selStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 7, padding: '3px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }
+const selStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 7, padding: '3px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none', fontFamily: 'inherit', cursor: 'pointer', colorScheme: 'dark' }
+// Native <option> popup background — matches the app/panel background so the
+// dropdown list is dark instead of the default white.
+const optStyle: React.CSSProperties = { background: PANEL_BG, color: '#e2e8f0' }

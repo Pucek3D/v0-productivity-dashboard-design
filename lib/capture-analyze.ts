@@ -1,21 +1,23 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Smart Capture — analysis brain (v2 — dashboard-aligned)
 //
-// Routes raw captured text into 7 dashboard destinations:
+// Routes raw captured text into 6 dashboard destinations:
 //   prio → Top Prio Today (4 quadrants: Work/Home × Top/Other)
 //   project → Active Projects (11 work projects)
 //   goal → Long-Term Goals (4 personal goals)
 //   message → Messages sidebar
 //   todo → Other To-Do (delegated/monitored sections)
-//   meeting → Event Calendar
-//   kpi → KPI Tracker
+//   meeting → Event Calendar (creates a new meeting)
 //
 // Two modes:
 //   1. AI mode (default) — calls Anthropic API for smart routing
 //   2. Heuristic fallback — keyword-based, runs offline if API fails
 // ─────────────────────────────────────────────────────────────────────────
 
-export type CaptureDest = 'prio' | 'project' | 'goal' | 'message' | 'todo' | 'meeting' | 'kpi'
+export type CaptureDest = 'prio' | 'project' | 'goal' | 'message' | 'todo' | 'meeting'
+
+/** Sentinel targetKey meaning "create a brand-new project/goal/section". */
+export const NEW_TARGET = '__new__'
 
 export interface ProposedTask {
   id: string
@@ -24,10 +26,12 @@ export interface ProposedTask {
   category: 'work' | 'home'
   /** For prio dest: which half of the 2×2 grid */
   section?: 'top' | 'other'
-  /** For project/goal/todo: which specific target */
+  /** For project/goal/todo: which specific target (or NEW_TARGET to create one) */
   targetKey?: string
   targetName?: string
   targetColor?: string
+  /** When targetKey === NEW_TARGET, the name to give the new project/goal/section */
+  newTargetName?: string
   priority: 'high' | 'medium' | 'low'
   deadline: string | null
   /** For meetings or timed deadlines */
@@ -57,13 +61,12 @@ export interface AnalyzeContext {
 
 // ── Destination metadata for the review UI ──
 export const DEST_META: Record<CaptureDest, { label: string; hint: string; emoji: string; color: string }> = {
-  prio:    { label: 'Top Prio',    hint: "Today's priority list",       emoji: '⚡', color: '#818cf8' },
-  project: { label: 'Project',     hint: 'A specific active project',   emoji: '📁', color: '#6366f1' },
-  goal:    { label: 'Long-term',   hint: 'A long-term personal goal',   emoji: '🎯', color: '#14b8a6' },
-  message: { label: 'Message',     hint: 'Reply / follow-up to send',   emoji: '💬', color: '#a78bfa' },
-  todo:    { label: 'Other To-Do', hint: 'Delegated or monitored item', emoji: '📋', color: '#f59e0b' },
-  meeting: { label: 'Meeting',     hint: 'Goes on the calendar',        emoji: '📅', color: '#fb7185' },
-  kpi:     { label: 'KPI',         hint: 'Habit/metric to track',       emoji: '📊', color: '#2dd4bf' },
+  prio:    { label: 'Top Prio',    hint: "Today's priority list",         emoji: '⚡', color: '#818cf8' },
+  project: { label: 'Project',     hint: 'A specific active project',     emoji: '📁', color: '#6366f1' },
+  goal:    { label: 'Long-term',   hint: 'A long-term personal goal',     emoji: '🎯', color: '#14b8a6' },
+  message: { label: 'Message',     hint: 'Reply / follow-up to send',     emoji: '💬', color: '#a78bfa' },
+  todo:    { label: 'Other To-Do', hint: 'Delegated or monitored item',   emoji: '📋', color: '#f59e0b' },
+  meeting: { label: 'Calendar',    hint: 'Adds a new meeting to calendar', emoji: '📅', color: '#fb7185' },
 }
 
 // ── Split raw text into individual items ──
@@ -82,8 +85,7 @@ export function splitIntoItems(raw: string): string[] {
 const HOME_KW = ['home', 'house', 'grocery', 'groceries', 'clean', 'laundry', 'kids', 'family', 'dinner', 'cook', 'rent', 'apartment', 'jakub', 'dom', 'domu', 'pranie', 'zakupy', 'dzieci', 'rodzina', 'obiad', 'sprzątanie', 'mieszkanie', 'szkoła', 'szkola', 'olx', 'headphones']
 const MESSAGE_KW = ['reply', 'respond', 'email', 'mail', 'message', 'text', 'dm', 'call back', 'write back', 'follow up', 'ping', 'check in with', 'odpisz', 'odpowiedz', 'napisz', 'napisać', 'wiadomość', 'mejl', 'maila', 'zadzwoń', 'oddzwoń']
 const MEETING_KW = ['meeting', 'meet with', 'call with', 'sync', '1:1', 'standup', 'interview', 'appointment', 'catch up', 'coffee with', 'lunch with', 'spotkanie', 'spotkać', 'rozmowa', 'umów', 'wideo', 'zoom', 'teams call', 'office hours']
-const GOAL_KW = ['learn', 'master', 'improve', 'habit', 'routine', 'someday', 'long term', 'long-term', 'goal', 'build a habit', 'nauczyć', 'cel', 'długoterminowy', 'nawyk', 'rutyna', 'opanować', 'kiedyś']
-const KPI_KW = ['per week', 'per day', 'daily', 'weekly', 'track', 'streak', 'x per', 'times a week', 'razy w tygodniu', 'dziennie', 'tygodniowo', 'kpi']
+const GOAL_KW = ['learn', 'master', 'improve', 'habit', 'routine', 'someday', 'long term', 'long-term', 'goal', 'build a habit', 'per week', 'per day', 'daily', 'weekly', 'times a week', 'nauczyć', 'cel', 'długoterminowy', 'nawyk', 'rutyna', 'opanować', 'kiedyś', 'razy w tygodniu', 'dziennie', 'tygodniowo']
 const URGENT_KW = ['urgent', 'asap', 'today', 'now', 'important', 'deadline', 'eod', 'end of day', 'pilne', 'dziś', 'dzis', 'dzisiaj', 'ważne', 'termin', 'na już', 'natychmiast', 'blocker', 'blocking']
 
 // People who CAN be delegated to → route to "todo" section
@@ -119,7 +121,7 @@ const GOAL_HINTS: Record<string, string[]> = {
   family: ['jakub', 'school decision', 'math', 'fractions', 'geometry', 'polish', 'religion', 'psychology', 'szkoła', 'matematyka', 'komunia'],
 }
 
-// ══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════���══════════
 // HEURISTIC ENGINE (offline fallback)
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -179,12 +181,7 @@ function analyzeItemHeuristic(raw: string, ctx: AnalyzeContext, idx: number): Pr
     return { id, label, dest: 'message', category, priority, deadline: null, owner: null, confidence: 0.8, reason: 'Reply/follow-up to send' }
   }
 
-  // 3. KPI — habit/metric tracking pattern
-  if (hasAny(text, KPI_KW)) {
-    return { id, label, dest: 'kpi', category: isHome ? 'home' : 'work', priority: 'medium', deadline: null, owner: null, confidence: 0.75, reason: 'Recurring habit/metric to track' }
-  }
-
-  // 4. Delegated person → Other To-Do section
+  // 3. Delegated person → Other To-Do section
   const delegate = findDelegatee(text)
   if (delegate) {
     return { id, label, dest: 'todo', category: 'work', targetKey: delegate.section, targetName: delegate.name, priority, deadline: null, owner: delegate.name, confidence: 0.7, reason: `Delegated to ${delegate.name}` }
@@ -241,10 +238,9 @@ Destinations:
 - "goal" — personal goal. targetKey from: health, financial, learning, family
 - "message" — respond/follow-up to a person.
 - "todo" — delegated/monitored. targetKey from: sushovan, varun, konrad, personal
-- "meeting" — time-specific event. Include hour (24h), minute.
-- "kpi" — daily/weekly habit to track.
+- "meeting" — time-specific event that goes on the calendar. Include hour (24h), minute.
 
-Routing order: time→meeting, respond→message, habit→kpi, delegated→todo, personal goal→goal, work project→project, urgent→prio top, else→prio other.
+Routing order: time→meeting, respond→message, delegated→todo, personal goal/habit→goal, work project→project, urgent→prio top, else→prio other.
 
 Delegates: Varun, Anurag, Shradka, Sushovan, Radhika, Shashank, Manya. NEVER delegate to: Himadri, Prashant, Jan, Giulia, Krystle, Lisa, Martha, Christine, Surabhi.
 

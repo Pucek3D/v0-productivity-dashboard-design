@@ -45,7 +45,10 @@ interface Props {
   onRemoveLinked?: (text: string) => void
 }
 
-export type ActiveProjectsHandle = { addTask: (projectKey: string, text: string) => void }
+export type ActiveProjectsHandle = {
+  addTask: (projectKey: string, text: string) => void
+  addToNewProject: (category: 'work' | 'home', name: string | undefined, text: string) => void
+}
 
 export const ActiveProjectsCard = forwardRef<ActiveProjectsHandle, Props>(function ActiveProjectsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, hideTask, hiddenTasks, onToggleGantt, activeGanttProjects, nameOverrides, onRename, onRemoveLinked }: Props, ref) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
@@ -72,9 +75,17 @@ export const ActiveProjectsCard = forwardRef<ActiveProjectsHandle, Props>(functi
     setCustomTasks(p => ({ ...p, [projectKey]: [...(p[projectKey] || []), { id: `ct-${Date.now()}`, text, done: false }] }))
   }
 
-  // Imperative handle: lets the calendar's "Create task" flow append a task to a
-  // chosen project. Re-uses the same custom-task store as the in-card + button.
-  useImperativeHandle(ref, () => ({ addTask: (projectKey: string, text: string) => addCustomTask(projectKey, text) }))
+  // Imperative handle: lets the calendar's "Create task" flow and Smart Capture
+  // append a task to a chosen project — or spin up a brand-new project and add
+  // the task to it. Re-uses the same custom-task store as the in-card + button.
+  useImperativeHandle(ref, () => ({
+    addTask: (projectKey: string, text: string) => addCustomTask(projectKey, text),
+    addToNewProject: (category: 'work' | 'home', name: string | undefined, text: string) => {
+      const key = `c-${Date.now()}`
+      setExtraProjects(p => [...p, { key, name: name?.trim() || 'New Project', color: COLORS[Math.floor(Math.random() * COLORS.length)], status: 'planning', next: '', tasks: [], doneTasks: [], category }])
+      setCustomTasks(p => ({ ...p, [key]: [...(p[key] || []), { id: `ct-${Date.now()}`, text, done: false }] }))
+    },
+  }))
 
   const deleteCustomTask = (projectKey: string, taskId: string) => {
     const ct = (customTasks[projectKey] || []).find(t => t.id === taskId)

@@ -36,7 +36,10 @@ const INITIAL_SECTIONS: OtherSection[] = [
 
 interface Props { taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; starToPrio?: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean; bookmarkToOther?: (t: string, c: 'work' | 'home') => void; isTaskBookmarked?: (t: string) => boolean; starSubtaskToPrio?: (t: string, d?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (t: string, d?: Partial<TaskMeta>) => void; nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void; onRemoveLinked?: (text: string) => void }
 
-export interface OtherTodoHandle { addTask: (sectionId: string, text: string) => void }
+export interface OtherTodoHandle {
+  addTask: (sectionId: string, text: string) => void
+  addToNewSection: (name: string | undefined, text: string) => void
+}
 
 export const OtherTodoCard = forwardRef<OtherTodoHandle, Props>(function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename, onRemoveLinked }: Props, ref) {
   const [sections, setSections] = useState<OtherSection[]>(INITIAL_SECTIONS)
@@ -53,6 +56,13 @@ export const OtherTodoCard = forwardRef<OtherTodoHandle, Props>(function OtherTo
         const targetId = p.some(s => s.id === sectionId) ? sectionId : p[0].id
         return p.map(s => s.id === targetId ? { ...s, tasks: [...s.tasks, { id: `ot${Date.now()}`, text: clean, done: false }] } : s)
       })
+    },
+    // Create a brand-new section and seed it with the captured task.
+    addToNewSection: (name: string | undefined, text: string) => {
+      const clean = text.trim()
+      if (!clean) return
+      const id = `sec-${Date.now()}`
+      setSections(p => [...p, { id, name: name?.trim() || 'New Section', color: SECTION_COLORS[Math.floor(Math.random() * SECTION_COLORS.length)], tasks: [{ id: `ot${Date.now()}`, text: clean, done: false }] }])
     },
   }), [])
 

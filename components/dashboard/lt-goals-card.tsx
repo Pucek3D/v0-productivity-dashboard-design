@@ -42,7 +42,10 @@ interface Props {
   nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void
 }
 
-export type LtGoalsHandle = { addTask: (goalKey: string, text: string) => void }
+export type LtGoalsHandle = {
+  addTask: (goalKey: string, text: string) => void
+  addToNewGoal: (name: string | undefined, text: string) => void
+}
 
 export const LtGoalsCard = forwardRef<LtGoalsHandle, Props>(function LtGoalsCard({ projectDone, toggleProjectTask, getProjectCompletion, taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename }: Props, ref) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -61,6 +64,13 @@ export const LtGoalsCard = forwardRef<LtGoalsHandle, Props>(function LtGoalsCard
     addTask: (goalKey: string, text: string) => {
       const t = text.trim(); if (!t) return
       setExtraGoalTasks(p => ({ ...p, [goalKey]: [...(p[goalKey] || []), t] }))
+    },
+    // Spin up a brand-new long-term goal and seed it with the captured task.
+    addToNewGoal: (name: string | undefined, text: string) => {
+      const t = text.trim(); if (!t) return
+      const key = `c-${Date.now()}`
+      setExtraGoals(p => [...p, { key, name: name?.trim() || 'New Goal', color: COLORS[Math.floor(Math.random() * COLORS.length)], status: 'planning', next: '', tasks: [], doneTasks: [], category: 'home' }])
+      setExtraGoalTasks(p => ({ ...p, [key]: [...(p[key] || []), t] }))
     },
   }))
 
@@ -174,7 +184,7 @@ function SortableGoalTask({ id, task, done, tk, meta, onToggle, openModal, taskM
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
       <div {...dndProps} className="flex items-center gap-1.5 py-0.5 cursor-grab active:cursor-grabbing select-none group" onClick={() => openModal(tk, task)}>
-        <div onPointerDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
+        <div onPointerDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{done && <span className="text-indigo-300 text-[8px] font-bold leading-none">���</span>}</div>
         <EditableLabel value={task} onRename={(n: string) => onRename?.(n)} className={`text-[12px] leading-[1.35] break-words min-w-0 flex-1 ${done ? 'text-slate-500 line-through' : 'text-slate-200'}`} />
         {hasSubs && (
           <button onPointerDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); setSubOpen(o => !o) }} className="flex items-center gap-0.5 flex-shrink-0 cursor-pointer text-slate-500 hover:text-[#14b8a6]" title={subOpen ? 'Collapse subtasks' : 'Expand subtasks'}>
