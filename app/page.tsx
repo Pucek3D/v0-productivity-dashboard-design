@@ -28,6 +28,8 @@ const OTHER_TODO_REGISTRY: { key: string; label: string }[] = [
 ]
 import { KpisCard } from '@/components/dashboard/kpis-card'
 import { EventCalendar, type CustomMeeting } from '@/components/dashboard/event-calendar'
+import { SmartCapture } from '@/components/dashboard/quick-capture'
+import type { ProposedTask } from '@/lib/capture-analyze'
 import { LtGoalsCalendar } from '@/components/dashboard/lt-goals-calendar'
 import { ProgressOverview } from '@/components/dashboard/progress-overview'
 import { ActiveProjectsCard } from '@/components/dashboard/active-projects-card'
@@ -249,7 +251,7 @@ export default function Dashboard() {
     };if(nd) handleRecurringAfterToggle(metaKey,true)}return{...prev,[key]:nd}})
   }, [handleRecurringAfterToggle])
 
-  // ────────────────────────────────────────────────�������─────────────────
+  // ────────────────────────────────────────────────���������─────────────────
   // Bi-directional done sync by task text.
   // Marking a task / subtask / message done anywhere on the dashboard
   // propagates the done state to every linked surface that shares the
@@ -299,8 +301,6 @@ export default function Dashboard() {
       })
     }
   }, [handleRecurringAfterToggle, taskMeta, propagateDone])
-
-  const addPrioTask = useCallback((text:string)=>{setPrioTasks(prev=>prev.map(s=>s.section==='Other Work'?{...s,tasks:[...s.tasks,{id:`q${Date.now()}`,text,done:false}]}:s))}, [])
 
   const starToPrio = useCallback((text:string,category:'work'|'home',source?:'message')=>{
     let newId: string | null = null
@@ -585,6 +585,29 @@ export default function Dashboard() {
     goals: LT_GOALS.map(g=>({ key:g.key, name:g.name, color:g.color })),
   }), [])
 
+  // Smart Capture → route each reviewed proposal into the right surface, reusing
+  // the existing add APIs. Meetings become a dated taskMeta entry, which the
+  // deadlineEvents memo automatically surfaces on the calendar.
+  const handleCapture = useCallback((tasks: ProposedTask[])=>{
+    tasks.forEach((t, i)=>{
+      const label = t.label.trim(); if (!label) return
+      console.log('[v0] capture route', { dest: t.dest, label, targetKey: t.targetKey, hasProjRef: !!activeProjectsRef.current, hasGoalRef: !!ltGoalsRef.current })
+      switch (t.dest) {
+        case 'prio': starToPrio(label, t.category); break
+        case 'other': bookmarkToOther(label, t.category); break
+        case 'project': if (t.targetKey) activeProjectsRef.current?.addTask(t.targetKey, label); break
+        case 'goal': if (t.targetKey) ltGoalsRef.current?.addTask(t.targetKey, label); break
+        case 'message': setMessages(prev=>[...prev, { id:`cap${Date.now()}${i}`, text:label, done:false, category:t.category }]); break
+        case 'meeting': {
+          const today = new Date()
+          const date = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+          updateTaskMeta(`cap-${Date.now()}-${i}`, { label, deadline:date, hour:t.hour, minute:t.minute, color:'#2dd4bf' })
+          break
+        }
+      }
+    })
+  }, [starToPrio, bookmarkToOther, setMessages, updateTaskMeta])
+
   const completedTasks = useMemo(()=>{const set=new Set<string>();prioTasks.forEach(s=>s.tasks.forEach(t=>{if(t.done)set.add(t.text)}));[...PROJECTS,...LT_GOALS].forEach(p=>{p.tasks.forEach((t,i)=>{if(projectDone[`${p.key}-task-${i}`])set.add(t)})});return set}, [prioTasks,projectDone])
   const ganttProjectObjs = [...PROJECTS,...LT_GOALS].filter(p=>ganttProjects.has(p.key))
 
@@ -655,7 +678,7 @@ export default function Dashboard() {
             <button onClick={()=>setShowShutdown(true)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',background:'rgba(99,102,241,0.10)',border:'1px solid rgba(99,102,241,0.20)',borderRadius:10,cursor:'pointer',color:'#818cf8',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}><IconMoon size={14} /> End of day</button>
           </div>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:6,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:10,padding:'6px 12px'}}><span style={{color:'#64748b',fontSize:14}}>+</span><input placeholder="Add task to Top Prio — press Enter" onKeyDown={e=>{if(e.key==='Enter'&&(e.target as HTMLInputElement).value.trim()){addPrioTask((e.target as HTMLInputElement).value.trim());(e.target as HTMLInputElement).value=''}}} style={{flex:1,background:'transparent',border:'none',outline:'none',fontSize:12,color:'#e2e8f0',fontFamily:'inherit'}} /></div>
+        <SmartCapture context={createTaskTargets} onCommit={handleCapture} />
       </header>
 
       <div className="grid grid-cols-[240px_minmax(0,0.85fr)_minmax(0,1fr)] gap-3 items-start">
