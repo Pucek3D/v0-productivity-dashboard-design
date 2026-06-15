@@ -1,31 +1,43 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Smart Capture — analysis brain
+// Smart Capture — analysis brain (v2 — dashboard-aligned)
 //
-// Turns raw captured text (typed, pasted, transcribed from voice, read from an
-// image via OCR, or extracted from a spreadsheet) into a list of proposed,
-// categorized tasks. Routing is heuristic/rule-based today, but the public
-// `analyzeCapture()` signature is intentionally AI-swappable: a future version
-// can replace the body with an LLM call (e.g. AI SDK) that returns the same
-// `ProposedTask[]` shape without any caller changes.
+// Routes raw captured text into 7 dashboard destinations:
+//   prio → Top Prio Today (4 quadrants: Work/Home × Top/Other)
+//   project → Active Projects (11 work projects)
+//   goal → Long-Term Goals (4 personal goals)
+//   message → Messages sidebar
+//   todo → Other To-Do (delegated/monitored sections)
+//   meeting → Event Calendar
+//   kpi → KPI Tracker
+//
+// Two modes:
+//   1. AI mode (default) — calls Anthropic API for smart routing
+//   2. Heuristic fallback — keyword-based, runs offline if API fails
 // ─────────────────────────────────────────────────────────────────────────
 
-export type CaptureDest = 'prio' | 'other' | 'project' | 'goal' | 'message' | 'meeting'
+export type CaptureDest = 'prio' | 'project' | 'goal' | 'message' | 'todo' | 'meeting' | 'kpi'
 
 export interface ProposedTask {
   id: string
   label: string
   dest: CaptureDest
   category: 'work' | 'home'
+  /** For prio dest: which half of the 2×2 grid */
+  section?: 'top' | 'other'
+  /** For project/goal/todo: which specific target */
   targetKey?: string
   targetName?: string
   targetColor?: string
-  confidence: number
-  /** Optional parsed time for meetings (24h). */
+  priority: 'high' | 'medium' | 'low'
+  deadline: string | null
+  /** For meetings or timed deadlines */
   hour?: number
   minute?: number
-  /** Optional parsed date (YYYY-MM-DD) for meetings/deadlines. */
-  date?: string
-  /** Short human explanation of why this destination was chosen. */
+  /** Delegated to whom (first name), or null = own */
+  owner: string | null
+  /** 0–1 routing confidence */
+  confidence: number
+  /** Why this destination was chosen */
   reason: string
 }
 
@@ -39,32 +51,81 @@ export interface AnalyzeTarget {
 export interface AnalyzeContext {
   projects: AnalyzeTarget[]
   goals: AnalyzeTarget[]
+  todoSections?: { key: string; name: string }[]
+  today?: string
 }
 
-// ── Keyword dictionaries (English + Polish, since notes may be in either) ──
-const HOME_WORDS = ['home', 'house', 'grocery', 'groceries', 'clean', 'cleaning', 'laundry', 'kids', 'family', 'dinner', 'cook', 'rent', 'apartment', 'dom', 'domu', 'pranie', 'zakupy', 'dzieci', 'rodzina', 'obiad', 'sprzątanie', 'mieszkanie']
-const MESSAGE_WORDS = ['reply', 'respond', 'email', 'e-mail', 'mail', 'message', 'text', 'dm', 'call back', 'write back', 'follow up with', 'ping', 'odpisz', 'odpowiedz', 'napisz', 'napisać', 'wiadomość', 'wiadomosc', 'mejl', 'maila', 'zadzwoń', 'zadzwon', 'oddzwoń']
-const MEETING_WORDS = ['meeting', 'meet ', 'call with', 'sync', '1:1', 'one on one', 'standup', 'stand-up', 'interview', 'appointment', 'catch up', 'coffee with', 'lunch with', 'spotkanie', 'spotkać', 'rozmowa', 'umów', 'umow', 'wideo', 'zoom', 'teams call']
-const GOAL_WORDS = ['learn', 'master', 'improve', 'habit', 'routine', 'someday', 'eventually', 'long term', 'long-term', 'goal', 'read more', 'get better at', 'start ', 'build a habit', 'nauczyć', 'nauczyc', 'cel', 'długoterminowy', 'dlugoterminowy', 'nawyk', 'rutyna', 'opanować', 'kiedyś', 'kiedys']
-const URGENT_WORDS = ['urgent', 'asap', 'today', 'now', 'important', 'deadline', 'due', 'pilne', 'dziś', 'dzis', 'dzisiaj', 'ważne', 'wazne', 'termin', 'na już', 'na juz']
+// ── Destination metadata for the review UI ──
+export const DEST_META: Record<CaptureDest, { label: string; hint: string; emoji: string; color: string }> = {
+  prio:    { label: 'Top Prio',    hint: "Today's priority list",       emoji: '⚡', color: '#818cf8' },
+  project: { label: 'Project',     hint: 'A specific active project',   emoji: '📁', color: '#6366f1' },
+  goal:    { label: 'Long-term',   hint: 'A long-term personal goal',   emoji: '🎯', color: '#14b8a6' },
+  message: { label: 'Message',     hint: 'Reply / follow-up to send',   emoji: '💬', color: '#a78bfa' },
+  todo:    { label: 'Other To-Do', hint: 'Delegated or monitored item', emoji: '📋', color: '#f59e0b' },
+  meeting: { label: 'Meeting',     hint: 'Goes on the calendar',        emoji: '📅', color: '#fb7185' },
+  kpi:     { label: 'KPI',         hint: 'Habit/metric to track',       emoji: '📊', color: '#2dd4bf' },
+}
 
-// ── Text → individual line items ──
+// ── Split raw text into individual items ──
 export function splitIntoItems(raw: string): string[] {
   if (!raw) return []
   return raw
-    .split(/\r?\n|•|·|^\s*[-*]\s+|;/m)
+    .split(/\r?\n|•|·|;/)
     .map(s => s.replace(/^\s*(?:\d+[.)]\s*|[-*•·]\s*|\[\s?\]\s*)/, '').trim())
     .filter(s => s.length > 1)
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// KEYWORD DICTIONARIES — English + Polish
+// ══════════════════════════════════════════════════════════════════════════
+
+const HOME_KW = ['home', 'house', 'grocery', 'groceries', 'clean', 'laundry', 'kids', 'family', 'dinner', 'cook', 'rent', 'apartment', 'jakub', 'dom', 'domu', 'pranie', 'zakupy', 'dzieci', 'rodzina', 'obiad', 'sprzątanie', 'mieszkanie', 'szkoła', 'szkola', 'olx', 'headphones']
+const MESSAGE_KW = ['reply', 'respond', 'email', 'mail', 'message', 'text', 'dm', 'call back', 'write back', 'follow up', 'ping', 'check in with', 'odpisz', 'odpowiedz', 'napisz', 'napisać', 'wiadomość', 'mejl', 'maila', 'zadzwoń', 'oddzwoń']
+const MEETING_KW = ['meeting', 'meet with', 'call with', 'sync', '1:1', 'standup', 'interview', 'appointment', 'catch up', 'coffee with', 'lunch with', 'spotkanie', 'spotkać', 'rozmowa', 'umów', 'wideo', 'zoom', 'teams call', 'office hours']
+const GOAL_KW = ['learn', 'master', 'improve', 'habit', 'routine', 'someday', 'long term', 'long-term', 'goal', 'build a habit', 'nauczyć', 'cel', 'długoterminowy', 'nawyk', 'rutyna', 'opanować', 'kiedyś']
+const KPI_KW = ['per week', 'per day', 'daily', 'weekly', 'track', 'streak', 'x per', 'times a week', 'razy w tygodniu', 'dziennie', 'tygodniowo', 'kpi']
+const URGENT_KW = ['urgent', 'asap', 'today', 'now', 'important', 'deadline', 'eod', 'end of day', 'pilne', 'dziś', 'dzis', 'dzisiaj', 'ważne', 'termin', 'na już', 'natychmiast', 'blocker', 'blocking']
+
+// People who CAN be delegated to → route to "todo" section
+const DELEGATES: Record<string, string> = {
+  'varun': 'varun', 'sushovan': 'sushovan', 'anurag': 'varun', // Anurag tasks monitored via varun section
+  'shradka': 'varun', 'shratha': 'varun', 'radhika': 'varun', 'shashank': 'varun',
+  'manya': 'varun', 'konrad': 'konrad',
+}
+// People who are personal contacts → route to personal todo
+const PERSONAL_PEOPLE = ['faisal', 'inga', 'hand-friend']
+// Stakeholders — NEVER delegate, but extract as requestor context
+const STAKEHOLDERS = ['himadri', 'prashant', 'jan', 'giulia', 'krystle', 'lisa', 'martha', 'christine', 'surabhi', 'martin']
+
+// Project keyword hints (beyond name matching)
+const PROJECT_HINTS: Record<string, string[]> = {
+  teamLead: ['team', 'direct report', 'varun promotion', 'anurag', 'communications training', 'new joiner', 'work planning', 'ctm'],
+  caseTrack: ['case tracker', 'himadri', 'prashant', 'km collection', 'dei', 'sage prompt', 'ingestion'],
+  irisPage: ['iris', 'practice page', 'mockup', 'dei page', 'fst page', 'giulia', 'jan', 'circularity'],
+  ipGap: ['ip gap', 'ip stocktake', 'feedly', 'openai', 'gatsby', 'guidelines'],
+  skillCld: ['skill', 'claude skill', 'energy transition skill', 'skill rollout'],
+  ppk: ['ppk', 'christine', 'cross-practice', 'kick-off deck'],
+  prodSys: ['dashboard', 'power automate', 'vibe coding', 'v-zero', 'v0', 'martin', 'task tool'],
+  repDash: ['report dash', 'reporting', 'pipeline', 'bcn', 'macros', 'varun automation'],
+  policyCo: ['policy ceo', 'policy', 'giulia go-ahead'],
+  training: ['training', 'leadership cohort', 'sustainability session', 'tl block', 'trading swingi'],
+  a1Chall: ['a1', 'challenge', 'disguise', 'scoring', 'slides 9'],
+}
+
+const GOAL_HINTS: Record<string, string[]> = {
+  health: ['workout', 'sleep', 'body care', 'health check', 'exercise', 'gym', 'trening', 'ćwiczenia', 'sen'],
+  financial: ['trading', 'pożyczka', 'pozyczka', 'grants', 'savings', 'dotacji', 'pieniądze', 'investm'],
+  learning: ['learn', 'vibe coding', 'power automate course', 'leadership cohort', 'martin call', 'kurs'],
+  family: ['jakub', 'school decision', 'math', 'fractions', 'geometry', 'polish', 'religion', 'psychology', 'szkoła', 'matematyka', 'komunia'],
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// HEURISTIC ENGINE (offline fallback)
+// ══════════════════════════════════════════════════════════════════════════
+
 const norm = (s: string) => s.toLowerCase().normalize('NFC')
 const hasAny = (text: string, words: string[]) => words.some(w => text.includes(w))
 
-// Tokenize a name into meaningful words for fuzzy matching.
-const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'for', 'to', 'of', 'project', 'page', 'i', 'w', 'na', 'do', 'z'])
-const tokens = (s: string) => norm(s).replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(t => t.length > 2 && !STOP.has(t))
-
-// Try to parse a time like "3pm", "15:00", "o 14", "at 9.30".
 function parseTime(text: string): { hour: number; minute: number } | undefined {
   let m = text.match(/\b(\d{1,2})[:.](\d{2})\b/)
   if (m) { const h = +m[1], mi = +m[2]; if (h < 24 && mi < 60) return { hour: h, minute: mi } }
@@ -75,81 +136,186 @@ function parseTime(text: string): { hour: number; minute: number } | undefined {
   return undefined
 }
 
-// Score how well an item matches a named target (project/goal).
-function matchTarget(itemTokens: string[], target: AnalyzeTarget): number {
-  const tt = tokens(target.name)
-  if (!tt.length) return 0
-  let hits = 0
-  for (const t of tt) if (itemTokens.includes(t)) hits++
-  return hits / tt.length
+function findBestHintMatch(text: string, hints: Record<string, string[]>): { key: string; score: number } | null {
+  let best: { key: string; score: number } | null = null
+  for (const [key, words] of Object.entries(hints)) {
+    let hits = 0
+    for (const w of words) if (text.includes(w)) hits++
+    const score = hits / words.length
+    if (hits > 0 && (!best || score > best.score)) best = { key, score }
+  }
+  return best
 }
 
-function analyzeItem(raw: string, ctx: AnalyzeContext, idx: number): ProposedTask {
+function findDelegatee(text: string): { name: string; section: string } | null {
+  for (const [person, section] of Object.entries(DELEGATES)) {
+    if (text.includes(person)) return { name: person.charAt(0).toUpperCase() + person.slice(1), section }
+  }
+  return null
+}
+
+function inferPriority(text: string): 'high' | 'medium' | 'low' {
+  if (hasAny(text, URGENT_KW)) return 'high'
+  if (hasAny(text, ['low priority', 'nice to have', 'if time', 'eventually', 'kiedyś', 'opcjonalnie'])) return 'low'
+  return 'medium'
+}
+
+function analyzeItemHeuristic(raw: string, ctx: AnalyzeContext, idx: number): ProposedTask {
   const label = raw.trim()
   const text = norm(label)
-  const itemTokens = tokens(label)
   const id = `cap-${Date.now()}-${idx}`
-  const category: 'work' | 'home' = hasAny(text, HOME_WORDS) ? 'home' : 'work'
+  const isHome = hasAny(text, HOME_KW)
+  const category: 'work' | 'home' = isHome ? 'home' : 'work'
+  const priority = inferPriority(text)
 
-  // 1) Best project / goal match by name-token overlap.
-  let bestProj: { t: AnalyzeTarget; score: number } | null = null
-  for (const p of ctx.projects) { const s = matchTarget(itemTokens, p); if (s > 0 && (!bestProj || s > bestProj.score)) bestProj = { t: p, score: s } }
-  let bestGoal: { t: AnalyzeTarget; score: number } | null = null
-  for (const g of ctx.goals) { const s = matchTarget(itemTokens, g); if (s > 0 && (!bestGoal || s > bestGoal.score)) bestGoal = { t: g, score: s } }
-
-  // 2) Meeting — strong cue and usually has a time.
-  if (hasAny(text, MEETING_WORDS)) {
+  // 1. Meeting — has time or meeting keywords
+  if (hasAny(text, MEETING_KW)) {
     const t = parseTime(text)
-    return { id, label, dest: 'meeting', category, confidence: t ? 0.85 : 0.7, ...(t || {}), reason: t ? 'Looks like a scheduled meeting' : 'Mentions a meeting/call' }
+    return { id, label, dest: 'meeting', category, priority, deadline: null, owner: null, confidence: t ? 0.85 : 0.7, ...(t || {}), reason: t ? 'Scheduled meeting with time' : 'Meeting/call mentioned' }
   }
 
-  // 3) Message — reply/email/call-back style.
-  if (hasAny(text, MESSAGE_WORDS)) {
-    return { id, label, dest: 'message', category, confidence: 0.78, reason: 'Looks like a message to send/answer' }
+  // 2. Message — respond/follow-up pattern
+  if (hasAny(text, MESSAGE_KW)) {
+    return { id, label, dest: 'message', category, priority, deadline: null, owner: null, confidence: 0.8, reason: 'Reply/follow-up to send' }
   }
 
-  // 4) Strong project match wins next.
-  if (bestProj && bestProj.score >= 0.5) {
-    return { id, label, dest: 'project', category: bestProj.t.category || category, targetKey: bestProj.t.key, targetName: bestProj.t.name, targetColor: bestProj.t.color, confidence: 0.6 + bestProj.score * 0.3, reason: `Matches project "${bestProj.t.name}"` }
+  // 3. KPI — habit/metric tracking pattern
+  if (hasAny(text, KPI_KW)) {
+    return { id, label, dest: 'kpi', category: isHome ? 'home' : 'work', priority: 'medium', deadline: null, owner: null, confidence: 0.75, reason: 'Recurring habit/metric to track' }
   }
 
-  // 5) Long-term goal — explicit goal cue, or a goal-name match.
-  if (hasAny(text, GOAL_WORDS) || (bestGoal && bestGoal.score >= 0.5)) {
-    if (bestGoal && bestGoal.score >= 0.34) {
-      return { id, label, dest: 'goal', category, targetKey: bestGoal.t.key, targetName: bestGoal.t.name, targetColor: bestGoal.t.color, confidence: 0.55 + bestGoal.score * 0.3, reason: `Matches goal "${bestGoal.t.name}"` }
+  // 4. Delegated person → Other To-Do section
+  const delegate = findDelegatee(text)
+  if (delegate) {
+    return { id, label, dest: 'todo', category: 'work', targetKey: delegate.section, targetName: delegate.name, priority, deadline: null, owner: delegate.name, confidence: 0.7, reason: `Delegated to ${delegate.name}` }
+  }
+
+  // 5. Personal people → personal todo
+  if (PERSONAL_PEOPLE.some(p => text.includes(p))) {
+    return { id, label, dest: 'message', category: 'home', priority: 'medium', deadline: null, owner: null, confidence: 0.65, reason: 'Personal contact follow-up' }
+  }
+
+  // 6. Goal match (by hints)
+  const goalMatch = findBestHintMatch(text, GOAL_HINTS)
+  if (goalMatch && goalMatch.score >= 0.15) {
+    const g = ctx.goals.find(x => x.key === goalMatch.key)
+    return { id, label, dest: 'goal', category: 'home', targetKey: goalMatch.key, targetName: g?.name || goalMatch.key, targetColor: g?.color, priority: 'medium', deadline: null, owner: null, confidence: 0.5 + goalMatch.score * 0.4, reason: `Matches goal "${g?.name || goalMatch.key}"` }
+  }
+  if (hasAny(text, GOAL_KW)) {
+    return { id, label, dest: 'goal', category: 'home', priority: 'medium', deadline: null, owner: null, confidence: 0.45, reason: 'Sounds like a long-term goal' }
+  }
+
+  // 7. Project match (by hints)
+  const projMatch = findBestHintMatch(text, PROJECT_HINTS)
+  if (projMatch && projMatch.score >= 0.15) {
+    const p = ctx.projects.find(x => x.key === projMatch.key)
+    return { id, label, dest: 'project', category: p?.category || 'work', targetKey: projMatch.key, targetName: p?.name || projMatch.key, targetColor: p?.color, priority, deadline: null, owner: null, confidence: 0.5 + projMatch.score * 0.35, reason: `Matches project "${p?.name || projMatch.key}"` }
+  }
+
+  // 8. Also try name-token matching on project/goal names
+  const nameTokens = norm(label).replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(t => t.length > 2)
+  for (const p of ctx.projects) {
+    const pTokens = norm(p.name).split(/\s+/).filter(t => t.length > 2)
+    const overlap = pTokens.filter(t => nameTokens.includes(t)).length
+    if (overlap > 0 && overlap / pTokens.length >= 0.5) {
+      return { id, label, dest: 'project', category: p.category || 'work', targetKey: p.key, targetName: p.name, targetColor: p.color, priority, deadline: null, owner: null, confidence: 0.55, reason: `Name matches "${p.name}"` }
     }
-    return { id, label, dest: 'goal', category, confidence: 0.5, reason: 'Sounds like a long-term goal' }
   }
 
-  // 6) Weaker project match as a fallback before generic to-do.
-  if (bestProj && bestProj.score >= 0.34) {
-    return { id, label, dest: 'project', category: bestProj.t.category || category, targetKey: bestProj.t.key, targetName: bestProj.t.name, targetColor: bestProj.t.color, confidence: 0.45 + bestProj.score * 0.3, reason: `Possibly related to "${bestProj.t.name}"` }
+  // 9. Urgent → prio top; everything else → prio other
+  if (priority === 'high') {
+    return { id, label, dest: 'prio', category, section: 'top', priority, deadline: null, owner: null, confidence: 0.6, reason: 'Urgent / time-sensitive' }
   }
-
-  // 7) Urgent → Top Prio; otherwise Other to-do.
-  if (hasAny(text, URGENT_WORDS)) {
-    return { id, label, dest: 'prio', category, confidence: 0.6, reason: 'Marked urgent / time-sensitive' }
-  }
-  return { id, label, dest: 'other', category, confidence: 0.4, reason: 'General to-do' }
+  return { id, label, dest: 'prio', category, section: 'other', priority, deadline: null, owner: null, confidence: 0.4, reason: 'General to-do' }
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// AI MODE — Anthropic API call for smart routing
+// ══════════════════════════════════════════════════════════════════════════
+
+const AI_SYSTEM = `You extract tasks from raw text and route each to a dashboard destination. Return ONLY a JSON array, no markdown fences, no prose.
+
+Destinations:
+- "prio" — urgent today/this-week tasks. Set category "work"/"home", section "top"/"other".
+- "project" — work project task. targetKey from: teamLead, caseTrack, irisPage, ipGap, skillCld, ppk, prodSys, repDash, policyCo, training, a1Chall
+- "goal" — personal goal. targetKey from: health, financial, learning, family
+- "message" — respond/follow-up to a person.
+- "todo" — delegated/monitored. targetKey from: sushovan, varun, konrad, personal
+- "meeting" — time-specific event. Include hour (24h), minute.
+- "kpi" — daily/weekly habit to track.
+
+Routing order: time→meeting, respond→message, habit→kpi, delegated→todo, personal goal→goal, work project→project, urgent→prio top, else→prio other.
+
+Delegates: Varun, Anurag, Shradka, Sushovan, Radhika, Shashank, Manya. NEVER delegate to: Himadri, Prashant, Jan, Giulia, Krystle, Lisa, Martha, Christine, Surabhi.
+
+Polish dates: dziś=today, jutro=tomorrow, do piątku=this Friday, w tym tygodniu=end of week.
+
+Each object: {id, label (≤8 words verb-first), dest, category, section?, targetKey?, targetName?, priority ("high"/"medium"/"low"), deadline (ISO or null), hour?, minute?, owner (first name or null), confidence (0-1), reason (1 sentence)}`
+
+async function analyzeWithAI(raw: string, ctx: AnalyzeContext): Promise<ProposedTask[] | null> {
+  const today = ctx.today || new Date().toISOString().slice(0, 10)
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        system: AI_SYSTEM,
+        messages: [{ role: 'user', content: `Today: ${today}. Extract:\n\n${raw}` }],
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const text = data.content?.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('').trim()
+    if (!text) return null
+    const clean = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+    const parsed: ProposedTask[] = JSON.parse(clean)
+    // Enrich with colors from context
+    return parsed.map(p => {
+      if (p.dest === 'project' && p.targetKey) {
+        const proj = ctx.projects.find(x => x.key === p.targetKey)
+        if (proj) { p.targetName = proj.name; p.targetColor = proj.color }
+      }
+      if (p.dest === 'goal' && p.targetKey) {
+        const goal = ctx.goals.find(x => x.key === p.targetKey)
+        if (goal) { p.targetName = goal.name; p.targetColor = goal.color }
+      }
+      // Ensure required fields have defaults
+      if (!p.priority) p.priority = 'medium'
+      if (p.deadline === undefined) p.deadline = null
+      if (p.owner === undefined) p.owner = null
+      return p
+    })
+  } catch {
+    return null // fallback to heuristic
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PUBLIC API
+// ══════════════════════════════════════════════════════════════════════════
 
 /**
  * Analyze raw captured text into proposed, categorized tasks.
  *
- * AI-swap seam: replace the body with an LLM call that returns ProposedTask[].
- * The heuristics below run fully offline and need no API key.
+ * Tries AI mode first (Anthropic API). Falls back to heuristic engine
+ * if the API call fails or is unavailable.
  */
 export async function analyzeCapture(raw: string, ctx: AnalyzeContext): Promise<ProposedTask[]> {
+  // Try AI first
+  const aiResult = await analyzeWithAI(raw, ctx)
+  if (aiResult && aiResult.length > 0) return aiResult
+
+  // Fallback: heuristic engine
   const items = splitIntoItems(raw)
-  return items.map((item, i) => analyzeItem(item, ctx, i))
+  return items.map((item, i) => analyzeItemHeuristic(item, ctx, i))
 }
 
-// Labels + descriptions for the destination picker in the review UI.
-export const DEST_META: Record<CaptureDest, { label: string; hint: string }> = {
-  prio: { label: 'Top Prio', hint: 'Today’s priority list' },
-  other: { label: 'Other to-do', hint: 'Secondary to-dos' },
-  project: { label: 'Project', hint: 'A specific active project' },
-  goal: { label: 'Long-term', hint: 'A long-term goal' },
-  message: { label: 'Message', hint: 'Reply / message to send' },
-  meeting: { label: 'Meeting', hint: 'Goes on the calendar' },
+/**
+ * Heuristic-only mode (no API call). Useful for testing or offline.
+ */
+export function analyzeCaptureOffline(raw: string, ctx: AnalyzeContext): ProposedTask[] {
+  const items = splitIntoItems(raw)
+  return items.map((item, i) => analyzeItemHeuristic(item, ctx, i))
 }
