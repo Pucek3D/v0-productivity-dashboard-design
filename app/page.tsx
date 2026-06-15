@@ -251,7 +251,7 @@ export default function Dashboard() {
     };if(nd) handleRecurringAfterToggle(metaKey,true)}return{...prev,[key]:nd}})
   }, [handleRecurringAfterToggle])
 
-  // ────────────────────────────────────────────────���������─────────────────
+  // ─────��──────────────────────────────────────────���������─────────────────
   // Bi-directional done sync by task text.
   // Marking a task / subtask / message done anywhere on the dashboard
   // propagates the done state to every linked surface that shares the
@@ -703,7 +703,7 @@ export default function Dashboard() {
       {/* ── FIX #1 continued: modal onUpdate ALWAYS passes label ── */}
       {modalTask&&<TaskModal taskKey={modalTask.key} taskLabel={modalTask.label} meta={taskMeta[modalTask.key]||{}} onUpdate={u=>updateTaskMeta(modalTask.key,{...u, label: modalTask.label})} onClose={()=>setModalTask(null)} onStartFocus={startFocus} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} isTaskStarred={isTaskStarred} isTaskBookmarked={isTaskBookmarked} onRenameTask={(name)=>renameTask(modalTask.key, name)} />}
       {showShutdown&&<DailyShutdown onClose={()=>setShowShutdown(false)} tasksCompleted={timeStats.doneTodayTasks} tasksTotal={timeStats.totalTodayTasks} focusedMin={timeStats.focusedMin} messagesAnswered={messagesAnswered} onCleanup={dailyCleanup} />}
-      {showAnalytics&&<WeeklyAnalytics onClose={()=>setShowAnalytics(false)} projectDone={projectDone} taskMeta={taskMeta} getProjectCompletion={getProjectCompletion} />}
+      {showAnalytics&&<WeeklyAnalytics onClose={()=>setShowAnalytics(false)} projectDone={projectDone} taskMeta={taskMeta} getProjectCompletion={getProjectCompletion} calendarMeetings={calendarMeetings} />}
     </div>
   )
 }
