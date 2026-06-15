@@ -1,58 +1,158 @@
 'use client'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { IconTrash, IconStar, IconBookmark, IconPlus } from '@tabler/icons-react'
+import { TaskActions } from './task-actions'
+import type { TaskMeta } from '@/lib/task-meta'
+import { SubtaskPreview } from './subtask-preview'
+import { closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { ClientDnd } from './client-dnd'
+import { useMounted } from '@/lib/use-mounted'
 
-import { useState } from 'react'
-import { OTHER_TODOS } from '@/lib/data'
+function EditableText({ value, onChange, className, style }: any) {
+  const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(value); const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => { if (editing) ref.current?.focus() }, [editing]); useEffect(() => { setDraft(value) }, [value])
+  if (editing) return <input ref={ref} value={draft} onChange={(e: any) => setDraft(e.target.value)} onBlur={() => { setEditing(false); if (draft.trim() && draft !== value) onChange(draft.trim()) }} onKeyDown={(e: any) => { if (e.key === 'Enter') { setEditing(false); if (draft.trim()) onChange(draft.trim()) } if (e.key === 'Escape') { setEditing(false); setDraft(value) } }} className={className} style={{ ...style, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 4, padding: '0 4px', outline: 'none' }} onClick={(e: any) => e.stopPropagation()} />
+  return <span className={className} style={{ ...style, cursor: 'text' }} onDoubleClick={(e: any) => { e.stopPropagation(); setEditing(true) }}>{value}</span>
+}
 
-export function OtherTodoCard() {
-  const [todos, setTodos] = useState(OTHER_TODOS)
+function MetaBadges({ meta }: { meta?: TaskMeta }) {
+  if (!meta) return null; const b: React.ReactNode[] = []
+  if (meta.priority) { const c = meta.priority === 'high' ? '#fb7185' : meta.priority === 'medium' ? '#fbbf24' : '#94a3b8'; b.push(<span key="p" style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', background: `${c}22`, color: c, border: `1px solid ${c}44`, borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{meta.priority.slice(0, 3)}</span>) }
+  if (meta.timeEstimate) b.push(<span key="t" style={{ fontSize: 8, fontWeight: 600, color: '#94a3b8', background: 'rgba(255,255,255,0.06)', borderRadius: 3, padding: '0 4px', lineHeight: '16px' }}>{meta.timeEstimate >= 60 ? `${meta.timeEstimate / 60}h` : `${meta.timeEstimate}m`}</span>)
+  return b.length ? <span className="inline-flex items-center gap-0.5 flex-wrap">{b}</span> : null
+}
 
-  const toggleTask = (groupIdx: number, taskIdx: number) => {
-    setTodos(prev => {
-      const newTodos = [...prev]
-      const group = { ...newTodos[groupIdx] }
-      const tasks = [...group.tasks]
-      tasks[taskIdx] = { ...tasks[taskIdx], done: !tasks[taskIdx].done }
-      group.tasks = tasks
-      newTodos[groupIdx] = group
-      return newTodos
-    })
+const SECTION_COLORS = ['#8b5cf6', '#3b82f6', '#f59e0b', '#ec4899', '#14b8a6', '#f97316', '#ef4444', '#06b6d4']
+// Pick a random heading color, preferring one not already used by a section so
+// each new section heading is visually distinct.
+function pickSectionColor(usedColors: string[]): string {
+  const available = SECTION_COLORS.filter(c => !usedColors.includes(c))
+  const pool = available.length ? available : SECTION_COLORS
+  return pool[Math.floor(Math.random() * pool.length)]
+}
+
+interface OtherSection { id: string; name: string; color: string; tasks: { id: string; text: string; done: boolean }[] }
+const INITIAL_SECTIONS: OtherSection[] = [
+  { id: 'sushovan', name: 'Sushovan (Monitor)', color: '#8b5cf6', tasks: [{ id: 'os1', text: 'WEF — Food Systems (WIP)', done: false }, { id: 'os2', text: 'AACI — case summary (WIP)', done: false }] },
+  { id: 'varun', name: 'Varun (Delegate)', color: '#3b82f6', tasks: [{ id: 'os3', text: 'Draft promotion note for HR', done: false }, { id: 'os4', text: 'Progress tracker (new joiners)', done: false }] },
+  { id: 'konrad', name: 'Konrad', color: '#f59e0b', tasks: [{ id: 'os5', text: 'PPK — budget for lunch + agenda', done: false }, { id: 'os6', text: 'Cross-practice section prep', done: false }] },
+  { id: 'personal', name: 'Personal', color: '#ec4899', tasks: [{ id: 'os7', text: 'Faisal — respond', done: false }, { id: 'os8', text: 'Inga — celebrate her promotion!', done: false }] },
+]
+
+interface Props { taskMeta: Record<string, TaskMeta>; updateTaskMeta: (k: string, u: Partial<TaskMeta>) => void; openModal: (k: string, l: string) => void; starToPrio?: (t: string, c: 'work' | 'home') => void; isTaskStarred?: (t: string) => boolean; bookmarkToOther?: (t: string, c: 'work' | 'home') => void; isTaskBookmarked?: (t: string) => boolean; starSubtaskToPrio?: (t: string, d?: Partial<TaskMeta>) => void; bookmarkSubtaskToOther?: (t: string, d?: Partial<TaskMeta>) => void; nameOverrides?: Record<string, string>; onRename?: (key: string, newName: string) => void; onRemoveLinked?: (text: string) => void }
+
+export interface OtherTodoHandle {
+  addTask: (sectionId: string, text: string) => void
+  addToNewSection: (name: string | undefined, text: string) => void
+}
+
+export const OtherTodoCard = forwardRef<OtherTodoHandle, Props>(function OtherTodoCard({ taskMeta, updateTaskMeta, openModal, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther, nameOverrides, onRename, onRemoveLinked }: Props, ref) {
+  const [sections, setSections] = useState<OtherSection[]>(INITIAL_SECTIONS)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  // Imperative handle so Smart Capture can drop a delegated/monitored task
+  // straight into a section by id (falls back to the first section).
+  useImperativeHandle(ref, () => ({
+    addTask: (sectionId: string, text: string) => {
+      const clean = text.trim()
+      if (!clean) return
+      setSections(p => {
+        if (!p.length) return p
+        const targetId = p.some(s => s.id === sectionId) ? sectionId : p[0].id
+        return p.map(s => s.id === targetId ? { ...s, tasks: [...s.tasks, { id: `ot${Date.now()}`, text: clean, done: false }] } : s)
+      })
+    },
+    // Create a brand-new section and seed it with the captured task.
+    addToNewSection: (name: string | undefined, text: string) => {
+      const clean = text.trim()
+      if (!clean) return
+      const id = `sec-${Date.now()}`
+      setSections(p => [...p, { id, name: name?.trim() || 'New Section', color: pickSectionColor(p.map(s => s.color)), tasks: [{ id: `ot${Date.now()}`, text: clean, done: false }] }])
+    },
+  }), [])
+
+  const toggleTask = (sid: string, tid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.map(t => t.id === tid ? { ...t, done: !t.done } : t) } : s))
+  const deleteTask = (sid: string, tid: string) => {
+    const sec = sections.find(s => s.id === sid); const t = sec?.tasks.find(x => x.id === tid)
+    if (t) { const tk = `todo-${sid}-${tid}`; onRemoveLinked?.(nameOverrides?.[tk] ?? t.text) }
+    setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.filter(x => x.id !== tid) } : s))
+  }
+  const addTask = (sid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, tasks: [...s.tasks, { id: `ot${Date.now()}`, text: 'New task', done: false }] } : s))
+  const deleteSection = (sid: string) => {
+    const sec = sections.find(s => s.id === sid)
+    sec?.tasks.forEach(t => onRemoveLinked?.(nameOverrides?.[`todo-${sid}-${t.id}`] ?? t.text))
+    setSections(p => p.filter(s => s.id !== sid))
+  }
+  const renameSection = (sid: string, name: string) => setSections(p => p.map(s => s.id === sid ? { ...s, name } : s))
+  const renameTask = (sid: string, tid: string, text: string) => {
+    setSections(p => p.map(s => s.id === sid ? { ...s, tasks: s.tasks.map(t => t.id === tid ? { ...t, text } : t) } : s))
+    // Propagate to synced surfaces (e.g. a starred Top Prio copy)
+    onRename?.(`todo-${sid}-${tid}`, text)
+  }
+  const addSection = () => setSections(p => [...p, { id: `sec-${Date.now()}`, name: 'New Section', color: pickSectionColor(p.map(s => s.color)), tasks: [] }])
+
+  const handleDragEnd = (sid: string) => (e: DragEndEvent) => {
+    const { active, over } = e; if (!over || active.id === over.id) return
+    setSections(p => p.map(s => {
+      if (s.id !== sid) return s
+      const oi = s.tasks.findIndex(t => t.id === active.id); const ni = s.tasks.findIndex(t => t.id === over.id)
+      return oi >= 0 && ni >= 0 ? { ...s, tasks: arrayMove([...s.tasks], oi, ni) } : s
+    }))
   }
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_24px_rgba(0,0,0,0.05)]">
-      <div className="bg-[#6d28d9] px-3.5 py-[9px] shadow-[0_3px_10px_rgba(0,0,0,0.22)] relative z-[2]">
-        <span className="text-white font-bold text-[14.5px] tracking-[0.07em] uppercase">
-          Other to-do
+    <div className="card-base halo-stone">
+      <div className="section-header header-stone px-4 py-3"><div className="flex items-center justify-between"><span className="text-white/90 font-semibold text-[11px] tracking-[0.18em] uppercase">Other To-Do</span><button onClick={addSection} className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/5"><IconPlus size={13} /></button></div></div>
+      <div className="p-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          {sections.map(section => (
+            <div key={section.id}>
+              <div className="flex items-center gap-1.5 mb-1.5 group">
+                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: section.color }} />
+                <EditableText value={section.name} onChange={(n: string) => renameSection(section.id, n)} className="text-[10px] font-bold tracking-[0.10em] uppercase flex-1 min-w-0" style={{ color: section.color }} />
+                <button onClick={() => deleteSection(section.id)} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 flex-shrink-0"><IconTrash size={11} className="text-slate-600 hover:text-rose-400" /></button>
+              </div>
+              <ClientDnd sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd(section.id)}>
+                <SortableContext items={section.tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  {section.tasks.map(task => {
+                    const taskKey = `todo-${section.id}-${task.id}`; const meta = taskMeta[taskKey]; const firstSub = meta?.subtasks?.find(s => !s.done)
+                    const label = nameOverrides?.[taskKey] ?? (meta as any)?.label ?? task.text
+                    return <SortableTodoTask key={task.id} task={{ ...task, text: label }} taskKey={taskKey} meta={meta} firstSub={firstSub}
+                      onToggle={() => toggleTask(section.id, task.id)} onDelete={() => deleteTask(section.id, task.id)}
+                      onRename={(t: string) => renameTask(section.id, task.id, t)} openModal={openModal}
+                      taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} starToPrio={starToPrio} isTaskStarred={isTaskStarred} bookmarkToOther={bookmarkToOther} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} />
+                  })}
+                </SortableContext>
+              </ClientDnd>
+              <button onClick={() => addTask(section.id)} className="flex items-center gap-1 mt-1 text-slate-600 hover:text-slate-400 transition-colors"><IconPlus size={10} /><span className="text-[9px] font-medium">Add task</span></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+})
+
+function SortableTodoTask({ task, taskKey, meta, firstSub, onToggle, onDelete, onRename, openModal, taskMeta, updateTaskMeta, starToPrio, isTaskStarred, bookmarkToOther, isTaskBookmarked, starSubtaskToPrio, bookmarkSubtaskToOther }: any) {
+  const mounted = useMounted()
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id })
+  const dndProps = mounted ? { ...attributes, ...listeners } : {}
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
+      <div {...dndProps} className="flex items-center gap-1.5 py-[3px] group cursor-grab active:cursor-grabbing select-none" onClick={() => openModal(taskKey, task.text)}>
+        <div onClick={(e: any) => { e.stopPropagation(); onToggle() }} className={`w-3.5 h-3.5 rounded-[4px] border flex-shrink-0 flex items-center justify-center cursor-pointer ${task.done ? 'bg-indigo-500/30 border-indigo-400' : 'border-slate-600 bg-white/5'}`}>{task.done && <span className="text-indigo-300 text-[8px] font-bold leading-none">✓</span>}</div>
+        <EditableText value={task.text} onChange={onRename} className={`text-[12px] leading-[1.35] flex-1 min-w-0 ${task.done ? 'text-slate-500 line-through' : 'text-slate-300'}`} />
+        <span className="inline-flex items-center gap-0.5 flex-shrink-0" onClick={(e: any) => e.stopPropagation()}>
+          <TaskActions taskKey={taskKey} taskLabel={task.text} taskMeta={taskMeta} updateTaskMeta={updateTaskMeta} compact />
+          {starToPrio && <button onClick={() => starToPrio(task.text, 'work')} className={`bg-transparent border-none cursor-pointer p-0 leading-none ${isTaskStarred?.(task.text) ? 'order-last' : ''}`}><IconStar size={11} className={isTaskStarred?.(task.text) ? 'fill-yellow-500 text-yellow-500' : 'icon-on-hover text-slate-500 hover:text-amber-400'} /></button>}
+          {bookmarkToOther && <button onClick={() => bookmarkToOther(task.text, 'work')} className={`bg-transparent border-none cursor-pointer p-0 leading-none ${isTaskBookmarked?.(task.text) ? 'order-last' : ''}`} title={isTaskBookmarked?.(task.text) ? 'Added to Other to-dos' : 'Add to Other to-dos'}><IconBookmark size={11} className={isTaskBookmarked?.(task.text) ? 'fill-indigo-400 text-indigo-400' : 'icon-on-hover text-slate-500 hover:text-indigo-300'} /></button>}
+          <button onClick={(e: any) => { e.stopPropagation(); onDelete() }} className="icon-on-hover bg-transparent border-none cursor-pointer p-0 leading-none"><IconTrash size={11} className="text-slate-500 hover:text-rose-400" /></button>
         </span>
       </div>
-      <div className="p-[11px_13px]">
-        {todos.map((group, groupIdx) => (
-          <div key={group.group} className={groupIdx > 0 ? 'mt-1.5' : ''}>
-            {groupIdx > 0 && <div className="h-px bg-[#f9fafb] mb-[5px]" />}
-            <div className="text-[16.5px] font-bold mb-[3px]" style={{ color: group.color }}>
-              {group.group}
-            </div>
-            {group.tasks.map((task, taskIdx) => (
-              <div
-                key={task.id}
-                className="flex items-center gap-[7px] py-[3px] cursor-pointer select-none"
-                onClick={() => toggleTask(groupIdx, taskIdx)}
-              >
-                <div
-                  className={`w-3.5 h-3.5 rounded-[3px] border-[1.5px] flex-shrink-0 flex items-center justify-center transition-all ${
-                    task.done ? 'bg-[#c4b5fd] border-[#c4b5fd]' : 'border-[#d1d5db]'
-                  }`}
-                >
-                  {task.done && <span className="text-[#5b21b6] text-[8px] font-extrabold">✓</span>}
-                </div>
-                <span className={`text-[15px] leading-[1.3] ${task.done ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
-                  {task.text}
-                </span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
+      {meta && <div className="pl-[28px] mb-0.5"><MetaBadges meta={meta} /></div>}
+      {firstSub && <SubtaskPreview sub={firstSub} onToggleDone={() => { const subs = (meta?.subtasks || []).map((s: any) => s.id === firstSub.id ? { ...s, done: true } : s); updateTaskMeta(taskKey, { subtasks: subs }) }} isTaskStarred={isTaskStarred} isTaskBookmarked={isTaskBookmarked} starSubtaskToPrio={starSubtaskToPrio} bookmarkSubtaskToOther={bookmarkSubtaskToOther} />}
     </div>
   )
 }

@@ -1,23 +1,16 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import { GeistSans } from 'geist/font/sans'
+import { GeistMono } from 'geist/font/mono'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
-
-export const metadata: Metadata = {
-  title: "Kornelia's Op System",
-  description: 'Personal tactical command center',
-  generator: 'v0.app',
+export const metadata = {
+  title: "Kornelia's op system",
+  description: '',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} bg-background`}>
-      <body className="font-sans antialiased">
-        {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
-      </body>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <body className="font-sans">{children}</body>
     </html>
   )
 }
