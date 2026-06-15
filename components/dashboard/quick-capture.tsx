@@ -276,9 +276,6 @@ function ProposalRow({ p, context, onChange, onRemove }: {
     if (val === NEW_TARGET) onChange({ targetKey: NEW_TARGET, targetName: undefined, targetColor: undefined })
     else { const t = targets.find(x => x.key === val); onChange({ targetKey: t?.key, targetName: t?.name, targetColor: t?.color }) }
   }
-  // Priority badge cycles high → medium → low on click.
-  const PRI_NEXT: Record<'high' | 'medium' | 'low', 'high' | 'medium' | 'low'> = { high: 'medium', medium: 'low', low: 'high' }
-  const priColor = p.priority === 'high' ? '#fb7185' : p.priority === 'medium' ? '#fbbf24' : '#94a3b8'
   const showCategory = p.dest === 'prio' || p.dest === 'message' || p.dest === 'meeting' || p.dest === 'todo'
   return (
     <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 10, background: 'rgba(255,255,255,0.02)' }}>
@@ -313,12 +310,6 @@ function ProposalRow({ p, context, onChange, onRemove }: {
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(45,212,191,0.30)', borderRadius: 7, padding: '3px 8px', fontSize: 11, color: '#e2e8f0', outline: 'none', fontFamily: 'inherit', minWidth: 130 }}
           />
         )}
-        {/* Priority badge — click to cycle */}
-        <button
-          onClick={() => onChange({ priority: PRI_NEXT[p.priority] })}
-          title="Click to change priority"
-          style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', background: `${priColor}22`, color: priColor, border: `1px solid ${priColor}55`, borderRadius: 5, padding: '2px 7px', cursor: 'pointer' }}
-        >{p.priority}</button>
         {/* Owner / delegate */}
         {p.owner && (
           <span style={{ fontSize: 10, fontWeight: 600, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.30)', borderRadius: 5, padding: '2px 7px' }}>@{p.owner}</span>

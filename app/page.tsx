@@ -304,7 +304,7 @@ export default function Dashboard() {
     }
   }, [handleRecurringAfterToggle, taskMeta, propagateDone])
 
-  const starToPrio = useCallback((text:string,category:'work'|'home',source?:'message')=>{
+  const starToPrio = useCallback((text:string,category:'work'|'home',source?:'message',details?:Partial<TaskMeta>)=>{
     let newId: string | null = null
     setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Home':'Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`s${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false,...(source?{source}:{})} as any);
       // Star and bookmark are mutually exclusive: adding a star removes any
@@ -328,6 +328,8 @@ export default function Dashboard() {
         const src = srcMetas.find(m => (m as any)[f] !== undefined)
         if (src) (carried as any)[f] = (src as any)[f]
       })
+      // Explicitly provided details (e.g. from Smart Capture) win over carried.
+      if (details) Object.entries(details).forEach(([k,v]) => { if (v !== undefined) (carried as any)[k] = v })
       setTaskMeta(p => ({ ...p, [`prio-${newId}`]: { ...p[`prio-${newId}`], ...carried } }))
     }
   }, [taskMeta])
@@ -347,7 +349,7 @@ export default function Dashboard() {
   // Bookmark a task into the "Other to-dos" sub-section of Top Prio Today.
   // Mirrors starToPrio but targets the Other Work / Other Home sections and
   // carries over the source's synced detail fields (owner, deadline, etc.).
-  const bookmarkToOther = useCallback((text:string,category:'work'|'home',source?:'message')=>{
+  const bookmarkToOther = useCallback((text:string,category:'work'|'home',source?:'message',details?:Partial<TaskMeta>)=>{
     let newId: string | null = null
     setPrioTasks(prev=>{const n=prev.map(s=>({...s,tasks:[...s.tasks]}));const sn=category==='home'?'Other Home':'Other Work';const idx=n.findIndex(s=>s.section===sn);if(idx<0)return prev;const ex=n[idx].tasks.findIndex(t=>t.text===text);if(ex>=0)n[idx].tasks.splice(ex,1);else{newId=`b${Date.now()}`;n[idx].tasks.push({id:newId,text,done:false,...(source?{source}:{})} as any);
       // Star and bookmark are mutually exclusive: adding a bookmark removes any
@@ -365,6 +367,8 @@ export default function Dashboard() {
         const src = srcMetas.find(m => (m as any)[f] !== undefined)
         if (src) (carried as any)[f] = (src as any)[f]
       })
+      // Explicitly provided details (e.g. from Smart Capture) win over carried.
+      if (details) Object.entries(details).forEach(([k,v]) => { if (v !== undefined) (carried as any)[k] = v })
       setTaskMeta(p => ({ ...p, [`prio-${newId}`]: { ...p[`prio-${newId}`], ...carried } }))
     }
   }, [taskMeta])
@@ -602,12 +606,19 @@ export default function Dashboard() {
     tasks.forEach((p, i)=>{
       const label = p.label.trim(); if (!label) return
       const category = p.category || 'work'
+      // Details detected/edited during capture that should surface on the
+      // dashboard task (owner, deadline, time). Priority is intentionally not set.
+      const details: Partial<TaskMeta> = {}
+      if (p.owner) details.owner = p.owner
+      if (p.deadline) details.deadline = p.deadline
+      if (p.hour !== undefined) details.hour = p.hour
+      if (p.minute !== undefined) details.minute = p.minute
       switch (p.dest) {
         // Top Prio Today — "other" section → bookmark (Other Work/Home),
         // otherwise star into the Work/Home quadrant.
         case 'prio':
-          if (p.section === 'other') bookmarkToOther(label, category)
-          else starToPrio(label, category)
+          if (p.section === 'other') bookmarkToOther(label, category, undefined, details)
+          else starToPrio(label, category, undefined, details)
           break
         case 'project':
           if (p.targetKey === NEW_TARGET) activeProjectsRef.current?.addToNewProject(category, p.newTargetName?.trim() || undefined, label)

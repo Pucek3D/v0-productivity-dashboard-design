@@ -25,6 +25,13 @@ function MetaBadges({ meta }: { meta?: TaskMeta }) {
 }
 
 const SECTION_COLORS = ['#8b5cf6', '#3b82f6', '#f59e0b', '#ec4899', '#14b8a6', '#f97316', '#ef4444', '#06b6d4']
+// Pick a random heading color, preferring one not already used by a section so
+// each new section heading is visually distinct.
+function pickSectionColor(usedColors: string[]): string {
+  const available = SECTION_COLORS.filter(c => !usedColors.includes(c))
+  const pool = available.length ? available : SECTION_COLORS
+  return pool[Math.floor(Math.random() * pool.length)]
+}
 
 interface OtherSection { id: string; name: string; color: string; tasks: { id: string; text: string; done: boolean }[] }
 const INITIAL_SECTIONS: OtherSection[] = [
@@ -62,7 +69,7 @@ export const OtherTodoCard = forwardRef<OtherTodoHandle, Props>(function OtherTo
       const clean = text.trim()
       if (!clean) return
       const id = `sec-${Date.now()}`
-      setSections(p => [...p, { id, name: name?.trim() || 'New Section', color: SECTION_COLORS[Math.floor(Math.random() * SECTION_COLORS.length)], tasks: [{ id: `ot${Date.now()}`, text: clean, done: false }] }])
+      setSections(p => [...p, { id, name: name?.trim() || 'New Section', color: pickSectionColor(p.map(s => s.color)), tasks: [{ id: `ot${Date.now()}`, text: clean, done: false }] }])
     },
   }), [])
 
@@ -84,7 +91,7 @@ export const OtherTodoCard = forwardRef<OtherTodoHandle, Props>(function OtherTo
     // Propagate to synced surfaces (e.g. a starred Top Prio copy)
     onRename?.(`todo-${sid}-${tid}`, text)
   }
-  const addSection = () => setSections(p => [...p, { id: `sec-${Date.now()}`, name: 'New Section', color: SECTION_COLORS[Math.floor(Math.random() * SECTION_COLORS.length)], tasks: [] }])
+  const addSection = () => setSections(p => [...p, { id: `sec-${Date.now()}`, name: 'New Section', color: pickSectionColor(p.map(s => s.color)), tasks: [] }])
 
   const handleDragEnd = (sid: string) => (e: DragEndEvent) => {
     const { active, over } = e; if (!over || active.id === over.id) return
